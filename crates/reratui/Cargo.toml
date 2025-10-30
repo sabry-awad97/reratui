@@ -9,7 +9,9 @@ homepage.workspace = true
 documentation.workspace = true
 keywords.workspace = true
 categories.workspace = true
-description = "A reactive TUI framework for Rust, powered by ratatui"
+rust-version.workspace = true
+readme.workspace = true
+description = "A modern, reactive TUI framework for Rust with React-inspired hooks and components, powered by ratatui"
 
 [dependencies]
 reratui-core = { workspace = true }

@@ -9,7 +9,7 @@ homepage.workspace = true
 documentation.workspace = true
 keywords.workspace = true
 categories.workspace = true
-description = "React-like hooks for Reratui TUI framework"
+description = "React-inspired hooks for state management and side effects in Reratui TUI applications"
 
 [dependencies]
 anyhow = { workspace = true }

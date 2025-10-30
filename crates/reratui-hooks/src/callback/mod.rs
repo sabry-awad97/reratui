@@ -91,14 +91,14 @@ where
 
 // Additional From implementations for common patterns
 
-/// Convert from Arc<dyn Fn> for shared callbacks
+/// Convert from` Arc<dyn Fn>` for shared callbacks
 impl<IN, OUT> From<Arc<dyn Fn(IN) -> OUT + Send + Sync>> for Callback<IN, OUT> {
     fn from(func: Arc<dyn Fn(IN) -> OUT + Send + Sync>) -> Self {
         Self { callback: func }
     }
 }
 
-/// Convert from Option<Callback> - None becomes a noop callback
+/// Convert from `Option<Callback>` - None becomes a noop callback
 impl<IN> From<Option<Callback<IN>>> for Callback<IN> {
     fn from(opt: Option<Callback<IN>>) -> Self {
         opt.unwrap_or_else(Self::noop)
@@ -141,7 +141,7 @@ impl<IN, OUT> IntoCallback<IN, OUT> for Callback<IN, OUT> {
     }
 }
 
-/// Trait for converting callbacks into props that can be either Option<Callback> or Callback
+/// Trait for converting callbacks into props that can be either `Option<Callback>` or Callback
 /// This handles the automatic wrapping for optional callback props in the rsx! macro
 pub trait IntoCallbackProp<T> {
     fn into_callback_prop(self) -> T;

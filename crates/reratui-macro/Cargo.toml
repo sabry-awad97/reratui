@@ -9,7 +9,7 @@ homepage.workspace = true
 documentation.workspace = true
 keywords.workspace = true
 categories.workspace = true
-description = "Procedural macros for Reratui TUI framework"
+description = "Procedural macros for component definition, RSX syntax, and hook validation in Reratui"
 
 [lib]
 proc-macro = true

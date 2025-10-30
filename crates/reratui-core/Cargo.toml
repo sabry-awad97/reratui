@@ -9,7 +9,7 @@ homepage.workspace = true
 documentation.workspace = true
 keywords.workspace = true
 categories.workspace = true
-description = "Core runtime and virtual DOM for Reratui TUI framework"
+description = "Core types, traits, and virtual DOM implementation for the Reratui reactive TUI framework"
 
 [dependencies]
 anyhow = { workspace = true }

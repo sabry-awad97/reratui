@@ -9,7 +9,7 @@ homepage.workspace = true
 documentation.workspace = true
 keywords.workspace = true
 categories.workspace = true
-description = "Runtime and event loop for Reratui TUI framework"
+description = "Async runtime, event loop, and rendering engine for Reratui TUI applications"
 
 [dependencies]
 reratui-core = { workspace = true }

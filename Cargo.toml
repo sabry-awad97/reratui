@@ -5,13 +5,15 @@ members = ["crates/*", "examples/*"]
 [workspace.package]
 version = "0.1.0"
 edition = "2024"
-authors = ["Reratui Contributors"]
+authors = ["Reratui Contributors <contributors@reratui.dev>"]
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/sabry-awad97/reratui"
-homepage = "https://reratui.dev"
+homepage = "https://github.com/sabry-awad97/reratui"
 documentation = "https://docs.rs/reratui"
+readme = "README.md"
 keywords = ["tui", "terminal", "ui", "reactive", "ratatui"]
-categories = ["command-line-interface", "gui"]
+categories = ["command-line-interface", "gui", "asynchronous"]
+rust-version = "1.85.0"
 
 [workspace.dependencies]
 # Internal dependencies
