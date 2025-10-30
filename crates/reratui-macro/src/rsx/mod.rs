@@ -263,12 +263,12 @@ fn generate_element_code(element: &Element) -> proc_macro2::TokenStream {
             }
         }
         // Rich text components with special handling
-        "Paragraph" => generate_paragraph_code(element),
+        "Paragraph" => generate_paragraph_code(element, name),
         "Line" => {
             // When Line is used outside of Paragraph, wrap it in a Paragraph
             let line_code = generate_line_code(element);
             quote! {
-                Paragraph::new(vec![#line_code])
+                ratatui::widgets::Paragraph::new(vec![#line_code])
                     #(#attributes)*
             }
         }
@@ -276,7 +276,7 @@ fn generate_element_code(element: &Element) -> proc_macro2::TokenStream {
             // When Span is used outside of Line, create a Line with the Span
             let span_code = generate_span_code(element);
             quote! {
-                Paragraph::new(vec![
+                ratatui::widgets::Paragraph::new(vec![
                     ratatui::text::Line::from(vec![#span_code])
                 ])
                     #(#attributes)*
@@ -320,22 +320,22 @@ fn generate_element_code(element: &Element) -> proc_macro2::TokenStream {
                 // Otherwise, try to use children as tab titles
                 let tab_items = element.children.iter().map(|node| match node {
                     Node::Element(child) => generate_element_code(child),
-                    Node::Expression(expr) => quote! { Line::from(#expr) },
+                    Node::Expression(expr) => quote! { ratatui::text::Line::from(#expr) },
                     Node::Conditional(_) => {
                         // For tabs, conditionals should resolve to text
-                        quote! { Line::from("") }
+                        quote! { ratatui::text::Line::from("") }
                     }
                     Node::Comment(_) => {
                         // Comments are ignored in tabs
-                        quote! { Line::from("") }
+                        quote! { ratatui::text::Line::from("") }
                     }
                     Node::ForLoop(_) => {
                         // For-loops in tabs should resolve to empty lines
-                        quote! { Line::from("") }
+                        quote! { ratatui::text::Line::from("") }
                     }
                     Node::Fragment(_) => {
                         // Fragments in tabs should resolve to empty lines
-                        quote! { Line::from("") }
+                        quote! { ratatui::text::Line::from("") }
                     }
                 });
 
@@ -847,7 +847,7 @@ fn collect_text_content(nodes: &[Node]) -> proc_macro2::TokenStream {
 }
 
 // Helper function to generate code for Paragraph components
-fn generate_paragraph_code(element: &Element) -> proc_macro2::TokenStream {
+fn generate_paragraph_code(element: &Element, name: &syn::Path) -> proc_macro2::TokenStream {
     let regular_attributes = element
         .attributes
         .iter()
@@ -861,7 +861,7 @@ fn generate_paragraph_code(element: &Element) -> proc_macro2::TokenStream {
     if element.children.is_empty() {
         // Empty paragraph
         quote! {
-            Paragraph::new("")
+            #name::new("")
                 #(#regular_attributes)*
         }
     } else {
@@ -884,7 +884,7 @@ fn generate_paragraph_code(element: &Element) -> proc_macro2::TokenStream {
                 .collect::<Vec<_>>();
 
             quote! {
-                Paragraph::new({
+                #name::new({
                     let mut all_lines = Vec::new();
                     #(all_lines.extend(#line_codes);)*
                     all_lines
@@ -895,7 +895,7 @@ fn generate_paragraph_code(element: &Element) -> proc_macro2::TokenStream {
             // Simple text content
             let content = collect_text_content(&element.children);
             quote! {
-                Paragraph::new(#content)
+                #name::new(#content)
                     #(#regular_attributes)*
             }
         }
