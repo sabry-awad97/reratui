@@ -20,3 +20,4 @@ anyhow = { workspace = true }
 tokio = { workspace = true }
 crossterm = { workspace = true }
 once_cell = { workspace = true }
+ratatui = { workspace = true }

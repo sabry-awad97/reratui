@@ -7,25 +7,21 @@ pub use reratui_core as core;
 
 // Re-export hooks
 pub use reratui_hooks as hooks;
-
 // Re-export macros
 pub use reratui_macro::{component, main, rsx};
 
 /// Prelude module for convenient imports
 pub mod prelude {
-    pub use crate::core::{Component, Element, Result};
+    pub use crate::core::{Component, Element, PropValue, Result};
     pub use crate::hooks::{use_callback, use_effect, use_memo, use_ref, use_state};
     pub use crate::{component, render, rsx};
 
-    // Placeholder types for UI components (will be implemented later)
-    pub struct Block;
-    pub struct Paragraph;
-    pub struct Button;
-    pub struct Borders;
-
-    impl Borders {
-        pub const ALL: Self = Borders;
-    }
+    // Re-export ratatui types for convenience
+    pub use ratatui::{
+        buffer::Buffer,
+        layout::{Constraint, Direction, Layout, Rect},
+        widgets::{Block, Borders, Paragraph, Widget},
+    };
 }
 
 /// Render function that runs the application

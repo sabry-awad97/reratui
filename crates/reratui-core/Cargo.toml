@@ -13,8 +13,10 @@ description = "Core runtime and virtual DOM for Reratui TUI framework"
 
 [dependencies]
 anyhow = { workspace = true }
+crossterm = { workspace = true }
+ratatui = { workspace = true }
+serde = { workspace = true }
 thiserror = { workspace = true }
 tokio = { workspace = true }
 tracing = { workspace = true }
 tracing-subscriber = { workspace = true }
-serde = { workspace = true }
