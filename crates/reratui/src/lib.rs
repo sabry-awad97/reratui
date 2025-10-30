@@ -20,8 +20,12 @@ pub mod prelude {
     pub use crate::{component, render, rsx};
 
     // Re-export hooks
+    pub use reratui_hooks::callback::{Callback, IntoCallbackProp};
     pub use reratui_hooks::event::use_event;
     pub use reratui_hooks::state::use_state;
+    
+    // Re-export Props derive macro
+    pub use reratui_macro::Props;
 
     // Re-export runtime utilities
     pub use crate::runtime::{request_exit, should_exit};

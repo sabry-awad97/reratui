@@ -8,6 +8,7 @@ use quote::quote;
 use syn::{ItemFn, parse_macro_input};
 
 mod component;
+mod props;
 mod rsx;
 
 /// Attribute macro for defining components.
@@ -37,11 +38,13 @@ pub fn rsx(input: TokenStream) -> TokenStream {
     rsx::rsx_impl(input)
 }
 
-/// Derive macro for Props (placeholder)
+/// Derive macro for component props.
+///
+/// This macro generates the necessary trait implementations for a struct
+/// to be used as component props.
 #[proc_macro_derive(Props)]
-pub fn derive_props(_input: TokenStream) -> TokenStream {
-    // Placeholder: no-op for now
-    TokenStream::new()
+pub fn derive_props(input: TokenStream) -> TokenStream {
+    props::derive_props_impl(input)
 }
 
 /// Main attribute macro for Reratui applications
