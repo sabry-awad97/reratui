@@ -268,7 +268,7 @@ fn generate_element_code(element: &Element) -> proc_macro2::TokenStream {
             // When Line is used outside of Paragraph, wrap it in a Paragraph
             let line_code = generate_line_code(element);
             quote! {
-                ratatui::widgets::Paragraph::new(vec![#line_code])
+                ::reratui::ratatui::widgets::Paragraph::new(vec![#line_code])
                     #(#attributes)*
             }
         }
@@ -276,8 +276,8 @@ fn generate_element_code(element: &Element) -> proc_macro2::TokenStream {
             // When Span is used outside of Line, create a Line with the Span
             let span_code = generate_span_code(element);
             quote! {
-                ratatui::widgets::Paragraph::new(vec![
-                    ratatui::text::Line::from(vec![#span_code])
+                ::reratui::ratatui::widgets::Paragraph::new(vec![
+                    ::reratui::ratatui::text::Line::from(vec![#span_code])
                 ])
                     #(#attributes)*
             }
@@ -320,22 +320,24 @@ fn generate_element_code(element: &Element) -> proc_macro2::TokenStream {
                 // Otherwise, try to use children as tab titles
                 let tab_items = element.children.iter().map(|node| match node {
                     Node::Element(child) => generate_element_code(child),
-                    Node::Expression(expr) => quote! { ratatui::text::Line::from(#expr) },
+                    Node::Expression(expr) => {
+                        quote! { ::reratui::ratatui::text::Line::from(#expr) }
+                    }
                     Node::Conditional(_) => {
                         // For tabs, conditionals should resolve to text
-                        quote! { ratatui::text::Line::from("") }
+                        quote! { ::reratui::ratatui::text::Line::from("") }
                     }
                     Node::Comment(_) => {
                         // Comments are ignored in tabs
-                        quote! { ratatui::text::Line::from("") }
+                        quote! { ::reratui::ratatui::text::Line::from("") }
                     }
                     Node::ForLoop(_) => {
                         // For-loops in tabs should resolve to empty lines
-                        quote! { ratatui::text::Line::from("") }
+                        quote! { ::reratui::ratatui::text::Line::from("") }
                     }
                     Node::Fragment(_) => {
                         // Fragments in tabs should resolve to empty lines
-                        quote! { ratatui::text::Line::from("") }
+                        quote! { ::reratui::ratatui::text::Line::from("") }
                     }
                 });
 
@@ -906,7 +908,7 @@ fn generate_paragraph_code(element: &Element, name: &syn::Path) -> proc_macro2::
 fn generate_line_code(element: &Element) -> proc_macro2::TokenStream {
     if element.children.is_empty() {
         // Empty line
-        quote! { ratatui::text::Line::from("") }
+        quote! { ::reratui::ratatui::text::Line::from("") }
     } else {
         // Generate spans from all children (including conditionals and expressions)
         let span_codes = element
@@ -916,10 +918,10 @@ fn generate_line_code(element: &Element) -> proc_macro2::TokenStream {
             .collect::<Vec<_>>();
 
         if span_codes.is_empty() {
-            quote! { ratatui::text::Line::from("") }
+            quote! { ::reratui::ratatui::text::Line::from("") }
         } else {
             quote! {
-                ratatui::text::Line::from({
+                ::reratui::ratatui::text::Line::from({
                     let mut spans = Vec::new();
                     #(spans.extend(#span_codes);)*
                     spans
@@ -940,7 +942,7 @@ fn generate_lines_from_node(node: &Node) -> proc_macro2::TokenStream {
             } else {
                 // Other elements - convert to a single line with text content
                 let content = collect_text_content(std::slice::from_ref(node));
-                quote! { vec![ratatui::text::Line::from(#content)] }
+                quote! { vec![::reratui::ratatui::text::Line::from(#content)] }
             }
         }
         Node::Expression(expr) => {
@@ -951,10 +953,10 @@ fn generate_lines_from_node(node: &Node) -> proc_macro2::TokenStream {
                     ..
                 }) => {
                     let value = &lit_str.value();
-                    quote! { vec![ratatui::text::Line::from(#value)] }
+                    quote! { vec![::reratui::ratatui::text::Line::from(#value)] }
                 }
                 _ => {
-                    quote! { vec![ratatui::text::Line::from(format!("{}", #expr))] }
+                    quote! { vec![::reratui::ratatui::text::Line::from(format!("{}", #expr))] }
                 }
             }
         }
@@ -1054,8 +1056,8 @@ fn generate_lines_from_node(node: &Node) -> proc_macro2::TokenStream {
                 Node::Expression(expr) => {
                     // Auto-convert string expressions to Line/Span within Paragraph context
                     quote! {
-                        vec![ratatui::text::Line::from(vec![
-                            ratatui::text::Span::raw(format!("{}", #expr))
+                        vec![::reratui::ratatui::text::Line::from(vec![
+                            ::reratui::ratatui::text::Span::raw(format!("{}", #expr))
                         ])]
                     }
                 }
@@ -1091,7 +1093,7 @@ fn generate_span_from_node(node: &Node) -> proc_macro2::TokenStream {
             } else {
                 // Other elements - convert to text span
                 let content = collect_text_content(std::slice::from_ref(node));
-                quote! { vec![ratatui::text::Span::raw(#content)] }
+                quote! { vec![::reratui::ratatui::text::Span::raw(#content)] }
             }
         }
         Node::Expression(expr) => {
@@ -1103,11 +1105,11 @@ fn generate_span_from_node(node: &Node) -> proc_macro2::TokenStream {
                 }) => {
                     // String literal - create raw span
                     let value = &lit_str.value();
-                    quote! { vec![ratatui::text::Span::raw(#value)] }
+                    quote! { vec![::reratui::ratatui::text::Span::raw(#value)] }
                 }
                 _ => {
                     // Other expressions - evaluate and create raw span
-                    quote! { vec![ratatui::text::Span::raw(format!("{}", #expr))] }
+                    quote! { vec![::reratui::ratatui::text::Span::raw(format!("{}", #expr))] }
                 }
             }
         }
@@ -1275,7 +1277,7 @@ fn generate_span_code(element: &Element) -> proc_macro2::TokenStream {
 
     if let Some(style) = style_code {
         quote! {
-            ratatui::text::Span::styled(#content, #style)
+            ::reratui::ratatui::text::Span::styled(#content, #style)
                 #(#regular_attributes)*
         }
     } else {
@@ -1283,12 +1285,12 @@ fn generate_span_code(element: &Element) -> proc_macro2::TokenStream {
         if let Some(style_attr) = element.attributes.iter().find(|attr| attr.key == "style") {
             let style_value = &style_attr.value;
             quote! {
-                ratatui::text::Span::styled(#content, #style_value)
+                ::reratui::ratatui::text::Span::styled(#content, #style_value)
                     #(#regular_attributes)*
             }
         } else {
             quote! {
-                ratatui::text::Span::raw(#content)
+                ::reratui::ratatui::text::Span::raw(#content)
                     #(#regular_attributes)*
             }
         }
@@ -1330,46 +1332,57 @@ fn generate_style_from_attributes(
         let key_str = attr.key.to_string();
         match key_str.as_str() {
             // Colors
-            "white" => style_parts.push(quote! { .fg(ratatui::style::Color::White) }),
-            "black" => style_parts.push(quote! { .fg(ratatui::style::Color::Black) }),
-            "red" => style_parts.push(quote! { .fg(ratatui::style::Color::Red) }),
-            "green" => style_parts.push(quote! { .fg(ratatui::style::Color::Green) }),
-            "blue" => style_parts.push(quote! { .fg(ratatui::style::Color::Blue) }),
-            "cyan" => style_parts.push(quote! { .fg(ratatui::style::Color::Cyan) }),
-            "yellow" => style_parts.push(quote! { .fg(ratatui::style::Color::Yellow) }),
-            "magenta" => style_parts.push(quote! { .fg(ratatui::style::Color::Magenta) }),
-            "gray" => style_parts.push(quote! { .fg(ratatui::style::Color::Gray) }),
-            "dark_gray" => style_parts.push(quote! { .fg(ratatui::style::Color::DarkGray) }),
-            "light_red" => style_parts.push(quote! { .fg(ratatui::style::Color::LightRed) }),
-            "light_green" => style_parts.push(quote! { .fg(ratatui::style::Color::LightGreen) }),
-            "light_blue" => style_parts.push(quote! { .fg(ratatui::style::Color::LightBlue) }),
-            "light_cyan" => style_parts.push(quote! { .fg(ratatui::style::Color::LightCyan) }),
-            "light_yellow" => style_parts.push(quote! { .fg(ratatui::style::Color::LightYellow) }),
+            "white" => style_parts.push(quote! { .fg(::reratui::ratatui::style::Color::White) }),
+            "black" => style_parts.push(quote! { .fg(::reratui::ratatui::style::Color::Black) }),
+            "red" => style_parts.push(quote! { .fg(::reratui::ratatui::style::Color::Red) }),
+            "green" => style_parts.push(quote! { .fg(::reratui::ratatui::style::Color::Green) }),
+            "blue" => style_parts.push(quote! { .fg(::reratui::ratatui::style::Color::Blue) }),
+            "cyan" => style_parts.push(quote! { .fg(::reratui::ratatui::style::Color::Cyan) }),
+            "yellow" => style_parts.push(quote! { .fg(::reratui::ratatui::style::Color::Yellow) }),
+            "magenta" => {
+                style_parts.push(quote! { .fg(::reratui::ratatui::style::Color::Magenta) })
+            }
+            "gray" => style_parts.push(quote! { .fg(::reratui::ratatui::style::Color::Gray) }),
+            "dark_gray" => {
+                style_parts.push(quote! { .fg(::reratui::ratatui::style::Color::DarkGray) })
+            }
+            "light_red" => {
+                style_parts.push(quote! { .fg(::reratui::ratatui::style::Color::LightRed) })
+            }
+            "light_green" => {
+                style_parts.push(quote! { .fg(::reratui::ratatui::style::Color::LightGreen) })
+            }
+            "light_blue" => {
+                style_parts.push(quote! { .fg(::reratui::ratatui::style::Color::LightBlue) })
+            }
+            "light_cyan" => {
+                style_parts.push(quote! { .fg(::reratui::ratatui::style::Color::LightCyan) })
+            }
+            "light_yellow" => {
+                style_parts.push(quote! { .fg(::reratui::ratatui::style::Color::LightYellow) })
+            }
             "light_magenta" => {
-                style_parts.push(quote! { .fg(ratatui::style::Color::LightMagenta) })
+                style_parts.push(quote! { .fg(::reratui::ratatui::style::Color::LightMagenta) })
             }
 
             // Modifiers
-            "bold" => style_parts.push(quote! { .add_modifier(ratatui::style::Modifier::BOLD) }),
-            "italic" => {
-                style_parts.push(quote! { .add_modifier(ratatui::style::Modifier::ITALIC) })
+            "bold" => style_parts
+                .push(quote! { .add_modifier(::reratui::ratatui::style::Modifier::BOLD) }),
+            "italic" => style_parts
+                .push(quote! { .add_modifier(::reratui::ratatui::style::Modifier::ITALIC) }),
+            "underlined" => style_parts
+                .push(quote! { .add_modifier(::reratui::ratatui::style::Modifier::UNDERLINED) }),
+            "crossed_out" => style_parts
+                .push(quote! { .add_modifier(::reratui::ratatui::style::Modifier::CROSSED_OUT) }),
+            "dim" => {
+                style_parts.push(quote! { .add_modifier(::reratui::ratatui::style::Modifier::DIM) })
             }
-            "underlined" => {
-                style_parts.push(quote! { .add_modifier(ratatui::style::Modifier::UNDERLINED) })
-            }
-            "crossed_out" => {
-                style_parts.push(quote! { .add_modifier(ratatui::style::Modifier::CROSSED_OUT) })
-            }
-            "dim" => style_parts.push(quote! { .add_modifier(ratatui::style::Modifier::DIM) }),
-            "reversed" => {
-                style_parts.push(quote! { .add_modifier(ratatui::style::Modifier::REVERSED) })
-            }
-            "rapid_blink" => {
-                style_parts.push(quote! { .add_modifier(ratatui::style::Modifier::RAPID_BLINK) })
-            }
-            "slow_blink" => {
-                style_parts.push(quote! { .add_modifier(ratatui::style::Modifier::SLOW_BLINK) })
-            }
+            "reversed" => style_parts
+                .push(quote! { .add_modifier(::reratui::ratatui::style::Modifier::REVERSED) }),
+            "rapid_blink" => style_parts
+                .push(quote! { .add_modifier(::reratui::ratatui::style::Modifier::RAPID_BLINK) }),
+            "slow_blink" => style_parts
+                .push(quote! { .add_modifier(::reratui::ratatui::style::Modifier::SLOW_BLINK) }),
 
             _ => {} // Unknown style attribute, ignore
         }
@@ -1379,7 +1392,7 @@ fn generate_style_from_attributes(
         None
     } else {
         Some(quote! {
-            ratatui::style::Style::default()
+            ::reratui::ratatui::style::Style::default()
                 #(#style_parts)*
         })
     }

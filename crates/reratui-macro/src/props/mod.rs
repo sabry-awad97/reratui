@@ -44,7 +44,7 @@ pub fn derive_props_impl(input: TokenStream) -> TokenStream {
             quote! {
                 pub fn #field_name<T>(mut self, value: T) -> Self
                 where
-                    T: reratui_hooks::callback::IntoCallbackProp<#field_type>,
+                    T: reratui::hooks::callback::IntoCallbackProp<#field_type>,
                 {
                     self.#field_name = value.into_callback_prop();
                     self

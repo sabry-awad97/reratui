@@ -125,7 +125,7 @@ impl ComponentValidator {
             return Err(ComponentError::invalid_return_type(
                 &input.sig,
                 messages::signature::MISSING_RETURN_TYPE,
-                "Element, VNode, or tui_framework::Element",
+                "Element, VNode",
             ));
         }
 

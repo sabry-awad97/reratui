@@ -236,8 +236,8 @@ pub mod common {
             impl #impl_generics Component for #component_struct_name #ty_generics #where_clause {
                 fn render(&self, area: Rect, buffer: &mut Buffer) {
                     // Provide the component area via context
-                    let _area_context = reratui_hooks::context::use_context_provider(|| {
-                        reratui_hooks::area::ComponentArea(area)
+                    let _area_context = reratui::hooks::context::use_context_provider(|| {
+                        reratui::hooks::area::ComponentArea(area)
                     });
 
                     // Call the component function

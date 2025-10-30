@@ -14,20 +14,29 @@ pub use reratui_runtime as runtime;
 // Re-export macros
 pub use reratui_macro::{component, main, rsx};
 
+// Re-export tokio for use by the main macro
+#[doc(hidden)]
+pub use tokio;
+
+// Re-export ratatui for use by the rsx macro
+#[doc(hidden)]
+pub use ratatui;
+
 /// Prelude module for convenient imports
 pub mod prelude {
     pub use crate::core::{AnyWidget, Component, ComponentProps, Element, PropValue, Result};
     pub use crate::{component, render, rsx};
 
     // Re-export hooks
-    pub use reratui_hooks::area::{ComponentArea, use_area};
-    pub use reratui_hooks::callback::{Callback, IntoCallbackProp};
-    pub use reratui_hooks::context::{use_context, use_context_provider};
-    pub use reratui_hooks::effect::{use_effect, use_effect_always, use_effect_once};
-    pub use reratui_hooks::event::use_event;
-    pub use reratui_hooks::frame::{FrameContext, FrameExt, FrameInfo, use_frame};
-    pub use reratui_hooks::ref_hook::use_ref;
-    pub use reratui_hooks::state::use_state;
+    pub use crate::hooks::area::{ComponentArea, use_area};
+    pub use crate::hooks::callback::{Callback, IntoCallbackProp};
+    pub use crate::hooks::context::{use_context, use_context_provider};
+    pub use crate::hooks::effect::{use_effect, use_effect_always, use_effect_once};
+    pub use crate::hooks::event::use_event;
+    pub use crate::hooks::frame::{FrameContext, FrameExt, FrameInfo, use_frame};
+    pub use crate::hooks::reducer::{DispatchFn, ReducerStateHandle, use_reducer};
+    pub use crate::hooks::ref_hook::use_ref;
+    pub use crate::hooks::state::use_state;
 
     // Re-export Props derive macro
     pub use reratui_macro::Props;
@@ -38,11 +47,13 @@ pub mod prelude {
     // Re-export ratatui types for convenience
     pub use ratatui::{
         buffer::Buffer,
-        layout::{Constraint, Direction, Layout, Rect},
+        layout::{Alignment, Constraint, Direction, Layout, Rect},
         style::{Color, Modifier, Style},
         text::{Line, Span, Text},
-        widgets::{Block, Borders, Paragraph, Widget},
+        widgets::{Block, Borders, Paragraph, Tabs, Widget},
     };
+
+    pub use crossterm::event::*;
 }
 
 /// Render function that runs the application with hooks support
