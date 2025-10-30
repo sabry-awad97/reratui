@@ -1,5 +1,5 @@
 [package]
-name = "reratui-macro"
+name = "reratui-runtime"
 version.workspace = true
 edition.workspace = true
 authors.workspace = true
@@ -9,16 +9,13 @@ homepage.workspace = true
 documentation.workspace = true
 keywords.workspace = true
 categories.workspace = true
-description = "Procedural macros for Reratui TUI framework"
-
-[lib]
-proc-macro = true
+description = "Runtime and event loop for Reratui TUI framework"
 
 [dependencies]
-syn = { workspace = true }
-quote = { workspace = true }
-proc-macro2 = { workspace = true }
-thiserror = { workspace = true }
-
-[dev-dependencies]
 reratui-core = { workspace = true }
+reratui-hooks = { workspace = true }
+reratui-panic = { workspace = true }
+ratatui = { workspace = true }
+tokio = { workspace = true }
+anyhow = { workspace = true }
+crossterm = { workspace = true }

@@ -1,5 +1,5 @@
 [package]
-name = "reratui-hooks"
+name = "reratui-panic"
 version.workspace = true
 edition.workspace = true
 authors.workspace = true
@@ -9,14 +9,14 @@ homepage.workspace = true
 documentation.workspace = true
 keywords.workspace = true
 categories.workspace = true
-description = "React-like hooks for Reratui TUI framework"
+description = "Panic handling utilities for Reratui TUI framework"
 
 [dependencies]
 anyhow = { workspace = true }
+better-panic = { workspace = true }
 crossterm = { workspace = true }
-once_cell = { workspace = true }
-parking_lot = { workspace = true }
-reratui-core = { workspace = true }
-reratui-panic = { workspace = true }
-tokio = { workspace = true }
+human-panic = { workspace = true }
+tokio = { workspace = true, features = ["full"] }
 tracing = { workspace = true }
+tracing-appender = { workspace = true }
+tracing-subscriber = { workspace = true, features = ["env-filter", "json"] }

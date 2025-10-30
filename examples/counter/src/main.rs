@@ -10,18 +10,15 @@
 
 use reratui::prelude::*;
 
-#[component(Counter)]
-fn counter() -> Element {
-    let (count, set_count) = use_state(|| 0);
+#[component]
+fn Counter() -> Element {
+    let (count, _set_count) = use_state(|| 0);
 
     rsx! {
         <Block title="Counter" borders={Borders::ALL}>
             <Paragraph>
-                "Count: {count}"
+                {format!("Count: {}", count)}
             </Paragraph>
-            <Button on_click={move |_| set_count(count + 1)}>
-                "Increment"
-            </Button>
         </Block>
     }
 }
@@ -31,6 +28,6 @@ async fn main() -> Result<()> {
     render(|| {
         rsx! { <Counter /> }
     })
-    .await;
+    .await?;
     Ok(())
 }

@@ -7,37 +7,29 @@ use proc_macro::TokenStream;
 use quote::quote;
 use syn::{ItemFn, parse_macro_input};
 
-/// Component attribute macro
+mod component;
+mod rsx;
+
+/// Attribute macro for defining components.
 ///
-/// Transforms a function into a Reratui component.
-/// This is a placeholder implementation that simply wraps the function.
+/// This macro transforms a function into a component that can be used
+/// in RSX expressions.
 ///
-/// # Example
-/// ```ignore
-/// #[component(MyComponent)]
-/// fn my_component() -> Element {
-///     rsx! { <Block /> }
+/// # Examples
+///
+/// ```rust
+/// #[component]
+/// fn Card(props: &CardProps) -> Element {
+///     rsx! {
+///         <Block title={props.title.clone()}>
+///             {props.children.clone()}
+///         </Block>
+///     }
 /// }
 /// ```
 #[proc_macro_attribute]
-pub fn component(_attr: TokenStream, item: TokenStream) -> TokenStream {
-    let input = parse_macro_input!(item as ItemFn);
-    let fn_name = &input.sig.ident;
-    let fn_block = &input.block;
-    let fn_inputs = &input.sig.inputs;
-    let fn_output = &input.sig.output;
-    let fn_vis = &input.vis;
-    let fn_attrs = &input.attrs;
-
-    // Generate the component function
-    let expanded = quote! {
-        #(#fn_attrs)*
-        #fn_vis fn #fn_name(#fn_inputs) #fn_output {
-            #fn_block
-        }
-    };
-
-    TokenStream::from(expanded)
+pub fn component(attr: TokenStream, item: TokenStream) -> TokenStream {
+    component::component_impl(attr, item)
 }
 
 /// RSX macro for declarative UI syntax
@@ -54,13 +46,8 @@ pub fn component(_attr: TokenStream, item: TokenStream) -> TokenStream {
 /// }
 /// ```
 #[proc_macro]
-pub fn rsx(_input: TokenStream) -> TokenStream {
-    // Placeholder: return an empty Element
-    let expanded = quote! {
-        reratui::core::Element::new()
-    };
-
-    TokenStream::from(expanded)
+pub fn rsx(input: TokenStream) -> TokenStream {
+    rsx::rsx_impl(input)
 }
 
 /// Derive macro for Props (placeholder)

@@ -16,6 +16,7 @@ reratui-core = { workspace = true }
 reratui-hooks = { workspace = true }
 reratui-macro = { workspace = true }
 reratui-ratatui = { workspace = true }
+reratui-runtime = { workspace = true }
 anyhow = { workspace = true }
 tokio = { workspace = true }
 crossterm = { workspace = true }
