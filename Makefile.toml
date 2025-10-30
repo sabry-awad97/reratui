@@ -1,0 +1,54 @@
+# Cargo Make configuration for Reratui
+
+[tasks.format]
+description = "Format all code"
+command = "cargo"
+args = ["fmt", "--all"]
+
+[tasks.lint]
+description = "Run clippy on all crates"
+command = "cargo"
+args = ["clippy", "--workspace", "--all-targets", "--", "-D", "warnings"]
+
+[tasks.test]
+description = "Run all tests"
+command = "cargo"
+args = ["test", "--workspace", "--all-targets"]
+
+[tasks.build]
+description = "Build all crates"
+command = "cargo"
+args = ["build", "--workspace"]
+
+[tasks.build-release]
+description = "Build all crates in release mode"
+command = "cargo"
+args = ["build", "--workspace", "--release"]
+
+[tasks.check]
+description = "Check all crates"
+command = "cargo"
+args = ["check", "--workspace", "--all-targets"]
+
+[tasks.doc]
+description = "Generate documentation"
+command = "cargo"
+args = ["doc", "--workspace", "--no-deps", "--open"]
+
+[tasks.clean]
+description = "Clean build artifacts"
+command = "cargo"
+args = ["clean"]
+
+[tasks.example]
+description = "Run an example (usage: cargo make example counter)"
+command = "cargo"
+args = ["run", "--example", "${@}"]
+
+[tasks.ci]
+description = "Run CI checks"
+dependencies = ["format", "lint", "test", "build"]
+
+[tasks.dev]
+description = "Development workflow"
+dependencies = ["format", "check", "test"]

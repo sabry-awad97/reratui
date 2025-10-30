@@ -1,0 +1,17 @@
+[package]
+name = "reratui-hooks"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+documentation.workspace = true
+keywords.workspace = true
+categories.workspace = true
+description = "React-like hooks for Reratui TUI framework"
+
+[dependencies]
+reratui-core = { workspace = true }
+tokio = { workspace = true }
+anyhow = { workspace = true }

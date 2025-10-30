@@ -1,0 +1,11 @@
+[package]
+name = "router-example"
+version = "0.1.0"
+edition = "2024"
+publish = false
+
+[dependencies]
+reratui = { path = "../../crates/reratui" }
+reratui-router = { path = "../../crates/reratui-router" }
+tokio = { workspace = true }
+anyhow = { workspace = true }

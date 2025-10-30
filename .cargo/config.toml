@@ -1,0 +1,12 @@
+[build]
+# Compile all crates with optimizations in dev mode for better performance
+[profile.dev.package."*"]
+opt-level = 2
+
+[alias]
+# Useful aliases for development
+check-all = "check --workspace --all-targets"
+test-all = "test --workspace --all-targets"
+fmt-all = "fmt --all"
+clippy-all = "clippy --workspace --all-targets -- -D warnings"
+build-release = "build --workspace --release"

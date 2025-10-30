@@ -1,0 +1,23 @@
+[package]
+name = "reratui-forms"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+documentation.workspace = true
+keywords.workspace = true
+categories.workspace = true
+description = "Form handling and validation for Reratui TUI framework"
+
+[dependencies]
+reratui-core = { workspace = true }
+reratui-hooks = { workspace = true }
+anyhow = { workspace = true }
+thiserror = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+
+[dev-dependencies]
+tokio-test = "0.4"
