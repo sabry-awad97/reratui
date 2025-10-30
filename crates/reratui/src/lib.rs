@@ -20,10 +20,15 @@ pub mod prelude {
     pub use crate::{component, render, rsx};
 
     // Re-export hooks
+    pub use reratui_hooks::area::{ComponentArea, use_area};
     pub use reratui_hooks::callback::{Callback, IntoCallbackProp};
+    pub use reratui_hooks::context::{use_context, use_context_provider};
+    pub use reratui_hooks::effect::{use_effect, use_effect_always, use_effect_once};
     pub use reratui_hooks::event::use_event;
+    pub use reratui_hooks::frame::{FrameContext, FrameExt, FrameInfo, use_frame};
+    pub use reratui_hooks::ref_hook::use_ref;
     pub use reratui_hooks::state::use_state;
-    
+
     // Re-export Props derive macro
     pub use reratui_macro::Props;
 

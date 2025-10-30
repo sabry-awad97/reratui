@@ -311,17 +311,24 @@ impl<IN, OUT> CallbackState<IN, OUT> {
 ///
 /// # Examples
 ///
-/// ```rust,no_run
-/// # use reratui_hooks::callback::use_callback;
-/// // Memoize with dependencies
-/// let on_click = use_callback(|count: i32| {
-///     println!("Clicked: {}", count);
-/// }, (some_dep,));
+/// ```rust,ignore
+/// use reratui::prelude::*;
 ///
-/// // Memoize once (empty deps)
-/// let on_mount = use_callback(|| {
-///     println!("Mounted");
-/// }, ());
+/// #[component]
+/// fn MyComponent() -> Element {
+///     let (count, set_count) = use_state(|| 0);
+///     
+///     // Memoize with dependencies
+///     let on_click = use_callback(move |_| {
+///         set_count.update(|c| c + 1);
+///     }, (count,));
+///     
+///     rsx! {
+///         <Block title="Callback Example">
+///             <Paragraph>{format!("Count: {}", count)}</Paragraph>
+///         </Block>
+///     }
+/// }
 /// ```
 pub fn use_callback<IN, OUT, F, Deps>(func: F, deps: impl Into<Option<Deps>>) -> Callback<IN, OUT>
 where
