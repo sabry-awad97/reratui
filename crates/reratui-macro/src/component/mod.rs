@@ -60,8 +60,9 @@ pub fn component_impl(_attr: TokenStream, item: TokenStream) -> TokenStream {
 ///
 /// This function implements the main processing pipeline:
 /// 1. Validation - Ensure the function is valid for component generation
-/// 2. Analysis - Determine the component type and extract metadata
-/// 3. Code Generation - Generate the appropriate component code
+/// 2. Hook Validation - Ensure hooks follow the Rules of Hooks
+/// 3. Analysis - Determine the component type and extract metadata
+/// 4. Code Generation - Generate the appropriate component code
 ///
 /// # Arguments
 ///
@@ -70,18 +71,28 @@ pub fn component_impl(_attr: TokenStream, item: TokenStream) -> TokenStream {
 /// # Returns
 ///
 /// A `Result` containing either the generated `TokenStream` or a `ComponentError`
-fn process_component(input: ItemFn) -> ComponentResult<TokenStream> {
+fn process_component(mut input: ItemFn) -> ComponentResult<TokenStream> {
     // Step 1: Validate the input function with enhanced configuration
     let validation_config = ValidationConfig::default();
 
     let validator = ComponentValidator::with_config(validation_config);
     validator.validate(&input)?;
 
-    // Step 2: Analyze the component type and extract metadata
+    // Step 2: Validate hook usage (Rules of Hooks)
+    let hook_validator = crate::hook_validator::HookValidator::new();
+    if let Err(errors) = hook_validator.validate(&mut input.block) {
+        // Return the first error (they all have descriptive messages)
+        let first_error = errors.into_iter().next().unwrap();
+        return Err(error::ComponentError::InvalidSyntax(
+            first_error.to_string(),
+        ));
+    }
+
+    // Step 3: Analyze the component type and extract metadata
     let analyzer = ComponentAnalyzer::new();
     let component_info = analyzer.analyze(&input)?;
 
-    // Step 3: Generate the appropriate component code with enhanced configuration
+    // Step 4: Generate the appropriate component code with enhanced configuration
     let mut config = CodeGenConfig::default();
 
     // Enable debug info for complex components

@@ -8,6 +8,7 @@ use quote::quote;
 use syn::{ItemFn, parse_macro_input};
 
 mod component;
+mod hook_validator;
 mod props;
 mod rsx;
 

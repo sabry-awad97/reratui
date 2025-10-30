@@ -6,6 +6,7 @@ pub mod effect_event;
 pub mod event;
 pub mod frame;
 pub mod hook_context;
+pub mod reducer;
 pub mod ref_hook;
 pub mod state;
 

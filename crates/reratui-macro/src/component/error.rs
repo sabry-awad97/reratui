@@ -37,6 +37,8 @@ pub enum ComponentError {
         span: proc_macro2::Span,
         limitation: String,
     },
+    /// Invalid syntax (e.g., hook validation errors)
+    InvalidSyntax(String),
     /// Internal macro error
     InternalError { message: String, context: String },
 }
@@ -157,6 +159,11 @@ impl ComponentError {
                     compile_error!(#error_msg);
                 }
             }
+            ComponentError::InvalidSyntax(message) => {
+                quote! {
+                    compile_error!(#message);
+                }
+            }
             ComponentError::InternalError { message, context } => {
                 let error_msg = format!(
                     "Internal component macro error: {}\nContext: {}\n\nPlease report this as a bug.",
@@ -199,6 +206,9 @@ impl std::fmt::Display for ComponentError {
                     "Unsupported generics: {}. Limitation: {}",
                     message, limitation
                 )
+            }
+            ComponentError::InvalidSyntax(message) => {
+                write!(f, "Invalid syntax: {}", message)
             }
             ComponentError::InternalError { message, context } => {
                 write!(f, "Internal error: {} (Context: {})", message, context)

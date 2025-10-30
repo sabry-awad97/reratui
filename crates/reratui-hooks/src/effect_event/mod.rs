@@ -35,9 +35,9 @@ pub type EffectEvent<IN, OUT> = Callback<IN, OUT>;
 ///
 /// ## Basic Usage
 /// ```rust,no_run
-/// # use reratui::hooks::effect_event::use_effect_event;
-/// # use reratui::hooks::state::use_state;
-/// # use reratui::hooks::{HookContext, set_hook_context};
+/// # use reratui_hooks::effect_event::use_effect_event;
+/// # use reratui_hooks::state::use_state;
+/// # use reratui_hooks::hook_context::{HookContext, set_hook_context};
 /// # use std::rc::Rc;
 /// # let context = Rc::new(HookContext::new());
 /// # set_hook_context(context);
