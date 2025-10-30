@@ -49,15 +49,15 @@
 //!
 //! ## Available Hooks
 //!
-//! - [`use_state`](hooks::state::use_state) - Local component state
-//! - [`use_reducer`](hooks::reducer::use_reducer) - Complex state with actions
-//! - [`use_effect`](hooks::effect::use_effect) - Side effects with dependencies
-//! - [`use_context`](hooks::context::use_context) - Share data across components
-//! - [`use_ref`](hooks::ref_hook::use_ref) - Mutable references
+//! - [`use_state`] - Local component state
+//! - [`use_reducer`] - Complex state with actions
+//! - [`use_effect`] - Side effects with dependencies
+//! - [`use_context`] - Share data across components
+//! - [`use_ref`] - Mutable references
 //! - [`use_callback`](hooks::callback) - Memoized callbacks
-//! - [`use_event`](hooks::event::use_event) - Terminal event handling
-//! - [`use_frame`](hooks::frame::use_frame) - Frame timing and context
-//! - [`use_area`](hooks::area::use_area) - Component rendering area
+//! - [`use_event`] - Terminal event handling
+//! - [`use_frame`] - Frame timing and context
+//! - [`use_area`] - Component rendering area
 //!
 //! ## Component Patterns
 //!
@@ -157,15 +157,33 @@ pub use reratui_hooks as hooks;
 pub use reratui_runtime as runtime;
 
 // Re-export macros
-pub use reratui_macro::{component, main, rsx};
+pub use reratui_macro::{Props, component, main, rsx};
+
+// Re-export commonly used core types at the top level
+pub use reratui_core::{AnyWidget, Component, ComponentProps, Element, PropValue, Result};
+
+// Re-export commonly used hook types
+pub use reratui_hooks::{
+    area::use_area,
+    callback::Callback,
+    context::{use_context, use_context_provider},
+    effect::{use_effect, use_effect_always, use_effect_once},
+    event::use_event,
+    frame::use_frame,
+    reducer::use_reducer,
+    ref_hook::use_ref,
+    state::use_state,
+};
 
 // Re-export tokio for use by the main macro
 #[doc(hidden)]
 pub use tokio;
 
-// Re-export ratatui for use by the rsx macro
-#[doc(hidden)]
+// Re-export ratatui for use by the rsx macro and user convenience
 pub use ratatui;
+
+// Re-export crossterm for event handling
+pub use crossterm;
 
 /// Prelude module for convenient imports
 pub mod prelude {
@@ -191,6 +209,7 @@ pub mod prelude {
 
     // Re-export ratatui types for convenience
     pub use ratatui::{
+        Frame,
         buffer::Buffer,
         layout::{Alignment, Constraint, Direction, Layout, Rect},
         style::{Color, Modifier, Style},

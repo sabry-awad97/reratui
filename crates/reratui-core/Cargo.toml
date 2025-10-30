@@ -10,6 +10,7 @@ documentation.workspace = true
 keywords.workspace = true
 categories.workspace = true
 description = "Core types, traits, and virtual DOM implementation for the Reratui reactive TUI framework"
+publish = false  # Internal crate - not published separately
 
 [dependencies]
 anyhow = { workspace = true }

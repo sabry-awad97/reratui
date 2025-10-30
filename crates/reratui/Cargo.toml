@@ -10,15 +10,19 @@ documentation.workspace = true
 keywords.workspace = true
 categories.workspace = true
 rust-version.workspace = true
-readme.workspace = true
+readme = "../../README.md"
 description = "A modern, reactive TUI framework for Rust with React-inspired hooks and components, powered by ratatui"
+publish = true
 
 [dependencies]
-reratui-core = { workspace = true }
-reratui-hooks = { workspace = true }
-reratui-macro = { workspace = true }
-reratui-ratatui = { workspace = true }
-reratui-runtime = { workspace = true }
+# Internal crates (not published separately - bundled in this crate)
+reratui-core = { path = "../reratui-core" }
+reratui-hooks = { path = "../reratui-hooks" }
+reratui-macro = { path = "../reratui-macro" }
+reratui-ratatui = { path = "../reratui-ratatui" }
+reratui-runtime = { path = "../reratui-runtime" }
+
+# External dependencies
 anyhow = { workspace = true }
 tokio = { workspace = true }
 crossterm = { workspace = true }

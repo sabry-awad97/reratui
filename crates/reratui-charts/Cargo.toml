@@ -10,6 +10,7 @@ documentation.workspace = true
 keywords.workspace = true
 categories.workspace = true
 description = "Chart components for Reratui TUI framework"
+publish = false  # Internal crate - not published separately
 
 [dependencies]
 reratui-core = { workspace = true }
