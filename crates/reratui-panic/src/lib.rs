@@ -135,7 +135,7 @@ where
 ///
 /// # Example
 /// ```
-/// use pulse_core::panic_handler::catch_panic;
+/// use reratui_panic::catch_panic;
 ///
 /// let ok = catch_panic(|| 42);
 /// assert!(ok.is_ok());

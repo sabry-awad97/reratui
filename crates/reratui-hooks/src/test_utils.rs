@@ -31,8 +31,8 @@ thread_local! {
 ///
 /// # Usage
 /// ```rust,no_run
-/// # use pulse_core::hooks::test_utils::with_component_id;
-/// # use pulse_core::hooks::state::use_state;
+/// # use reratui_hooks::test_utils::with_component_id;
+/// # use reratui_hooks::state::use_state;
 /// with_component_id("MyComponent", |_context| {
 ///     // First render - context is fresh
 ///     let (count, set_count) = use_state(0);
@@ -73,8 +73,8 @@ where
 ///
 /// # Usage
 /// ```rust,no_run
-/// # use pulse_core::hooks::test_utils::with_async_component_id;
-/// # use pulse_core::hooks::state::use_state;
+/// # use reratui_hooks::test_utils::with_async_component_id;
+/// # use reratui_hooks::state::use_state;
 /// # async fn example() {
 /// with_async_component_id("MyAsyncComponent", async |_context| {
 ///     // Async hook testing
@@ -129,7 +129,7 @@ pub fn cleanup_component_contexts() {
 /// # Usage
 /// ```rust,no_run
 /// # use pulse_core::hooks::test_utils::{with_test_isolate, with_component_id};
-/// # use pulse_core::hooks::state::use_state;
+/// # use
 /// fn my_test() {
 ///     with_test_isolate(|| {
 ///         // Test code here - no need to manually call cleanup
@@ -225,8 +225,8 @@ where
 ///
 /// # Usage
 /// ```rust,no_run
-/// # use pulse_core::hooks::test_utils::with_hook_context;
-/// # use pulse_core::hooks::state::use_state;
+/// # use reratui_hooks::test_utils::with_hook_context;
+/// # use reratui_hooks::state::use_state;
 /// fn simple_test() {
 ///     with_hook_context(|_context| {
 ///         let (state, set_state) = use_state(42);
@@ -254,8 +254,8 @@ where
 ///
 /// # Usage
 /// ```rust,no_run
-/// # use pulse_core::hooks::test_utils::with_async_hook_context;
-/// # use pulse_core::hooks::state::use_state;
+/// # use reratui_hooks::test_utils::with_async_hook_context;
+/// # use reratui_hooks::state::use_state;
 /// # async fn example() {
 /// with_async_hook_context(async |_context| {
 ///     let (count, set_count) = use_state(0);

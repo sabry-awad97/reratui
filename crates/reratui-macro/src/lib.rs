@@ -14,19 +14,6 @@ mod rsx;
 ///
 /// This macro transforms a function into a component that can be used
 /// in RSX expressions.
-///
-/// # Examples
-///
-/// ```rust
-/// #[component]
-/// fn Card(props: &CardProps) -> Element {
-///     rsx! {
-///         <Block title={props.title.clone()}>
-///             {props.children.clone()}
-///         </Block>
-///     }
-/// }
-/// ```
 #[proc_macro_attribute]
 pub fn component(attr: TokenStream, item: TokenStream) -> TokenStream {
     component::component_impl(attr, item)

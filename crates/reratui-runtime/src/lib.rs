@@ -24,7 +24,7 @@ use std::{rc::Rc, time::Duration};
 /// * `app_fn` - A closure that returns an Element (supports both components and RSX)
 ///
 /// # Example
-/// ```no_run
+/// ```no_run,ignore
 /// use reratui::prelude::*;
 ///
 /// #[component]

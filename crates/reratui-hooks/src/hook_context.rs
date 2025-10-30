@@ -6,7 +6,7 @@ thread_local! {
 
 /// A hook context that manages state for components
 pub struct HookContext {
-    states: RefCell<HashMap<usize, Box<dyn Any>>>,
+    pub(crate) states: RefCell<HashMap<usize, Box<dyn Any>>>,
     current_hook: RefCell<usize>,
 }
 

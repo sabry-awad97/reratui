@@ -17,20 +17,6 @@ pub fn reset_exit() {
     GLOBAL_EXIT.store(false, Ordering::Release);
 }
 
-/// A guard that automatically resets the exit flag when dropped
-pub struct ExitGuard;
-
-impl Drop for ExitGuard {
-    fn drop(&mut self) {
-        reset_exit();
-    }
-}
-
-/// Create a new exit guard
-pub fn exit_guard() -> ExitGuard {
-    ExitGuard
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -41,17 +27,6 @@ mod tests {
         request_exit();
         assert!(should_exit());
         reset_exit();
-        assert!(!should_exit());
-    }
-
-    #[test]
-    fn test_exit_guard() {
-        assert!(!should_exit());
-        {
-            let _guard = exit_guard();
-            request_exit();
-            assert!(should_exit());
-        }
         assert!(!should_exit());
     }
 }

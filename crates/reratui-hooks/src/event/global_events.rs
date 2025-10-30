@@ -22,7 +22,7 @@ static GLOBAL_EVENT_HANDLERS: Lazy<Mutex<HashMap<KeyCode, Vec<Arc<EventHandler>>
 /// # Example
 /// ```
 /// use crossterm::event::KeyCode;
-/// use pulse_core::hooks::event::global_events::on_global_event;
+/// use reratui_hooks::event::global_events::on_global_event;
 ///
 /// on_global_event(KeyCode::Char('q'), || {
 ///     println!("Quit requested");

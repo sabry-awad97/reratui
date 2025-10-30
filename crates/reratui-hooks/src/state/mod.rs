@@ -243,8 +243,8 @@ where
     /// # Example
     ///
     /// ```rust,no_run
-    /// # use pulse_core::hooks::state::use_state;
-    /// # use pulse_core::hooks::{HookContext, set_hook_context};
+    /// # use reratui_hooks::state::use_state;
+    /// # use reratui_hooks::hook_context::{HookContext, set_hook_context};
     /// # use std::rc::Rc;
     /// #[derive(Clone)]
     /// struct AppState {
@@ -273,8 +273,8 @@ where
     /// # Example
     ///
     /// ```rust,no_run
-    /// # use pulse_core::hooks::state::use_state;
-    /// # use pulse_core::hooks::{HookContext, set_hook_context};
+    /// # use reratui_hooks::state::use_state;
+    /// # use reratui_hooks::hook_context::{HookContext, set_hook_context};
     /// # use std::rc::Rc;
     /// // In a component context:
     /// # let context = Rc::new(HookContext::new());
