@@ -1,0 +1,8 @@
+[package]
+name = "form_example"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+reratui = { workspace = true }
+tokio = { workspace = true }

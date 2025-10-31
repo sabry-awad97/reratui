@@ -169,6 +169,7 @@ pub use reratui_hooks::{
     context::{use_context, use_context_provider},
     effect::{use_effect, use_effect_always, use_effect_once},
     event::use_event,
+    form::use_form,
     frame::use_frame,
     future::use_future,
     reducer::use_reducer,
@@ -193,6 +194,7 @@ pub mod prelude {
     pub use crate::hooks::context::*;
     pub use crate::hooks::effect::*;
     pub use crate::hooks::event::{global_events::on_global_event, use_event};
+    pub use crate::hooks::form::*;
     pub use crate::hooks::frame::*;
     pub use crate::hooks::future::*;
     pub use crate::hooks::interval::*;

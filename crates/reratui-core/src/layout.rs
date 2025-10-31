@@ -138,6 +138,28 @@ impl LayoutWrapper {
             constraints: Some(constraints),
         }
     }
+
+    /// Creates a new LayoutWrapper from Elements
+    pub fn from_elements(layout: Layout, children: Vec<Element>) -> Self {
+        Self {
+            layout,
+            children: children.into_iter().map(AnyWidget::from).collect(),
+            constraints: None,
+        }
+    }
+
+    /// Creates a new LayoutWrapper from Elements with custom constraints
+    pub fn from_elements_with_constraints(
+        layout: Layout,
+        children: Vec<Element>,
+        constraints: Vec<Constraint>,
+    ) -> Self {
+        Self {
+            layout,
+            children: children.into_iter().map(AnyWidget::from).collect(),
+            constraints: Some(constraints),
+        }
+    }
 }
 
 impl Widget for LayoutWrapper {

@@ -350,7 +350,6 @@ impl std::error::Error for FutureError {}
 /// match future_handle.state() {
 ///     FutureState::Idle => println!("Not started"),
 ///     FutureState::Pending => println!("Loading..."),
-///     FutureState::Progress(_) => println!("Processing..."),
 ///     FutureState::Resolved(data) => println!("Data: {}", data),
 ///     FutureState::Error(err) => println!("Error: {}", err),
 /// }
@@ -372,7 +371,6 @@ impl std::error::Error for FutureError {}
 /// match user_future.state() {
 ///     FutureState::Idle => println!("Not started"),
 ///     FutureState::Pending => println!("Loading user..."),
-///     FutureState::Progress(_) => println!("Processing user data..."),
 ///     FutureState::Resolved(user) => println!("User: {}", user),
 ///     FutureState::Error(err) => println!("Failed to load user: {}", err),
 /// }
@@ -394,7 +392,6 @@ impl std::error::Error for FutureError {}
 /// match data_future.state() {
 ///     FutureState::Idle => println!("Not started"),
 ///     FutureState::Pending => println!("Fetching..."),
-///     FutureState::Progress(_) => println!("Processing..."),
 ///     FutureState::Resolved(data) => println!("{}", data),
 ///     FutureState::Error(err) => println!("Error: {}", err),
 /// }

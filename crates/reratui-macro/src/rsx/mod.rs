@@ -178,8 +178,9 @@ fn generate_element_code(element: &Element) -> proc_macro2::TokenStream {
                         #(#attributes)*
                 }
             } else {
-                // Generate a layout component that handles children
-                let children = element.children.iter().map(generate_node_code);
+                // Check if we have a single expression child that might be Vec<Element>
+                let is_vec_expression = element.children.len() == 1
+                    && matches!(element.children[0], Node::Expression(_));
 
                 // Check if constraints attribute is present
                 let has_constraints = element
@@ -187,14 +188,13 @@ fn generate_element_code(element: &Element) -> proc_macro2::TokenStream {
                     .iter()
                     .any(|attr| attr.key == "constraints");
 
-                if has_constraints {
-                    // Find the constraints attribute
-                    let constraints_attr = element
-                        .attributes
-                        .iter()
-                        .find(|attr| attr.key == "constraints")
-                        .unwrap();
-                    let constraints_value = &constraints_attr.value;
+                if is_vec_expression {
+                    // Single expression child - might be Vec<Element>
+                    let child_expr = if let Node::Expression(expr) = &element.children[0] {
+                        expr
+                    } else {
+                        unreachable!()
+                    };
 
                     // Filter out constraints from general attributes
                     let layout_attributes = element
@@ -207,30 +207,84 @@ fn generate_element_code(element: &Element) -> proc_macro2::TokenStream {
                             quote! { .#key(#value) }
                         });
 
-                    quote! {
-                        {
-                            use reratui::core::{LayoutWrapper, AnyWidget};
-                            LayoutWrapper::with_constraints(
-                                #name::default()
-                                    #(#layout_attributes)*,
-                                vec![
-                                    #(#children),*
-                                ],
-                                #constraints_value
-                            )
+                    if has_constraints {
+                        let constraints_attr = element
+                            .attributes
+                            .iter()
+                            .find(|attr| attr.key == "constraints")
+                            .unwrap();
+                        let constraints_value = &constraints_attr.value;
+
+                        quote! {
+                            {
+                                use reratui::core::LayoutWrapper;
+                                LayoutWrapper::from_elements_with_constraints(
+                                    #name::default()
+                                        #(#layout_attributes)*,
+                                    #child_expr,
+                                    #constraints_value
+                                )
+                            }
+                        }
+                    } else {
+                        quote! {
+                            {
+                                use reratui::core::LayoutWrapper;
+                                LayoutWrapper::from_elements(
+                                    #name::default()
+                                        #(#attributes)*,
+                                    #child_expr
+                                )
+                            }
                         }
                     }
                 } else {
-                    quote! {
-                        {
-                            use reratui::core::{LayoutWrapper, AnyWidget};
-                            LayoutWrapper::new(
-                                #name::default()
-                                    #(#attributes)*,
-                                vec![
-                                    #(#children),*
-                                ]
-                            )
+                    // Multiple children or non-expression children
+                    let children = element.children.iter().map(generate_node_code);
+
+                    if has_constraints {
+                        let constraints_attr = element
+                            .attributes
+                            .iter()
+                            .find(|attr| attr.key == "constraints")
+                            .unwrap();
+                        let constraints_value = &constraints_attr.value;
+
+                        let layout_attributes = element
+                            .attributes
+                            .iter()
+                            .filter(|attr| attr.key != "constraints")
+                            .map(|attr| {
+                                let key = &attr.key;
+                                let value = &attr.value;
+                                quote! { .#key(#value) }
+                            });
+
+                        quote! {
+                            {
+                                use reratui::core::{LayoutWrapper, AnyWidget};
+                                LayoutWrapper::with_constraints(
+                                    #name::default()
+                                        #(#layout_attributes)*,
+                                    vec![
+                                        #(#children),*
+                                    ],
+                                    #constraints_value
+                                )
+                            }
+                        }
+                    } else {
+                        quote! {
+                            {
+                                use reratui::core::{LayoutWrapper, AnyWidget};
+                                LayoutWrapper::new(
+                                    #name::default()
+                                        #(#attributes)*,
+                                    vec![
+                                        #(#children),*
+                                    ]
+                                )
+                            }
                         }
                     }
                 }

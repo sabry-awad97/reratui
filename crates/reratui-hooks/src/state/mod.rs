@@ -7,7 +7,7 @@ mod tests;
 
 /// A thread-safe state container that holds the actual state value
 /// This is the core storage for useState hook state
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct StateContainer<T> {
     /// The current value of the state, protected by RwLock for efficient reads
     value: RwLock<T>,
@@ -82,7 +82,7 @@ impl<T> StateContainer<T> {
 
 /// A handle to a piece of state that mirrors React's useState return value
 /// This is what gets returned to the component
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct StateHandle<T> {
     /// Reference to the shared state container
     container: Arc<StateContainer<T>>,
@@ -146,7 +146,7 @@ impl<T> Clone for StateHandle<T> {
 /// This function can accept either:
 /// 1. A direct value: `setState(newValue)`
 /// 2. A function that takes the previous state: `setState(|prev| newValue)`
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct StateSetter<T> {
     /// Reference to the shared state container
     container: Arc<StateContainer<T>>,
