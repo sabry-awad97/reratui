@@ -23,16 +23,47 @@ Reratui brings React-inspired component architecture and hooks to terminal user 
 
 ### Available Hooks
 
+#### State Management
+
 - `use_state` - Local component state management
 - `use_reducer` - Complex state logic with actions (Redux-style)
-- `use_effect` - Side effects with dependency tracking
-- `use_context` - Share data across component tree without prop drilling
 - `use_ref` - Mutable references that persist across renders
+
+#### Side Effects
+
+- `use_effect` - Side effects with dependency tracking
+- `use_effect_once` - Run effect only on mount
+- `use_async_effect` - Async side effects with cleanup
+
+#### Performance
+
 - `use_callback` - Memoized callbacks to prevent unnecessary re-renders
 - `use_memo` - Memoized computed values
-- `use_event` - Terminal event handling (keyboard, mouse, resize)
+- `use_effect_event` - Stable event handlers that always see latest values
+
+#### Context
+
+- `use_context` - Share data across component tree without prop drilling
+- `use_context_provider` - Provide context values to child components
+
+#### Events
+
+- `use_event` - Generic terminal event handling
+- `use_keyboard` - Keyboard event handling with stable callbacks
+- `use_keyboard_press` - Only handle key press events (not releases)
+- `use_keyboard_shortcut` - Handle specific key combinations
+- `use_mouse` - Mouse event handling with stable callbacks
+- `use_mouse_click` - Handle mouse click events
+- `use_mouse_drag` - Track drag operations
+- `use_double_click` - Detect double-click gestures
+- `on_global_event` - Register global keyboard event handlers
+
+#### Layout & Rendering
+
 - `use_frame` - Access to frame timing and render context
 - `use_area` - Component's rendering area information
+- `use_on_resize` - Handle terminal resize events
+- `use_terminal_dimensions` - Get current terminal size
 
 ## Installation
 
@@ -69,8 +100,8 @@ fn Counter() -> Element {
     }
 
     rsx! {
-        <Block 
-            title="Counter Demo" 
+        <Block
+            title="Counter Demo"
             borders={Borders::ALL}
             border_style={Style::default().fg(Color::Cyan)}
         >
@@ -119,7 +150,7 @@ fn App() -> Element {
 
     rsx! {
         <Layout direction={Direction::Vertical}>
-            <Button 
+            <Button
                 label={format!("Clicked {} times", clicks.get())}
                 on_click={move |_| set_clicks.update(|n| n + 1)}
             />
@@ -182,7 +213,7 @@ fn TodoApp() -> Element {
         todo_reducer,
         TodoState { todos: vec![], next_id: 1 }
     );
-    
+
     // Use state and dispatch in your component...
 }
 ```
@@ -195,7 +226,7 @@ Share state across components without prop drilling:
 #[component]
 fn App() -> Element {
     let theme = use_context_provider(|| Theme::Dark);
-    
+
     rsx! {
         <Layout>
             <Header />
@@ -240,12 +271,14 @@ The [`examples/`](./examples) directory contains complete applications demonstra
 
 - **counter** - Basic state management and event handling
 - **rsx_demo** - Comprehensive RSX macro features and patterns
+- **events_showcase** - Complete event handling demo (keyboard, mouse, resize, global events)
 - **router** - Navigation and routing (coming soon)
 
 Run an example with:
 
 ```bash
-cargo run -p counter-example
+cargo run --example counter
+cargo run --example events_showcase
 ```
 
 ## Documentation
@@ -258,6 +291,7 @@ cargo run -p counter-example
 ## Minimum Supported Rust Version (MSRV)
 
 Reratui requires Rust 1.75.0 or later due to the use of:
+
 - `let`-`else` statements
 - `let` chains in `if` expressions
 - Edition 2024 features
@@ -273,10 +307,12 @@ Contributions are welcome! Please read our [Contributing Guide](./CONTRIBUTING.m
 
 ## Roadmap
 
-- [x] Core component system
-- [x] Hooks (state, effect, reducer, context, etc.)
+- [x] Core component system with lifecycle hooks (`on_mount`, `on_unmount`)
+- [x] Comprehensive hooks system (state, effect, reducer, context, etc.)
 - [x] RSX macro with conditional rendering
 - [x] Hook rules validation
+- [x] Event handling (keyboard, mouse, resize)
+- [x] Global event system for application-wide shortcuts
 - [ ] Router with nested routes
 - [ ] Form validation helpers
 - [ ] Animation system
