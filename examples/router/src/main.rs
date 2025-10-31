@@ -2,7 +2,7 @@
 //!
 //! A multi-page application demonstrating routing and navigation.
 
-#[reratui::main]
-async fn main() -> Result<()> {
+#[tokio::main]
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }

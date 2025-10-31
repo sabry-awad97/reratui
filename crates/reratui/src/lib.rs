@@ -157,10 +157,10 @@ pub use reratui_hooks as hooks;
 pub use reratui_runtime as runtime;
 
 // Re-export macros
-pub use reratui_macro::{Props, component, main, rsx};
+pub use reratui_macro::{Props, component, rsx};
 
 // Re-export commonly used core types at the top level
-pub use reratui_core::{AnyWidget, Component, ComponentProps, Element, PropValue, Result};
+pub use reratui_core::{AnyWidget, Component, ComponentProps, Element, PropValue};
 
 // Re-export commonly used hook types
 pub use reratui_hooks::{
@@ -170,14 +170,11 @@ pub use reratui_hooks::{
     effect::{use_effect, use_effect_always, use_effect_once},
     event::use_event,
     frame::use_frame,
+    future::use_future,
     reducer::use_reducer,
     ref_hook::use_ref,
     state::use_state,
 };
-
-// Re-export tokio for use by the main macro
-#[doc(hidden)]
-pub use tokio;
 
 // Re-export ratatui for use by the rsx macro and user convenience
 pub use ratatui;
@@ -187,7 +184,7 @@ pub use crossterm;
 
 /// Prelude module for convenient imports
 pub mod prelude {
-    pub use crate::core::{AnyWidget, Component, ComponentProps, Element, PropValue, Result};
+    pub use crate::core::{AnyWidget, Component, ComponentProps, Element, PropValue};
     pub use crate::{component, render, rsx};
 
     // Re-export hooks
@@ -197,6 +194,7 @@ pub mod prelude {
     pub use crate::hooks::effect::*;
     pub use crate::hooks::event::{global_events::on_global_event, use_event};
     pub use crate::hooks::frame::*;
+    pub use crate::hooks::future::*;
     pub use crate::hooks::interval::*;
     pub use crate::hooks::keyboard::*;
     pub use crate::hooks::mouse::*;

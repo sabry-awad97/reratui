@@ -6,3 +6,4 @@ publish = false
 
 [dependencies]
 reratui = { workspace = true }
+tokio = { workspace = true }

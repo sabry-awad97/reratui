@@ -151,8 +151,8 @@ fn RsxDemo() -> Element {
 }
 
 /// Entry point for the application
-#[reratui::main]
-async fn main() -> Result<()> {
+#[tokio::main]
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
     render(|| rsx! { <RsxDemo /> }).await?;
     Ok(())
 }

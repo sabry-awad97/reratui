@@ -211,8 +211,8 @@ where
 ///
 /// ## Example:
 /// ```rust,no_run
-/// use use reratui_hooks::interval::use_async_interval;
-/// use use reratui_hooks::state::use_state;
+/// use reratui_hooks::interval::use_async_interval;
+/// use reratui_hooks::state::use_state;
 /// use std::time::Duration;
 ///
 /// // Async interval example

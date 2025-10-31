@@ -5,6 +5,7 @@ pub mod effect;
 pub mod effect_event;
 pub mod event;
 pub mod frame;
+pub mod future;
 pub mod hook_context;
 pub mod interval;
 pub mod keyboard;

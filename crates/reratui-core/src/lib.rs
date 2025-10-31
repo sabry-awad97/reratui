@@ -2,9 +2,6 @@
 //!
 //! This crate provides the foundational types and traits for the Reratui framework.
 
-/// Result type alias for Reratui operations
-pub type Result<T> = anyhow::Result<T>;
-
 pub mod component;
 pub mod layout;
 pub mod props;

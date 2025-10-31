@@ -525,8 +525,8 @@ impl Component for EventsShowcase {
 }
 
 /// Entry point for the application
-#[reratui::main]
-async fn main() -> Result<()> {
+#[tokio::main]
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
     render(|| EventsShowcase.into()).await?;
     Ok(())
 }
