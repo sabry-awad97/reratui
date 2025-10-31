@@ -195,10 +195,15 @@ pub mod prelude {
     pub use crate::hooks::callback::{Callback, IntoCallbackProp};
     pub use crate::hooks::context::{use_context, use_context_provider};
     pub use crate::hooks::effect::{use_effect, use_effect_always, use_effect_once};
-    pub use crate::hooks::event::use_event;
+    pub use crate::hooks::event::{global_events::on_global_event, use_event};
     pub use crate::hooks::frame::{FrameContext, FrameExt, FrameInfo, use_frame};
+    pub use crate::hooks::keyboard::{use_keyboard, use_keyboard_press, use_keyboard_shortcut};
+    pub use crate::hooks::mouse::{use_double_click, use_mouse, use_mouse_click, use_mouse_drag};
     pub use crate::hooks::reducer::{DispatchFn, ReducerStateHandle, use_reducer};
     pub use crate::hooks::ref_hook::use_ref;
+    pub use crate::hooks::resize::{
+        use_on_resize, use_on_resize_callback, use_terminal_dimensions,
+    };
     pub use crate::hooks::state::use_state;
 
     // Re-export Props derive macro
@@ -210,11 +215,11 @@ pub mod prelude {
     // Re-export ratatui types for convenience
     pub use ratatui::{
         Frame,
-        buffer::Buffer,
-        layout::{Alignment, Constraint, Direction, Layout, Rect},
+        layout::*,
+        prelude::*,
         style::{Color, Modifier, Style},
         text::{Line, Span, Text},
-        widgets::{Block, Borders, Paragraph, Tabs, Widget},
+        widgets::*,
     };
 
     pub use crossterm::event::*;

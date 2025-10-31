@@ -6,8 +6,11 @@ pub mod effect_event;
 pub mod event;
 pub mod frame;
 pub mod hook_context;
+pub mod keyboard;
+pub mod mouse;
 pub mod reducer;
 pub mod ref_hook;
+pub mod resize;
 pub mod state;
 
 #[cfg(test)]

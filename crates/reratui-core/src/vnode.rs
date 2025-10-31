@@ -140,7 +140,8 @@ impl Element {
     pub fn render(&self, area: Rect, buffer: &mut Buffer) {
         match self {
             Element::Component { component, .. } => {
-                component.render(area, buffer);
+                // Render with lifecycle hooks (on_mount/on_unmount)
+                crate::component::render_component_with_lifecycle(component, area, buffer);
             }
             Element::Widget {
                 widget, render_fn, ..

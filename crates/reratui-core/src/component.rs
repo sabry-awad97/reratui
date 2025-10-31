@@ -5,14 +5,14 @@ use std::collections::HashMap;
 
 thread_local! {
     // Track mounted component instances and their mount states
-    static MOUNT_STATE: std::cell::RefCell<MountState> = Default::default();
+    pub(crate) static MOUNT_STATE: std::cell::RefCell<MountState> = Default::default();
 }
 
 // Store cleanup callbacks for unmounting
 type CleanupFn = Box<dyn Fn() + 'static>;
 
 #[derive(Default)]
-struct MountState {
+pub(crate) struct MountState {
     // Tracks all currently mounted components by their ID hash
     mounted: std::collections::HashSet<usize>,
     // Components that were mounted in the last render
@@ -22,7 +22,7 @@ struct MountState {
 }
 
 impl MountState {
-    fn track_mount<F>(&mut self, id_hash: usize, cleanup_fn: F) -> bool
+    pub(crate) fn track_mount<F>(&mut self, id_hash: usize, cleanup_fn: F) -> bool
     where
         F: Fn() + 'static,
     {
@@ -68,7 +68,7 @@ pub trait Component: 'static {
     fn on_unmount(&self) {}
 
     /// Called on every render
-    fn render(&self, area: Rect, frame: &mut Buffer);
+    fn render(&self, area: Rect, buffer: &mut Buffer);
 
     /// Gets a unique identifier for this component instance
     fn component_id(&self) -> String {
@@ -90,35 +90,57 @@ pub trait Component: 'static {
     where
         Self: Clone,
     {
-        let component_id = self.component_id();
-        let id_hash = {
-            use std::collections::hash_map::DefaultHasher;
-            use std::hash::{Hash, Hasher};
-            let mut hasher = DefaultHasher::new();
-            component_id.hash(&mut hasher);
-            hasher.finish() as usize
-        };
-
-        // Create cleanup function that captures a clone of self
         let self_clone = self.clone();
         let cleanup_fn = move || {
             self_clone.on_unmount();
         };
 
-        // Track this component in the current render
-        let is_first_render = MOUNT_STATE.with(|state| {
-            let mut state = state.borrow_mut();
-            state.track_mount(id_hash, cleanup_fn)
-        });
-
-        // Call on_mount on first render
-        if is_first_render {
-            self.on_mount();
-        }
-
-        // Call the actual render method
+        track_and_call_lifecycle(self, cleanup_fn);
         self.render(area, frame.buffer_mut());
     }
+}
+
+/// Helper function to track component lifecycle and call on_mount if needed
+fn track_and_call_lifecycle<F>(component: &dyn Component, cleanup_fn: F)
+where
+    F: Fn() + 'static,
+{
+    let component_id = component.component_id();
+    let id_hash = {
+        use std::collections::hash_map::DefaultHasher;
+        use std::hash::{Hash, Hasher};
+        let mut hasher = DefaultHasher::new();
+        component_id.hash(&mut hasher);
+        hasher.finish() as usize
+    };
+
+    // Track this component in the current render
+    let is_first_render = MOUNT_STATE.with(|state| {
+        let mut state = state.borrow_mut();
+        state.track_mount(id_hash, cleanup_fn)
+    });
+
+    // Call on_mount on first render
+    if is_first_render {
+        component.on_mount();
+    }
+}
+
+/// Renders a component with lifecycle tracking (on_mount/on_unmount)
+/// This function should be called when rendering components from Elements
+pub(crate) fn render_component_with_lifecycle(
+    component: &std::rc::Rc<dyn Component>,
+    area: Rect,
+    buffer: &mut Buffer,
+) {
+    // Clone the Rc for the cleanup function
+    let component_clone = std::rc::Rc::clone(component);
+    let cleanup_fn = move || {
+        component_clone.on_unmount();
+    };
+
+    track_and_call_lifecycle(component.as_ref(), cleanup_fn);
+    component.render(area, buffer);
 }
 
 /// Cleans up any components that were unmounted in the last render cycle
