@@ -3,7 +3,7 @@
 //! This module provides terminal initialization, cleanup, and management
 //! functionality for TUI applications.
 
-use crossterm::{
+use ratatui::crossterm::{
     event::{DisableMouseCapture, EnableMouseCapture},
     execute,
     terminal::{EnterAlternateScreen, LeaveAlternateScreen, disable_raw_mode, enable_raw_mode},
@@ -87,12 +87,7 @@ pub fn restore_terminal() -> io::Result<()> {
     disable_raw_mode()?;
 
     // Leave alternate screen and disable mouse capture
-    execute!(
-        std::io::stdout(),
-        LeaveAlternateScreen,
-        DisableMouseCapture,
-        crossterm::cursor::Show
-    )?;
+    execute!(std::io::stdout(), LeaveAlternateScreen, DisableMouseCapture)?;
 
     Ok(())
 }

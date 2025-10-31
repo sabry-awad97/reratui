@@ -16,7 +16,16 @@ publish = true
 reratui-core = { version = "0.1.0", path = "../reratui-core" }
 reratui-hooks = { version = "0.1.0", path = "../reratui-hooks" }
 reratui-panic = { version = "0.1.0", path = "../reratui-panic" }
-ratatui = { workspace = true }
+ratatui = { workspace = true, features = [
+    "scrolling-regions",
+    "unstable-backend-writer",
+    "unstable-rendered-line-info",
+    "unstable-widget-ref",
+] }
 tokio = { workspace = true }
+tokio-stream = "0.1"
+async-stream = "0.3"
 anyhow = { workspace = true }
 crossterm = { workspace = true }
+unicode-width = { workspace = true }
+supports-color = "3.0"

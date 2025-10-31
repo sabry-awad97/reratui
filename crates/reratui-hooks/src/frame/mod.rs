@@ -70,6 +70,26 @@ impl FrameContext {
         }
     }
 
+    /// Create a new FrameContext from a raw pointer
+    ///
+    /// # Safety
+    ///
+    /// The frame pointer must be valid for the duration of the render cycle.
+    /// The pointer must point to a type that is layout-compatible with Frame.
+    pub unsafe fn from_raw_ptr(
+        frame_ptr: *mut Frame<'static>,
+        count: u64,
+        delta: Duration,
+        timestamp: Instant,
+    ) -> Self {
+        Self {
+            frame_ptr,
+            count,
+            delta,
+            timestamp,
+        }
+    }
+
     /// Get a reference to the Frame
     ///
     /// # Safety

@@ -99,12 +99,12 @@ impl Component for EventsShowcase {
         // Set up exit handlers
         on_global_event(KeyCode::Char('q'), || {
             request_exit();
-            true // Stop event propagation - event is handled
+            false
         });
 
         on_global_event(KeyCode::Esc, || {
             request_exit();
-            true // Stop event propagation - event is handled
+            false
         });
     }
 

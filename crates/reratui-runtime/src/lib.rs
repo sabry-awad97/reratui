@@ -4,13 +4,13 @@
 //! including terminal management, event handling, and the render loop.
 
 mod exit;
-mod terminal;
+mod managed_terminal;
 
 pub use exit::{request_exit, reset_exit, should_exit};
-pub use terminal::{ManagedTerminal, restore_terminal, setup_terminal};
+pub use managed_terminal::{ManagedTerminal, restore_terminal, setup_terminal};
 
 use anyhow::Result;
-use crossterm::event::{self, Event};
+use crossterm::event::Event;
 use reratui_core::Element;
 use reratui_hooks::frame::FrameContext;
 use reratui_hooks::hook_context::HookContext;
@@ -70,9 +70,13 @@ where
     let mut frame_count: u64 = 0;
     let mut last_frame_time = Instant::now();
 
-    // Main render loop
-    let mut running = true;
-    while running {
+    // Create async event stream
+    use crossterm::event::EventStream;
+    use tokio_stream::StreamExt;
+    let mut events = EventStream::new();
+
+    // Main render loop with continuous rendering
+    loop {
         // Calculate frame timing
         let current_time = Instant::now();
         let delta = current_time.duration_since(last_frame_time);
@@ -81,36 +85,33 @@ where
         // Reset hook index before each render
         hook_context.reset_hook_index();
 
-        // Handle events with a small timeout to prevent blocking
-        if event::poll(Duration::from_millis(16))? {
-            if let Ok(event) = event::read() {
+        // Poll for events with timeout (allows continuous rendering)
+        let timeout = tokio::time::sleep(Duration::from_millis(16));
+        tokio::pin!(timeout);
+
+        tokio::select! {
+            Some(Ok(event)) = events.next() => {
                 // Process key events through global event system
                 let processed = if let Event::Key(key_event) = &event {
-                    // First try to process as a global event
                     reratui_hooks::event::global_events::process_global_event(key_event)
                 } else {
                     false
                 };
 
                 // If not processed as a global event, make it available to components
-                // This includes mouse events, resize events, etc.
                 if !processed {
                     reratui_hooks::event::set_current_event(Some(std::sync::Arc::new(event)));
-
-                    // Check for exit after component event handling
-                    if should_exit() {
-                        running = false;
-                    }
                 }
             }
-        } else {
-            // No events, clear the current event
-            reratui_hooks::event::set_current_event(None);
+            _ = &mut timeout => {
+                // Timeout - clear event and continue rendering
+                reratui_hooks::event::set_current_event(None);
+            }
         }
 
         // Check for exit
         if should_exit() {
-            running = false;
+            break;
         }
 
         // Render the element
@@ -131,9 +132,6 @@ where
 
         // Increment frame counter
         frame_count += 1;
-
-        // Small delay to prevent high CPU usage (~60 FPS)
-        tokio::time::sleep(Duration::from_millis(16)).await;
     }
 
     // Clear the current event
