@@ -10,7 +10,7 @@ documentation.workspace = true
 keywords.workspace = true
 categories.workspace = true
 description = "React-inspired hooks for state management and side effects in Reratui TUI applications"
-publish = false  # Internal crate - not published separately
+publish = true
 
 [dependencies]
 anyhow = { workspace = true }
@@ -18,7 +18,7 @@ crossterm = { workspace = true }
 once_cell = { workspace = true }
 parking_lot = { workspace = true }
 ratatui = { workspace = true }
-reratui-core = { workspace = true }
-reratui-panic = { workspace = true }
+reratui-core = { version = "0.1.0", path = "../reratui-core" }
+reratui-panic = { version = "0.1.0", path = "../reratui-panic" }
 tokio = { workspace = true }
 tracing = { workspace = true }

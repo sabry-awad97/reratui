@@ -10,7 +10,7 @@ documentation.workspace = true
 keywords.workspace = true
 categories.workspace = true
 description = "Procedural macros for component definition, RSX syntax, and hook validation in Reratui"
-publish = false  # Internal crate - not published separately
+publish = true
 
 [lib]
 proc-macro = true

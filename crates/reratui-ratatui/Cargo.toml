@@ -10,10 +10,10 @@ documentation.workspace = true
 keywords.workspace = true
 categories.workspace = true
 description = "Ratatui backend adapter for Reratui TUI framework"
-publish = false  # Internal crate - not published separately
+publish = true
 
 [dependencies]
-reratui-core = { workspace = true }
+reratui-core = { version = "0.1.0", path = "../reratui-core" }
 ratatui = { workspace = true }
 crossterm = { workspace = true }
 tokio = { workspace = true }

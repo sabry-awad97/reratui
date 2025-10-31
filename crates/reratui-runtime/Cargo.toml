@@ -10,12 +10,12 @@ documentation.workspace = true
 keywords.workspace = true
 categories.workspace = true
 description = "Async runtime, event loop, and rendering engine for Reratui TUI applications"
-publish = false  # Internal crate - not published separately
+publish = true
 
 [dependencies]
-reratui-core = { workspace = true }
-reratui-hooks = { workspace = true }
-reratui-panic = { workspace = true }
+reratui-core = { version = "0.1.0", path = "../reratui-core" }
+reratui-hooks = { version = "0.1.0", path = "../reratui-hooks" }
+reratui-panic = { version = "0.1.0", path = "../reratui-panic" }
 ratatui = { workspace = true }
 tokio = { workspace = true }
 anyhow = { workspace = true }
