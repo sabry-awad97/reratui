@@ -191,20 +191,19 @@ pub mod prelude {
     pub use crate::{component, render, rsx};
 
     // Re-export hooks
-    pub use crate::hooks::area::{ComponentArea, use_area};
-    pub use crate::hooks::callback::{Callback, IntoCallbackProp};
-    pub use crate::hooks::context::{use_context, use_context_provider};
-    pub use crate::hooks::effect::{use_effect, use_effect_always, use_effect_once};
+    pub use crate::hooks::area::*;
+    pub use crate::hooks::callback::*;
+    pub use crate::hooks::context::*;
+    pub use crate::hooks::effect::*;
     pub use crate::hooks::event::{global_events::on_global_event, use_event};
-    pub use crate::hooks::frame::{FrameContext, FrameExt, FrameInfo, use_frame};
-    pub use crate::hooks::keyboard::{use_keyboard, use_keyboard_press, use_keyboard_shortcut};
-    pub use crate::hooks::mouse::{use_double_click, use_mouse, use_mouse_click, use_mouse_drag};
-    pub use crate::hooks::reducer::{DispatchFn, ReducerStateHandle, use_reducer};
-    pub use crate::hooks::ref_hook::use_ref;
-    pub use crate::hooks::resize::{
-        use_on_resize, use_on_resize_callback, use_terminal_dimensions,
-    };
-    pub use crate::hooks::state::use_state;
+    pub use crate::hooks::frame::*;
+    pub use crate::hooks::interval::*;
+    pub use crate::hooks::keyboard::*;
+    pub use crate::hooks::mouse::*;
+    pub use crate::hooks::reducer::*;
+    pub use crate::hooks::ref_hook::*;
+    pub use crate::hooks::resize::*;
+    pub use crate::hooks::state::*;
 
     // Re-export Props derive macro
     pub use reratui_macro::Props;
@@ -213,14 +212,7 @@ pub mod prelude {
     pub use crate::runtime::{request_exit, should_exit};
 
     // Re-export ratatui types for convenience
-    pub use ratatui::{
-        Frame,
-        layout::*,
-        prelude::*,
-        style::{Color, Modifier, Style},
-        text::{Line, Span, Text},
-        widgets::*,
-    };
+    pub use ratatui::{Frame, layout::*, prelude::*, style::*, text::*, widgets::*};
 
     pub use crossterm::event::*;
 }

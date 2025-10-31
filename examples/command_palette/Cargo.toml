@@ -1,0 +1,10 @@
+[package]
+name = "command_palette"
+version = "0.1.0"
+edition = "2024"
+publish = false
+
+[dependencies]
+chrono = { workspace = true }
+reratui = { workspace = true }
+rand = "0.9.2"

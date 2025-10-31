@@ -32,9 +32,10 @@ reratui-runtime = { path = "crates/reratui-runtime" }
 # External dependencies
 anyhow = "1.0.100"
 better-panic = "0.3.0"
+chrono = "0.4.42"
 crossterm = "0.29.0"
 human-panic = "2.0.4"
-once_cell = "1.19"
+once_cell = "1.21.3"
 parking_lot = "0.12.5"
 ratatui = "0.29.0"
 serde = { version = "1.0.228", features = ["derive"] }

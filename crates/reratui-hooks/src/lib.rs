@@ -6,6 +6,7 @@ pub mod effect_event;
 pub mod event;
 pub mod frame;
 pub mod hook_context;
+pub mod interval;
 pub mod keyboard;
 pub mod mouse;
 pub mod reducer;
