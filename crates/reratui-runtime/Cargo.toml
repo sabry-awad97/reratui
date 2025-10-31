@@ -27,5 +27,3 @@ tokio-stream = "0.1"
 async-stream = "0.3"
 anyhow = { workspace = true }
 crossterm = { workspace = true }
-unicode-width = { workspace = true }
-supports-color = "3.0"

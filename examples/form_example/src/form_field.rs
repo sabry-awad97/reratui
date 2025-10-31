@@ -1,11 +1,3 @@
-//! FormField Component - shadcn/ui inspired
-//!
-//! Filename: form_field.rs
-//! Folder: /examples/form_example/src/
-//!
-//! A wrapper component that provides form context to Input components.
-//! Follows shadcn/ui composition pattern: <FormField><Input /></FormField>
-
 use reratui::prelude::*;
 
 #[derive(Props)]
@@ -13,43 +5,21 @@ pub struct FormFieldProps {
     /// Field name in the form
     pub name: String,
 
-    /// Field index for focus management
-    pub field_index: usize,
-
-    /// The input component to render
-    pub children: Vec<Element>,
+    /// Render callback for custom layout
+    pub render: Callback<FormFieldContext, Element>,
 }
 
-/// FormField component that provides form integration to child Input
-///
-/// # Example
-///
-/// ```rust,no_run
-/// use reratui::prelude::*;
-///
-/// #[component]
-/// fn MyForm() -> Element {
-///     rsx! {
-///         <FormField name={"email"} field_index={0}>
-///             <Input
-///                 label={"Email"}
-///                 placeholder={"Enter your email"}
-///                 variant={InputVariant::Outlined}
-///             />
-///         </FormField>
-///     }
-/// }
-/// ```
 #[component]
 pub fn FormField(props: &FormFieldProps) -> Element {
     // Access form from context
     let form = use_form_context();
 
-    // Access focused field from context
-    let focused_field = use_context::<StateHandle<usize>>();
+    // Access field registry and auto-register this field
+    let registry = use_context::<crate::form::FieldRegistry>();
+    let field_index = registry.register_field(&props.name);
 
     // Check if this field is focused
-    let is_focused = focused_field.get() == props.field_index;
+    let is_focused = registry.get_focused_index() == field_index;
 
     // Get form state for this field
     let value = form.get_value(&props.name).unwrap_or_default();
@@ -83,62 +53,19 @@ pub fn FormField(props: &FormFieldProps) -> Element {
         }
     }
 
-    // Create a context provider for field-specific data
-    use_context_provider(|| FormFieldContext {
+    // Create field context
+    let field_context = FormFieldContext {
         value,
         error: error.clone(),
         touched,
         is_focused,
-    });
-
-    // Render the child input with context
-    // Dynamically allocate space based on what's present
-    let child_count = props.children.len();
-    let has_error_to_show = error.is_some() && touched;
-
-    let constraints = match (child_count, has_error_to_show) {
-        // 4 children (label, input, description, message) with error
-        (4, true) => vec![
-            Constraint::Length(1), // Label
-            Constraint::Min(3),    // Input
-            Constraint::Length(1), // Description
-            Constraint::Length(1), // Message (error visible)
-        ],
-        // 4 children without error - description visible, no message space needed
-        (4, false) => vec![
-            Constraint::Length(1), // Label
-            Constraint::Min(3),    // Input
-            Constraint::Length(1), // Description
-            Constraint::Length(0), // Message (hidden)
-        ],
-        // 3 children (label, input, message) with error
-        (3, true) => vec![
-            Constraint::Length(1), // Label
-            Constraint::Min(3),    // Input
-            Constraint::Length(1), // Message (error visible)
-        ],
-        // 3 children without error - no message space needed
-        (3, false) => vec![
-            Constraint::Length(1), // Label
-            Constraint::Min(3),    // Input
-            Constraint::Length(0), // Message (hidden)
-        ],
-        // Fallback for any other case
-        _ => vec![
-            Constraint::Length(1), // Label
-            Constraint::Min(3),    // Input
-            Constraint::Length(1), // Message
-        ],
     };
 
-    rsx! {
-        <Layout
-            direction={Direction::Vertical}
-            constraints={constraints}
-        >
-            {props.children.clone()}
-        </Layout>
-    }
+    // Provide context to children
+    use_context_provider(|| field_context.clone());
+
+    // Use render callback to generate the UI
+    props.render.emit(field_context)
 }
 
 /// Context data provided by FormField to Input

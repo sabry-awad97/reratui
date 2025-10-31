@@ -1,11 +1,3 @@
-//! FormMessage Component - shadcn/ui inspired
-//!
-//! Filename: form_message.rs
-//! Folder: /examples/form_example/src/
-//!
-//! A reusable message component for displaying errors and helper text.
-//! Follows shadcn/ui design principles with TUI adaptations.
-
 use reratui::prelude::*;
 
 /// Message variant types
@@ -35,23 +27,6 @@ pub struct FormMessageProps {
     pub style: Option<Style>,
 }
 
-/// Reusable FormMessage component
-///
-/// # Example
-///
-/// ```rust,no_run
-/// use reratui::prelude::*;
-///
-/// #[component]
-/// fn MyForm() -> Element {
-///     rsx! {
-///         <FormMessage
-///             text={"This field is required"}
-///             variant={MessageVariant::Error}
-///         />
-///     }
-/// }
-/// ```
 #[component]
 pub fn FormMessage(props: &FormMessageProps) -> Element {
     let variant = props.variant.unwrap_or_default();
@@ -91,24 +66,6 @@ pub fn FormMessage(props: &FormMessageProps) -> Element {
     }
 }
 
-/// FormMessage component that automatically reads from FormFieldContext
-///
-/// # Example
-///
-/// ```rust,no_run
-/// use reratui::prelude::*;
-///
-/// #[component]
-/// fn MyForm() -> Element {
-///     rsx! {
-///         <FormField name={"email"} field_index={0}>
-///             <FormLabel text={"Email"} required={true} />
-///             <FormInput placeholder={"Enter email"} />
-///             <FormFieldMessage />  // Automatically shows error if present
-///         </FormField>
-///     }
-/// }
-/// ```
 #[component]
 pub fn FormFieldMessage() -> Element {
     // Get field context

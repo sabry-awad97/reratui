@@ -349,6 +349,11 @@ impl FormHandle {
         self.values.get()
     }
 
+    /// Get all form values (alias for get_values)
+    pub fn get_all_values(&self) -> HashMap<String, String> {
+        self.get_values()
+    }
+
     /// Get all errors
     pub fn get_errors(&self) -> HashMap<String, String> {
         self.errors.get()

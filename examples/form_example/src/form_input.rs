@@ -1,11 +1,3 @@
-//! Input Component - shadcn/ui inspired
-//!
-//! Filename: input.rs
-//! Folder: /crates/reratui-components/src/
-//!
-//! A reusable, accessible input component with variants and states.
-//! Follows shadcn/ui design principles with TUI adaptations.
-
 use reratui::prelude::*;
 
 /// Input variant styles
@@ -58,7 +50,10 @@ impl Default for InputState {
 }
 
 #[derive(Props)]
-pub struct FormInputProps {
+pub struct InputProps {
+    /// Input value
+    pub value: Option<String>,
+
     /// Placeholder text
     pub placeholder: Option<String>,
 
@@ -70,6 +65,12 @@ pub struct FormInputProps {
 
     /// Whether the input is disabled
     pub disabled: Option<bool>,
+
+    /// Whether the input is focused
+    pub focused: Option<bool>,
+
+    /// Whether the input has an error
+    pub error: Option<bool>,
 
     /// Helper text
     pub helper_text: Option<String>,
@@ -84,50 +85,24 @@ pub struct FormInputProps {
     pub class: Option<String>,
 }
 
-/// Reusable Input component with shadcn/ui styling
-/// Should be wrapped in FormField for form integration.
-///
-/// # Example
-///
-/// ```rust,no_run
-/// use reratui::prelude::*;
-/// fn MyForm() -> Element {
-///     rsx! {
-///         <FormField name={"email"} field_index={0}>
-///             <FormInput
-///                 placeholder={"Enter your email"}
-///                 variant={InputVariant::Outlined}
-///                 icon={"📧"}
-///             />
-///         </FormField>
-///     }
-/// }
-/// ```
 #[component]
-pub fn FormInput(props: &FormInputProps) -> Element {
-    // Get field context from FormField (if wrapped)
-    let field_ctx = use_field_context_optional();
-
-    // Get input state
+pub fn Input(props: &InputProps) -> Element {
+    // Get input state from props
     let variant = props.variant.unwrap_or_default();
     let disabled = props.disabled.unwrap_or(false);
     let is_password = props.password.unwrap_or(false);
-
-    // Get value, error, touched, and focus from field context
-    let (value, error, touched, is_focused) = if let Some(ctx) = field_ctx {
-        (ctx.value, ctx.error, ctx.touched, ctx.is_focused)
-    } else {
-        (String::new(), None, false, false)
-    };
+    let is_focused = props.focused.unwrap_or(false);
+    let has_error = props.error.unwrap_or(false);
+    let value = props.value.clone().unwrap_or_default();
 
     // Determine input state
     let state = if disabled {
         InputState::Disabled
     } else if is_focused {
         InputState::Focused
-    } else if error.is_some() && touched {
+    } else if has_error {
         InputState::Error
-    } else if touched && !value.is_empty() {
+    } else if !value.is_empty() {
         InputState::Success
     } else {
         InputState::Normal
@@ -199,13 +174,4 @@ fn get_input_colors(state: InputState, variant: InputVariant) -> (Color, Color, 
             (Color::Gray, Color::White, Color::Rgb(17, 17, 27))
         }
     }
-}
-
-/// Optional field context hook - returns None if no field context exists
-fn use_field_context_optional() -> Option<crate::form_field::FormFieldContext> {
-    // Try to get field context, return None if it doesn't exist
-    std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-        use_context::<crate::form_field::FormFieldContext>()
-    }))
-    .ok()
 }

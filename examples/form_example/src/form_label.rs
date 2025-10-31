@@ -1,11 +1,3 @@
-//! FormLabel Component - shadcn/ui inspired
-//!
-//! Filename: form_label.rs
-//! Folder: /examples/form_example/src/
-//!
-//! A reusable label component for form fields.
-//! Follows shadcn/ui design principles with TUI adaptations.
-
 use reratui::prelude::*;
 
 #[derive(Props)]
@@ -20,23 +12,6 @@ pub struct FormLabelProps {
     pub style: Option<Style>,
 }
 
-/// Reusable FormLabel component
-/// # Example
-///
-/// ```rust,no_run
-/// use reratui::prelude::*;
-///
-/// #[component]
-/// fn MyForm() -> Element {
-///     rsx! {
-///         <FormLabel
-///             text={"Email"}
-///             required={true}
-///             focused={true}
-///         />
-///     }
-/// }
-/// ```
 #[component]
 pub fn FormLabel(props: &FormLabelProps) -> Element {
     let required = props.required.unwrap_or(false);
