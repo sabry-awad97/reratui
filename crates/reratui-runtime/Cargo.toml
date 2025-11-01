@@ -1,6 +1,6 @@
 [package]
 name = "reratui-runtime"
-version = "0.2.0"
+version = "0.2.1"
 edition.workspace = true
 authors.workspace = true
 license.workspace = true
@@ -13,9 +13,9 @@ description = "Async runtime, event loop, and rendering engine for Reratui TUI a
 publish = true
 
 [dependencies]
-reratui-core = { version = "0.2.0", path = "../reratui-core" }
-reratui-hooks = { version = "0.2.0", path = "../reratui-hooks" }
-reratui-panic = { version = "0.2.0", path = "../reratui-panic" }
+reratui-core = { version = "0.2.1", path = "../reratui-core" }
+reratui-hooks = { version = "0.2.1", path = "../reratui-hooks" }
+reratui-panic = { version = "0.2.1", path = "../reratui-panic" }
 ratatui = { workspace = true, features = [
     "scrolling-regions",
     "unstable-backend-writer",

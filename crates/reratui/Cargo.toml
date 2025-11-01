@@ -1,6 +1,6 @@
 [package]
 name = "reratui"
-version = "0.2.0"
+version = "0.2.1"
 edition.workspace = true
 authors.workspace = true
 license.workspace = true
@@ -16,11 +16,11 @@ publish = true
 
 [dependencies]
 # Internal crates (not published separately - bundled in this crate)
-reratui-core = { version = "0.2.0", path = "../reratui-core" }
-reratui-hooks = { version = "0.2.0", path = "../reratui-hooks" }
-reratui-macro = { version = "0.2.0", path = "../reratui-macro" }
-reratui-ratatui = { version = "0.2.0", path = "../reratui-ratatui" }
-reratui-runtime = { version = "0.2.0", path = "../reratui-runtime" }
+reratui-core = { version = "0.2.1", path = "../reratui-core" }
+reratui-hooks = { version = "0.2.1", path = "../reratui-hooks" }
+reratui-macro = { version = "0.2.1", path = "../reratui-macro" }
+reratui-ratatui = { version = "0.2.1", path = "../reratui-ratatui" }
+reratui-runtime = { version = "0.2.1", path = "../reratui-runtime" }
 
 # External dependencies
 anyhow = { workspace = true }

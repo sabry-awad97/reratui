@@ -140,7 +140,7 @@ Add Reratui to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-reratui = "0.2.0"
+reratui = "0.2.1"
 tokio = { version = "1", features = ["full"] }
 ```
 

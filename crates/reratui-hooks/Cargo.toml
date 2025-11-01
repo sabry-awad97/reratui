@@ -1,6 +1,6 @@
 [package]
 name = "reratui-hooks"
-version = "0.2.0"
+version = "0.2.1"
 edition.workspace = true
 authors.workspace = true
 license.workspace = true
@@ -19,8 +19,8 @@ once_cell = { workspace = true }
 parking_lot = { workspace = true }
 ratatui = { workspace = true }
 regex = { workspace = true }
-reratui-core = { version = "0.2.0", path = "../reratui-core" }
-reratui-panic = { version = "0.2.0", path = "../reratui-panic" }
+reratui-core = { version = "0.2.1", path = "../reratui-core" }
+reratui-panic = { version = "0.2.1", path = "../reratui-panic" }
 tokio = { workspace = true }
 tracing = { workspace = true }
 uuid = { workspace = true, features = ["v7"] }
