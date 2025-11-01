@@ -19,6 +19,16 @@ _Build beautiful, interactive terminal applications with React-inspired componen
 
 ---
 
+## 🎉 What's New in v0.2.0
+
+- ✨ **Form Management System** - React Hook Form inspired form handling with `use_form`
+- 🔍 **Watch Hooks** - Reactive field watching with `use_watch`, `use_watch_multiple`, and more
+- 🆔 **Unique ID Generation** - `use_id` hook with UUID v7 support
+- 📦 **Built-in Validators** - Required, email, min/max length, pattern, and custom validators
+- 🎯 **Form Context API** - Access forms from child components without prop drilling
+
+[See full changelog](https://github.com/sabry-awad97/reratui/releases/tag/v0.2.0)
+
 ## Overview
 
 Reratui brings modern web development patterns to terminal user interfaces. Inspired by React, it provides a component-based architecture with hooks, enabling you to build complex, stateful TUI applications with clean, maintainable code.
@@ -54,6 +64,7 @@ Reratui brings modern web development patterns to terminal user interfaces. Insp
 - Side effects (`use_effect`, `use_async_effect`)
 - Performance (`use_memo`, `use_callback`)
 - Events (keyboard, mouse, resize)
+- **Forms** (`use_form`, `use_watch`) ✨ NEW
 
 </td>
 </tr>
@@ -112,6 +123,14 @@ Reratui brings modern web development patterns to terminal user interfaces. Insp
 |                 | `use_area`                | Component's rendering area                     |
 |                 | `use_on_resize`           | Handle terminal resize events                  |
 |                 | `use_terminal_dimensions` | Current terminal size                          |
+| **Forms** ✨    | `use_form`                | Form state management with validation          |
+|                 | `use_form_context`        | Access form from child components              |
+|                 | `use_watch`               | Watch single field value changes               |
+|                 | `use_watch_multiple`      | Watch multiple field values                    |
+|                 | `use_watch_all`           | Watch all form values                          |
+|                 | `use_watch_callback`      | Watch field with callback                      |
+| **Utilities**   | `use_id`                  | Generate unique component IDs (UUID v7)        |
+|                 | `use_id_with_prefix`      | Generate IDs with custom prefix                |
 
 </details>
 
@@ -121,7 +140,7 @@ Add Reratui to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-reratui = "0.1.0"
+reratui = "0.2.0"
 tokio = { version = "1", features = ["full"] }
 ```
 
@@ -206,6 +225,40 @@ fn App() -> Element {
                 on_click={move |_| set_clicks.update(|n| n + 1)}
             />
         </Layout>
+    }
+}
+```
+
+### Form Management (v0.2.0+)
+
+```rust
+use reratui::prelude::*;
+
+#[component]
+fn LoginForm() -> Element {
+    let form = use_form(
+        FormConfig::builder()
+            .field("email", "")
+            .field("password", "")
+            .validator("email", Validator::required("Email is required"))
+            .validator("email", Validator::email("Invalid email format"))
+            .validator("password", Validator::min_length(8, "Min 8 characters"))
+            .on_submit(|values| {
+                println!("Login: {:?}", values);
+            })
+            .build()
+    );
+
+    // Watch field values reactively
+    let email = use_watch(&form, "email");
+
+    rsx! {
+        <Block title="Login" borders={Borders::ALL}>
+            <Paragraph>
+                {format!("Email: {}", email)}
+            </Paragraph>
+            // Form fields here...
+        </Block>
     }
 }
 ```
@@ -332,12 +385,74 @@ Reratui follows a modular, layered architecture with clear separation of concern
 
 Explore complete, runnable examples in the [`examples/`](./examples) directory:
 
+### 🌟 Featured Examples
+
+<details>
+<summary><b>Command Palette</b> - Advanced search and filtering</summary>
+
+A sophisticated command palette implementation featuring:
+
+- Fuzzy search with real-time filtering
+- Keyboard navigation (↑/↓ arrows, Enter to select)
+- Custom theming and styling
+- Component composition patterns
+- Event handling best practices
+
+```bash
+cargo run --example command_palette
+```
+
+</details>
+
+<details>
+<summary><b>Data Fetcher</b> - Async operations with use_future</summary>
+
+Demonstrates async data fetching with beautiful UI:
+
+- `use_future` hook for async operations
+- Loading states with animations
+- Multiple data sources with different loading times
+- Global and individual refresh functionality
+- Mouse hover effects and click handlers
+- Keyboard shortcuts (r, 1-4 for refresh, q to quit)
+
+```bash
+cargo run --example data_fetcher
+```
+
+</details>
+
+<details>
+<summary><b>Form Example</b> - Complete form management (v0.2.0+)</summary>
+
+Full-featured form with validation:
+
+- `use_form` hook with React Hook Form patterns
+- Built-in validators (required, email, min_length)
+- Real-time validation feedback
+- Field focus management (Tab/Shift+Tab)
+- Error messages and touched state
+- Form submission handling
+
+```bash
+cargo run --example form_example
+```
+
+</details>
+
+### 📋 All Examples
+
 | Example             | Description                                       | Command                               |
 | ------------------- | ------------------------------------------------- | ------------------------------------- |
 | **counter**         | Basic state management and keyboard events        | `cargo run --example counter`         |
 | **rsx_demo**        | Comprehensive RSX macro features                  | `cargo run --example rsx_demo`        |
 | **events_showcase** | Complete event handling (keyboard, mouse, resize) | `cargo run --example events_showcase` |
-| **router**          | Navigation and routing                            | Coming soon                           |
+| **form_example** ✨ | Form management with validation (v0.2.0+)         | `cargo run --example form_example`    |
+| **command_palette** | Command palette with fuzzy search and filtering   | `cargo run --example command_palette` |
+| **data_fetcher**    | Async data fetching with `use_future` hook        | `cargo run --example data_fetcher`    |
+| **dashboard**       | Dashboard with charts and data visualization      | Coming soon                           |
+| **todo**            | Todo list with forms and state management         | Coming soon                           |
+| **router**          | Multi-page navigation and routing                 | Coming soon                           |
 
 ## 📚 Documentation
 
@@ -350,7 +465,7 @@ Explore complete, runnable examples in the [`examples/`](./examples) directory:
 
 ## 🔧 Requirements
 
-**Minimum Supported Rust Version (MSRV): 1.75.0**
+**Minimum Supported Rust Version (MSRV): 1.85.0**
 
 Required for:
 
