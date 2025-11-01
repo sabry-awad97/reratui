@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src=".github/reratui-light.png" alt="Reratui Logo" width="300"/>
+<img src="https://raw.githubusercontent.com/sabry-awad97/reratui/main/.github/reratui-light.png" alt="Reratui Logo" width="300"/>
 
 # Reratui
 
