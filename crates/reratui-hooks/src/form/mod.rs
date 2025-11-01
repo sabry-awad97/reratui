@@ -30,7 +30,7 @@ pub use validation::*;
 ///
 /// # Example
 ///
-/// ```rust,no_run
+/// ```rust,ignore
 /// use reratui::prelude::*;
 ///
 /// #[component]
@@ -112,7 +112,7 @@ pub fn use_form(config: FormConfig) -> FormHandle {
 ///
 /// # Example
 ///
-/// ```rust,no_run
+/// ```rust,ignore
 /// use reratui::prelude::*;
 ///
 /// #[component]

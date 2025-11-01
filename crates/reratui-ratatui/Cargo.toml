@@ -13,7 +13,7 @@ description = "Ratatui backend adapter for Reratui TUI framework"
 publish = true
 
 [dependencies]
-reratui-core = { version = "0.1.0", path = "../reratui-core" }
+reratui-core = { version = "0.2.0", path = "../reratui-core" }
 ratatui = { workspace = true }
 crossterm = { workspace = true }
 tokio = { workspace = true }

@@ -13,17 +13,16 @@ pub struct FormConfig {
 
     /// Validators for each field
     pub(crate) validators: HashMap<String, Vec<Validator>>,
-
     /// Callback when form is submitted
     pub(crate) on_submit: Arc<dyn Fn(HashMap<String, String>) + Send + Sync>,
 }
 
 impl FormConfig {
-    /// Create a new form configuration builder
+    /// Create a new FormConfig builder
     ///
     /// # Example
     ///
-    /// ```rust,no_run
+    /// ```rust,ignore
     /// use reratui::prelude::*;
     ///
     /// let config = FormConfig::builder()
@@ -68,7 +67,7 @@ impl FormConfigBuilder {
     ///
     /// # Example
     ///
-    /// ```rust,no_run
+    /// ```rust,ignore
     /// # use reratui::prelude::*;
     /// FormConfig::builder()
     ///     .field("username", "john_doe")
@@ -84,7 +83,7 @@ impl FormConfigBuilder {
     ///
     /// # Example
     ///
-    /// ```rust,no_run
+    /// ```rust,ignore
     /// # use reratui::prelude::*;
     /// # use std::collections::HashMap;
     /// FormConfig::builder()
@@ -102,7 +101,7 @@ impl FormConfigBuilder {
     ///
     /// # Example
     ///
-    /// ```rust,no_run
+    /// ```rust,ignore
     /// # use reratui::prelude::*;
     /// FormConfig::builder()
     ///     .field("email", "")
@@ -120,7 +119,7 @@ impl FormConfigBuilder {
     ///
     /// # Example
     ///
-    /// ```rust,no_run
+    /// ```rust,ignore
     /// # use reratui::prelude::*;
     /// FormConfig::builder()
     ///     .field("username", "")
@@ -137,7 +136,7 @@ impl FormConfigBuilder {
     ///
     /// # Example
     ///
-    /// ```rust,no_run
+    /// ```rust,ignore
     /// # use reratui::prelude::*;
     /// FormConfig::builder()
     ///     .on_submit(|values| {

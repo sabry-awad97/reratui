@@ -40,8 +40,8 @@
 //!     }
 //! }
 //!
-//! #[reratui::main]
-//! async fn main() -> Result<()> {
+//! #[tokio::main]
+//! async fn main() -> anyhow::Result<()> {
 //!     render(|| rsx! { <Counter /> }).await?;
 //!     Ok(())
 //! }
@@ -238,10 +238,6 @@ pub mod prelude {
 ///
 /// #[tokio::main]
 /// async fn main() -> Result<()> {
-///     // Direct component
-///     reratui::render(|| Counter()).await?;
-///     
-///     // Or with RSX
 ///     reratui::render(|| {
 ///         rsx! { <Counter /> }
 ///     }).await?;
