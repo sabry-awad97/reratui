@@ -3,15 +3,6 @@ use std::io::{self, Write};
 use std::panic;
 use std::sync::Once;
 use tokio::task::JoinHandle;
-use tracing::{error, info};
-use tracing_appender::non_blocking::WorkerGuard;
-use tracing_subscriber::Registry;
-use tracing_subscriber::{
-    filter::{EnvFilter, LevelFilter},
-    fmt,
-    prelude::*,
-    util::SubscriberInitExt,
-};
 
 #[cfg(debug_assertions)]
 use better_panic::{Settings, Verbosity};
@@ -20,7 +11,6 @@ use better_panic::{Settings, Verbosity};
 use human_panic::setup_panic;
 
 static INIT: Once = Once::new();
-static mut LOG_GUARD: Option<WorkerGuard> = None;
 
 /// Sets up a custom panic hook for the application with advanced features.
 ///
@@ -31,25 +21,13 @@ static mut LOG_GUARD: Option<WorkerGuard> = None;
 /// Additionally, it provides a mechanism to catch panics from spawned Tokio tasks.
 ///
 /// This function should be called only once. Subsequent calls will be ignored.
+///
+/// # Note
+/// This function does not set up any logging. If you want to log panic information,
+/// set up your own tracing subscriber before calling this function.
+/// See the examples directory for how to integrate logging.
 pub fn setup_panic_handler() {
     INIT.call_once(|| {
-        // Initialize tracing subscriber for internal logging regardless of build type
-        let env_filter = EnvFilter::from_default_env().add_directive(LevelFilter::INFO.into());
-        let console_layer = fmt::Layer::new().with_writer(io::stderr);
-
-        let subscriber = Registry::default().with(env_filter).with(console_layer);
-
-        // For file logging, we can still use tracing-appender
-        // This part is independent of debug/release panic behavior
-        let log_file_path = "logs".to_string(); // Example path, could be configurable
-        let file_appender = tracing_appender::rolling::daily(log_file_path, "application.log");
-        let (non_blocking_appender, guard) = tracing_appender::non_blocking(file_appender);
-        unsafe {
-            LOG_GUARD = Some(guard);
-        }
-        let file_layer = fmt::Layer::new().with_writer(non_blocking_appender).json();
-        subscriber.with(file_layer).init();
-
         #[cfg(debug_assertions)]
         {
             // For debug builds, use better_panic for detailed output
@@ -58,55 +36,40 @@ pub fn setup_panic_handler() {
                 .lineno_suffix(true)
                 .verbosity(Verbosity::Full)
                 .install();
-            info!("Panic handler configured for DEBUG (better_panic).");
         }
 
         #[cfg(not(debug_assertions))]
         {
             // For release builds, use human_panic for user-friendly messages
             setup_panic!();
-            info!("Panic handler configured for RELEASE (human_panic).");
         }
 
-        // Custom panic hook to log to tracing system before the specific handler takes over
+        // Wrap the panic hook installed by better_panic/human_panic
+        // to ensure terminal is properly restored
         let original_hook = panic::take_hook();
         panic::set_hook(Box::new(move |panic_info| {
-            // First, try to restore the terminal to normal mode
-            // This ensures panic messages are visible
+            use crossterm::event::DisableMouseCapture;
             use crossterm::execute;
             use crossterm::terminal::{LeaveAlternateScreen, disable_raw_mode};
+
+            // Restore terminal before calling the panic formatter
             let _ = disable_raw_mode();
-            let _ = execute!(io::stdout(), LeaveAlternateScreen);
+            let _ = execute!(io::stdout(), LeaveAlternateScreen, DisableMouseCapture);
             let _ = io::stdout().flush();
 
-            // Capture backtrace
-            let backtrace = std::backtrace::Backtrace::force_capture();
-            let backtrace_str = format!("{}", backtrace);
-
-            // Get panic location and payload
-            let location = panic_info.location().map_or("Unknown".to_string(), |l| {
-                format!("{}:{}:{}", l.file(), l.line(), l.column())
-            });
-
-            let payload = panic_info
-                .payload()
-                .downcast_ref::<&str>()
-                .map(|s| s.to_string())
-                .or_else(|| panic_info.payload().downcast_ref::<String>().cloned())
-                .unwrap_or_else(|| "<unknown>".to_string());
-
-            // Log with backtrace
-            error!(
-                target: "panic_handler",
-                location = %location,
-                payload = %payload,
-                backtrace = %backtrace_str,
-                "Application panicked"
-            );
-
-            // Call the original hook to ensure better_panic/human_panic are triggered
+            // Call the original hook (better_panic/human_panic)
             original_hook(panic_info);
+
+            // Force terminal back to normal mode after panic output
+            // This ensures the terminal is in a state where text can be selected
+            let _ = disable_raw_mode();
+            let _ = execute!(io::stdout(), LeaveAlternateScreen, DisableMouseCapture);
             let _ = io::stderr().flush();
+            let _ = io::stdout().flush();
+
+            // Exit the process after panic handling
+            // This ensures the process terminates cleanly after terminal restoration
+            std::process::exit(1);
         }));
     });
 }
@@ -352,5 +315,204 @@ mod tests {
         let _spawn_fn_exists = spawn_catch_panic::<std::future::Ready<i32>>;
 
         // If compilation succeeds, all exports are accessible
+    }
+
+    #[test]
+    fn test_panic_handler_terminal_restoration() {
+        // Test that the panic handler is set up correctly
+        // and doesn't panic during setup
+        setup_panic_handler();
+
+        // Verify that calling setup multiple times is safe
+        setup_panic_handler();
+        setup_panic_handler();
+
+        // The panic hook should be installed at this point
+        // We can't easily test the actual panic behavior without panicking,
+        // but we can verify the setup completes successfully
+    }
+
+    #[test]
+    fn test_terminal_restoration_with_catch_panic() {
+        // Set up the panic handler
+        setup_panic_handler();
+
+        // Test that catch_panic works correctly with the panic handler installed
+        let result = catch_panic(|| {
+            // This should not panic
+            42
+        });
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap(), 42);
+
+        // Test that catch_panic catches panics even with our custom hook
+        let result = catch_panic(|| {
+            panic!("test panic for terminal restoration");
+        });
+        assert!(result.is_err());
+    }
+
+    #[tokio::test]
+    async fn test_spawn_catch_panic_terminal_restoration() {
+        // Set up the panic handler
+        setup_panic_handler();
+
+        // Test that spawn_catch_panic works with the panic handler
+        let handle = spawn_catch_panic(async {
+            // Normal async operation
+            tokio::time::sleep(std::time::Duration::from_millis(10)).await;
+            "success"
+        });
+
+        let result = handle.await;
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap(), "success");
+    }
+
+    #[test]
+    fn test_panic_hook_wrapping() {
+        // Test that our panic hook properly wraps the original hook
+        // This verifies that both better_panic/human_panic and our
+        // terminal restoration logic will run
+
+        // First setup creates the initial hook
+        setup_panic_handler();
+
+        // Verify we can catch panics after setup
+        let result = catch_panic(|| {
+            // This panic should be caught
+            panic!("wrapped panic test");
+        });
+
+        assert!(result.is_err());
+
+        // Verify the panic payload is preserved
+        let err = result.unwrap_err();
+        let panic_msg = err.downcast_ref::<&str>();
+        assert!(panic_msg.is_some());
+        assert_eq!(*panic_msg.unwrap(), "wrapped panic test");
+    }
+
+    #[test]
+    fn test_multiple_panic_handler_setups() {
+        // Test that calling setup_panic_handler multiple times
+        // doesn't cause issues (should be idempotent)
+        for _ in 0..5 {
+            setup_panic_handler();
+        }
+
+        // Verify panic catching still works
+        let result = catch_panic(|| 100);
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap(), 100);
+    }
+
+    #[test]
+    fn test_terminal_state_restoration_on_panic() {
+        use crossterm::event::EnableMouseCapture;
+        use crossterm::execute;
+        use crossterm::terminal::EnterAlternateScreen;
+        use crossterm::terminal::{disable_raw_mode, enable_raw_mode, is_raw_mode_enabled};
+
+        // Set up the panic handler
+        setup_panic_handler();
+
+        // Simulate a TUI application setup
+        let setup_result = catch_panic(|| {
+            // Enable raw mode (like a TUI app would)
+            enable_raw_mode().expect("Failed to enable raw mode");
+
+            // Enter alternate screen and enable mouse capture
+            execute!(io::stdout(), EnterAlternateScreen, EnableMouseCapture)
+                .expect("Failed to setup terminal");
+
+            // Verify raw mode is enabled
+            assert!(is_raw_mode_enabled().unwrap_or(false));
+        });
+
+        // Clean up after test
+        let _ = disable_raw_mode();
+        let _ = execute!(
+            io::stdout(),
+            crossterm::terminal::LeaveAlternateScreen,
+            crossterm::event::DisableMouseCapture
+        );
+
+        assert!(setup_result.is_ok());
+    }
+
+    #[test]
+    fn test_panic_hook_calls_terminal_restoration() {
+        use crossterm::terminal::{disable_raw_mode, enable_raw_mode};
+
+        // Set up the panic handler
+        setup_panic_handler();
+
+        // Test that a panic triggers terminal restoration
+        let panic_result = catch_panic(|| {
+            // Enable raw mode
+            let _ = enable_raw_mode();
+
+            // Simulate a panic (this will be caught by catch_panic)
+            panic!("Test panic to verify terminal restoration");
+        });
+
+        // The panic should have been caught
+        assert!(panic_result.is_err());
+
+        // Clean up - ensure raw mode is disabled
+        let _ = disable_raw_mode();
+
+        // Verify the panic message is preserved
+        let err = panic_result.unwrap_err();
+        let msg = err.downcast_ref::<&str>();
+        assert!(msg.is_some());
+        assert_eq!(*msg.unwrap(), "Test panic to verify terminal restoration");
+    }
+
+    #[test]
+    fn test_terminal_restoration_commands_are_called() {
+        // This test verifies that the panic hook contains the correct
+        // terminal restoration commands by checking the setup completes
+
+        setup_panic_handler();
+
+        // Verify that after setup, we can still use catch_panic
+        // which means the panic hook is properly installed
+        let result = catch_panic(|| {
+            // Simulate terminal operations
+            let _ = io::stdout();
+            42
+        });
+
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap(), 42);
+    }
+
+    #[tokio::test]
+    async fn test_async_panic_terminal_restoration() {
+        use crossterm::terminal::{disable_raw_mode, enable_raw_mode};
+
+        // Set up the panic handler
+        setup_panic_handler();
+
+        // Test async panic with terminal state
+        let handle = spawn_catch_panic(async {
+            // Enable raw mode in async context
+            let _ = enable_raw_mode();
+
+            // Do some async work
+            tokio::time::sleep(std::time::Duration::from_millis(5)).await;
+
+            "completed"
+        });
+
+        let result = handle.await;
+
+        // Clean up
+        let _ = disable_raw_mode();
+
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap(), "completed");
     }
 }

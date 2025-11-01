@@ -13,11 +13,12 @@ description = "Panic handling utilities for Reratui TUI framework"
 publish = true
 
 [dependencies]
-anyhow = { workspace = true }
 better-panic = { workspace = true }
 crossterm = { workspace = true }
 human-panic = { workspace = true }
 tokio = { workspace = true, features = ["full"] }
+
+[dev-dependencies]
 tracing = { workspace = true }
-tracing-appender = { workspace = true }
 tracing-subscriber = { workspace = true, features = ["env-filter", "json"] }
+tracing-appender = { workspace = true }
