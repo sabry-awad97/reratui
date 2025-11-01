@@ -1,8 +1,37 @@
 # Publishing Guide for Reratui
 
+This guide covers version management, release workflows, and publishing to crates.io.
+
+## 🚀 Quick Start
+
+For most releases, use the automated Python scripts:
+
+```bash
+# 1. Bump version (automatically updates all crates, runs tests, creates tag)
+python scripts/bump_version.py minor
+
+# 2. Publish to crates.io (in dependency order)
+cargo publish --package reratui-panic
+cargo publish --package reratui-core
+cargo publish --package reratui-macro
+cargo publish --package reratui-hooks
+cargo publish --package reratui-ratatui
+cargo publish --package reratui-runtime
+cargo publish --package reratui
+
+# 3. Create GitHub release
+python scripts/create_release.py
+```
+
+See [`scripts/README.md`](scripts/README.md) for detailed script documentation.
+
 ## Version Management
 
-Each crate now has its own explicit version in its `Cargo.toml` file instead of using `version.workspace = true`. This makes it easier to publish individual crates with different versions if needed.
+Each crate has its own explicit version in its `Cargo.toml` file. This allows for:
+
+- Independent versioning if needed
+- Clearer dependency management
+- Better tooling compatibility
 
 ## Current Versions (v0.2.0)
 
@@ -41,9 +70,59 @@ cargo publish --package reratui-runtime
 cargo publish --package reratui
 ```
 
-## Version Bump Checklist
+## 🔄 Automated Version Bumping
 
-When bumping versions:
+Use the `bump_version.py` script for automated version management:
+
+### Basic Usage
+
+```bash
+# Patch version (0.2.0 -> 0.2.1)
+python scripts/bump_version.py patch
+
+# Minor version (0.2.0 -> 0.3.0)
+python scripts/bump_version.py minor
+
+# Major version (0.2.0 -> 1.0.0)
+python scripts/bump_version.py major
+
+# Specific version
+python scripts/bump_version.py --version 0.3.0
+```
+
+### What the Script Does
+
+1. ✅ Updates version in all crate `Cargo.toml` files
+2. ✅ Updates internal dependency versions
+3. ✅ Updates workspace version
+4. ✅ Runs `cargo build --workspace --lib` to verify
+5. ✅ Runs `cargo test --workspace --lib` (optional with `--no-test`)
+6. ✅ Commits changes with version message
+7. ✅ Creates git tag (e.g., `v0.3.0`)
+8. ✅ Pushes to remote (optional with `--no-push`)
+
+### Advanced Options
+
+```bash
+# Skip tests (faster for minor changes)
+python scripts/bump_version.py patch --no-test
+
+# Don't push to remote (review changes first)
+python scripts/bump_version.py minor --no-push
+
+# Custom tag message
+python scripts/bump_version.py patch --tag-message "Hotfix: Fix critical bug"
+
+# Don't create tag
+python scripts/bump_version.py minor --no-tag
+
+# Don't commit (manual control)
+python scripts/bump_version.py patch --no-commit
+```
+
+## 📝 Manual Version Bump Checklist
+
+If you need to bump versions manually:
 
 1. **Update crate versions** in these files:
 
@@ -62,18 +141,17 @@ When bumping versions:
    - `crates/reratui-runtime/Cargo.toml` (depends on core, hooks, panic)
    - `crates/reratui/Cargo.toml` (depends on all above)
 
-3. **Update workspace version** in root `Cargo.toml` (optional, for reference)
+3. **Update workspace version** in root `Cargo.toml`
 
 4. **Run tests**:
 
-   ```powershell
+   ```bash
    cargo test --workspace --lib
    cargo test --doc --workspace
    ```
 
 5. **Format and commit**:
-
-   ```powershell
+   ```bash
    cargo fmt
    git add .
    git commit -m "chore: bump version to X.Y.Z"
@@ -81,52 +159,141 @@ When bumping versions:
    git push origin main --tags
    ```
 
-6. **Publish** (in order shown above)
+## 📦 GitHub Release Creation
 
-## Quick Version Bump Script
+Use the `create_release.py` script to create GitHub releases:
 
-For a minor version bump (e.g., 0.2.0 -> 0.3.0):
+### Basic Usage
 
-```powershell
-# Update all version fields
-$OLD_VERSION = "0.2.0"
-$NEW_VERSION = "0.3.0"
+```bash
+# Auto-detect version from Cargo.toml
+python scripts/create_release.py
 
-# Update crate versions
-(Get-Content crates/reratui-panic/Cargo.toml) -replace "version = `"$OLD_VERSION`"", "version = `"$NEW_VERSION`"" | Set-Content crates/reratui-panic/Cargo.toml
-(Get-Content crates/reratui-core/Cargo.toml) -replace "version = `"$OLD_VERSION`"", "version = `"$NEW_VERSION`"" | Set-Content crates/reratui-core/Cargo.toml
-(Get-Content crates/reratui-macro/Cargo.toml) -replace "version = `"$OLD_VERSION`"", "version = `"$NEW_VERSION`"" | Set-Content crates/reratui-macro/Cargo.toml
-(Get-Content crates/reratui-hooks/Cargo.toml) -replace "version = `"$OLD_VERSION`"", "version = `"$NEW_VERSION`"" | Set-Content crates/reratui-hooks/Cargo.toml
-(Get-Content crates/reratui-ratatui/Cargo.toml) -replace "version = `"$OLD_VERSION`"", "version = `"$NEW_VERSION`"" | Set-Content crates/reratui-ratatui/Cargo.toml
-(Get-Content crates/reratui-runtime/Cargo.toml) -replace "version = `"$OLD_VERSION`"", "version = `"$NEW_VERSION`"" | Set-Content crates/reratui-runtime/Cargo.toml
-(Get-Content crates/reratui/Cargo.toml) -replace "version = `"$OLD_VERSION`"", "version = `"$NEW_VERSION`"" | Set-Content crates/reratui/Cargo.toml
+# Specific version
+python scripts/create_release.py --version 0.3.0
 
-# Update internal dependencies
-(Get-Content crates/reratui-hooks/Cargo.toml) -replace "reratui-core = \{ version = `"$OLD_VERSION`"", "reratui-core = { version = `"$NEW_VERSION`"" | Set-Content crates/reratui-hooks/Cargo.toml
-(Get-Content crates/reratui-hooks/Cargo.toml) -replace "reratui-panic = \{ version = `"$OLD_VERSION`"", "reratui-panic = { version = `"$NEW_VERSION`"" | Set-Content crates/reratui-hooks/Cargo.toml
-(Get-Content crates/reratui-ratatui/Cargo.toml) -replace "reratui-core = \{ version = `"$OLD_VERSION`"", "reratui-core = { version = `"$NEW_VERSION`"" | Set-Content crates/reratui-ratatui/Cargo.toml
-(Get-Content crates/reratui-runtime/Cargo.toml) -replace "reratui-core = \{ version = `"$OLD_VERSION`"", "reratui-core = { version = `"$NEW_VERSION`"" | Set-Content crates/reratui-runtime/Cargo.toml
-(Get-Content crates/reratui-runtime/Cargo.toml) -replace "reratui-hooks = \{ version = `"$OLD_VERSION`"", "reratui-hooks = { version = `"$NEW_VERSION`"" | Set-Content crates/reratui-runtime/Cargo.toml
-(Get-Content crates/reratui-runtime/Cargo.toml) -replace "reratui-panic = \{ version = `"$OLD_VERSION`"", "reratui-panic = { version = `"$NEW_VERSION`"" | Set-Content crates/reratui-runtime/Cargo.toml
-(Get-Content crates/reratui/Cargo.toml) -replace "reratui-core = \{ version = `"$OLD_VERSION`"", "reratui-core = { version = `"$NEW_VERSION`"" | Set-Content crates/reratui/Cargo.toml
-(Get-Content crates/reratui/Cargo.toml) -replace "reratui-hooks = \{ version = `"$OLD_VERSION`"", "reratui-hooks = { version = `"$NEW_VERSION`"" | Set-Content crates/reratui/Cargo.toml
-(Get-Content crates/reratui/Cargo.toml) -replace "reratui-macro = \{ version = `"$OLD_VERSION`"", "reratui-macro = { version = `"$NEW_VERSION`"" | Set-Content crates/reratui/Cargo.toml
-(Get-Content crates/reratui/Cargo.toml) -replace "reratui-ratatui = \{ version = `"$OLD_VERSION`"", "reratui-ratatui = { version = `"$NEW_VERSION`"" | Set-Content crates/reratui/Cargo.toml
-(Get-Content crates/reratui/Cargo.toml) -replace "reratui-runtime = \{ version = `"$OLD_VERSION`"", "reratui-runtime = { version = `"$NEW_VERSION`"" | Set-Content crates/reratui/Cargo.toml
+# Custom title
+python scripts/create_release.py --title "v0.3.0 - Amazing Features"
 
-# Update workspace version
-(Get-Content Cargo.toml) -replace "version = `"$OLD_VERSION`"", "version = `"$NEW_VERSION`"" | Set-Content Cargo.toml
-
-# Verify build
-cargo build --workspace --lib
-
-Write-Host "Version bumped from $OLD_VERSION to $NEW_VERSION"
-Write-Host "Run 'cargo test --workspace' to verify everything works"
+# Custom notes file
+python scripts/create_release.py --notes RELEASE_NOTES_v0.3.0.md
 ```
 
-## Notes
+### What the Script Does
 
-- Always test before publishing: `cargo test --workspace`
-- Use `--dry-run` flag to test publishing without actually publishing
-- Wait a few seconds between publishes for crates.io to index
-- Keep versions in sync across all published crates for consistency
+1. ✅ Auto-detects version from `Cargo.toml`
+2. ✅ Checks for release notes file (`RELEASE_NOTES_vX.Y.Z.md`)
+3. ✅ Creates GitHub release using `gh` CLI (if available)
+4. ✅ Falls back to manual instructions with browser link
+
+### Requirements
+
+- **GitHub CLI** (optional but recommended)
+  ```bash
+  winget install --id GitHub.cli
+  ```
+
+## 🔍 Pre-Publish Checklist
+
+Before publishing, ensure:
+
+- [ ] All tests pass: `cargo test --workspace`
+- [ ] Documentation builds: `cargo doc --workspace --no-deps`
+- [ ] Examples compile: `cargo build --examples`
+- [ ] Formatting is correct: `cargo fmt --check`
+- [ ] No clippy warnings: `cargo clippy --workspace -- -D warnings`
+- [ ] CHANGELOG.md is updated
+- [ ] README.md reflects new features
+- [ ] Version numbers are consistent across all crates
+
+## 📋 Complete Release Workflow
+
+### 1. Prepare Release
+
+```bash
+# Update code, add features, fix bugs
+git add .
+git commit -m "feat: add awesome feature"
+```
+
+### 2. Bump Version
+
+```bash
+# Use automated script
+python scripts/bump_version.py minor
+
+# Or manually update versions
+# See "Manual Version Bump Checklist" above
+```
+
+### 3. Create Release Notes
+
+Create `RELEASE_NOTES_vX.Y.Z.md` with:
+
+- What's new
+- Breaking changes
+- Bug fixes
+- Examples
+
+See `RELEASE_NOTES_v0.2.0.md` for template.
+
+### 4. Publish to crates.io
+
+```bash
+# Publish in dependency order
+cargo publish --package reratui-panic
+cargo publish --package reratui-core
+cargo publish --package reratui-macro
+cargo publish --package reratui-hooks
+cargo publish --package reratui-ratatui
+cargo publish --package reratui-runtime
+cargo publish --package reratui
+
+# Wait for crates.io to index between publishes
+```
+
+### 5. Create GitHub Release
+
+```bash
+python scripts/create_release.py
+```
+
+### 6. Announce
+
+- Update README.md badges
+- Post on social media
+- Update documentation site
+
+## 💡 Tips & Best Practices
+
+### Testing Before Publish
+
+```bash
+# Dry run to check what would be published
+cargo publish --package reratui --dry-run
+
+# Check package contents
+cargo package --package reratui --list
+```
+
+### Handling Publish Errors
+
+If a publish fails:
+
+1. **Check crates.io status**: https://status.crates.io/
+2. **Verify version isn't already published**
+3. **Check dependency versions are available**
+4. **Wait a few minutes and retry**
+
+### Version Strategy
+
+- **Patch (0.2.x)**: Bug fixes, documentation updates
+- **Minor (0.x.0)**: New features, backward compatible
+- **Major (x.0.0)**: Breaking changes
+
+## 🔗 Useful Links
+
+- **Scripts Documentation**: [`scripts/README.md`](scripts/README.md)
+- **crates.io**: https://crates.io/crates/reratui
+- **docs.rs**: https://docs.rs/reratui
+- **GitHub Releases**: https://github.com/sabry-awad97/reratui/releases
