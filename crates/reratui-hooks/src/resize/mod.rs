@@ -214,3 +214,122 @@ pub fn use_terminal_dimensions() -> (u16, u16) {
 
     size.get()
 }
+
+/// A hook that evaluates a media query predicate against terminal dimensions.
+///
+/// This hook allows you to create responsive layouts by checking terminal size
+/// against custom conditions. The predicate is re-evaluated whenever the terminal
+/// is resized.
+///
+/// # Type Parameters
+///
+/// * `F` - A function that takes `(u16, u16)` and returns `bool`
+///
+/// # Arguments
+///
+/// * `predicate` - A function that receives `(width, height)` and returns whether the condition matches
+///
+/// # Returns
+///
+/// `bool` - `true` if the predicate matches the current terminal dimensions, `false` otherwise
+///
+/// # Examples
+///
+/// ## Basic Width Query
+///
+/// ```rust,no_run
+/// use reratui_hooks::resize::use_media_query;
+///
+/// // Check if terminal is narrow
+/// let is_narrow = use_media_query(|(width, _)| width < 80);
+///
+/// if is_narrow {
+///     // Render compact layout
+/// } else {
+///     // Render full layout
+/// }
+/// ```
+///
+/// ## Height Query
+///
+/// ```rust,no_run
+/// use reratui_hooks::resize::use_media_query;
+///
+/// let is_short = use_media_query(|(_, height)| height < 24);
+/// ```
+///
+/// ## Combined Queries
+///
+/// ```rust,no_run
+/// use reratui_hooks::resize::use_media_query;
+///
+/// let is_small = use_media_query(|(width, height)| {
+///     width < 80 && height < 24
+/// });
+///
+/// let is_mobile = use_media_query(|(width, _)| width < 60);
+/// let is_tablet = use_media_query(|(width, _)| width >= 60 && width < 120);
+/// let is_desktop = use_media_query(|(width, _)| width >= 120);
+/// ```
+///
+/// ## Aspect Ratio Query
+///
+/// ```rust,no_run
+/// use reratui_hooks::resize::use_media_query;
+///
+/// let is_wide = use_media_query(|(width, height)| {
+///     let ratio = width as f32 / height as f32;
+///     ratio > 2.5
+/// });
+/// ```
+///
+/// ## Responsive Breakpoints
+///
+/// ```rust,no_run
+/// use reratui_hooks::resize::use_media_query;
+///
+/// // Define breakpoints
+/// let is_xs = use_media_query(|(w, _)| w < 40);
+/// let is_sm = use_media_query(|(w, _)| w >= 40 && w < 80);
+/// let is_md = use_media_query(|(w, _)| w >= 80 && w < 120);
+/// let is_lg = use_media_query(|(w, _)| w >= 120 && w < 160);
+/// let is_xl = use_media_query(|(w, _)| w >= 160);
+/// ```
+///
+/// # Implementation Details
+///
+/// - Returns `false` until the first resize event occurs (dimensions are 0x0)
+/// - Automatically re-evaluates when terminal is resized
+/// - Triggers component re-render when the predicate result changes
+/// - Predicate is only called when dimensions change
+///
+/// # Performance
+///
+/// The predicate function is called:
+/// - Once on initial render
+/// - Once per resize event
+///
+/// For expensive predicates, consider memoizing the result separately.
+///
+/// # Notes
+///
+/// - The predicate receives `(width, height)` as a tuple
+/// - Multiple `use_media_query` calls can be used in the same component
+/// - Each query independently tracks its own match state
+/// - Useful for creating responsive TUI layouts
+pub fn use_media_query<F>(predicate: F) -> bool
+where
+    F: Fn((u16, u16)) -> bool + Clone + Send + Sync + 'static,
+{
+    let (matches, set_matches) = use_state(|| false);
+
+    use_on_resize({
+        let set_matches = set_matches.clone();
+        move |(width, height)| {
+            let result = predicate((width, height));
+            set_matches.set(result);
+        }
+    });
+
+    matches.get()
+}

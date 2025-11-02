@@ -348,3 +348,188 @@ fn test_use_terminal_dimensions_updates() {
         });
     });
 }
+
+#[test]
+fn test_use_media_query_basic() {
+    let _lock = TEST_MUTEX.lock();
+    with_test_isolate(|| {
+        // No event initially
+        set_current_event(None);
+
+        with_component_id("MediaQueryBasicTest", |_ctx| {
+            let is_narrow = use_media_query(|(width, _)| width < 80);
+            assert!(!is_narrow, "Should be false initially (0x0)");
+        });
+
+        // Set narrow terminal
+        set_current_event(Some(Arc::new(Event::Resize(60, 24))));
+
+        with_component_id("MediaQueryBasicTest", |_ctx| {
+            let is_narrow = use_media_query(|(width, _)| width < 80);
+            assert!(is_narrow, "Should match narrow terminal");
+        });
+
+        // Set wide terminal
+        set_current_event(Some(Arc::new(Event::Resize(120, 40))));
+
+        with_component_id("MediaQueryBasicTest", |_ctx| {
+            let is_narrow = use_media_query(|(width, _)| width < 80);
+            assert!(!is_narrow, "Should not match wide terminal");
+        });
+    });
+}
+
+#[test]
+fn test_use_media_query_height() {
+    let _lock = TEST_MUTEX.lock();
+    with_test_isolate(|| {
+        set_current_event(Some(Arc::new(Event::Resize(80, 20))));
+
+        with_component_id("MediaQueryHeightTest", |_ctx| {
+            let is_short = use_media_query(|(_, height)| height < 24);
+            assert!(is_short, "Should detect short terminal");
+        });
+
+        set_current_event(Some(Arc::new(Event::Resize(80, 40))));
+
+        with_component_id("MediaQueryHeightTest", |_ctx| {
+            let is_short = use_media_query(|(_, height)| height < 24);
+            assert!(!is_short, "Should not match tall terminal");
+        });
+    });
+}
+
+#[test]
+fn test_use_media_query_combined() {
+    let _lock = TEST_MUTEX.lock();
+    with_test_isolate(|| {
+        // Small terminal
+        set_current_event(Some(Arc::new(Event::Resize(60, 20))));
+
+        with_component_id("MediaQueryCombinedTest", |_ctx| {
+            let is_small = use_media_query(|(width, height)| width < 80 && height < 24);
+            assert!(is_small, "Should match small terminal");
+        });
+
+        // Large terminal
+        set_current_event(Some(Arc::new(Event::Resize(120, 40))));
+
+        with_component_id("MediaQueryCombinedTest", |_ctx| {
+            let is_small = use_media_query(|(width, height)| width < 80 && height < 24);
+            assert!(!is_small, "Should not match large terminal");
+        });
+    });
+}
+
+#[test]
+fn test_use_media_query_breakpoints() {
+    let _lock = TEST_MUTEX.lock();
+    with_test_isolate(|| {
+        // Extra small
+        set_current_event(Some(Arc::new(Event::Resize(30, 20))));
+
+        with_component_id("MediaQueryBreakpointsTest", |_ctx| {
+            let is_xs = use_media_query(|(w, _)| w < 40);
+            let is_sm = use_media_query(|(w, _)| w >= 40 && w < 80);
+            let is_md = use_media_query(|(w, _)| w >= 80 && w < 120);
+
+            assert!(is_xs, "Should match xs breakpoint");
+            assert!(!is_sm, "Should not match sm breakpoint");
+            assert!(!is_md, "Should not match md breakpoint");
+        });
+
+        // Small
+        set_current_event(Some(Arc::new(Event::Resize(60, 24))));
+
+        with_component_id("MediaQueryBreakpointsTest", |_ctx| {
+            let is_xs = use_media_query(|(w, _)| w < 40);
+            let is_sm = use_media_query(|(w, _)| w >= 40 && w < 80);
+            let is_md = use_media_query(|(w, _)| w >= 80 && w < 120);
+
+            assert!(!is_xs, "Should not match xs breakpoint");
+            assert!(is_sm, "Should match sm breakpoint");
+            assert!(!is_md, "Should not match md breakpoint");
+        });
+
+        // Medium
+        set_current_event(Some(Arc::new(Event::Resize(100, 30))));
+
+        with_component_id("MediaQueryBreakpointsTest", |_ctx| {
+            let is_xs = use_media_query(|(w, _)| w < 40);
+            let is_sm = use_media_query(|(w, _)| w >= 40 && w < 80);
+            let is_md = use_media_query(|(w, _)| w >= 80 && w < 120);
+
+            assert!(!is_xs, "Should not match xs breakpoint");
+            assert!(!is_sm, "Should not match sm breakpoint");
+            assert!(is_md, "Should match md breakpoint");
+        });
+    });
+}
+
+#[test]
+fn test_use_media_query_aspect_ratio() {
+    let _lock = TEST_MUTEX.lock();
+    with_test_isolate(|| {
+        // Wide aspect ratio (3:1)
+        set_current_event(Some(Arc::new(Event::Resize(120, 40))));
+
+        with_component_id("MediaQueryAspectTest", |_ctx| {
+            let is_wide = use_media_query(|(width, height)| {
+                let ratio = width as f32 / height as f32;
+                ratio > 2.5
+            });
+            assert!(is_wide, "Should detect wide aspect ratio");
+        });
+
+        // Normal aspect ratio (2:1)
+        set_current_event(Some(Arc::new(Event::Resize(80, 40))));
+
+        with_component_id("MediaQueryAspectTest", |_ctx| {
+            let is_wide = use_media_query(|(width, height)| {
+                let ratio = width as f32 / height as f32;
+                ratio > 2.5
+            });
+            assert!(!is_wide, "Should not match normal aspect ratio");
+        });
+    });
+}
+
+#[test]
+fn test_use_media_query_multiple_queries() {
+    let _lock = TEST_MUTEX.lock();
+    with_test_isolate(|| {
+        set_current_event(Some(Arc::new(Event::Resize(100, 30))));
+
+        with_component_id("MediaQueryMultipleTest", |_ctx| {
+            let is_mobile = use_media_query(|(w, _)| w < 60);
+            let is_tablet = use_media_query(|(w, _)| w >= 60 && w < 120);
+            let is_desktop = use_media_query(|(w, _)| w >= 120);
+
+            assert!(!is_mobile, "Should not be mobile");
+            assert!(is_tablet, "Should be tablet");
+            assert!(!is_desktop, "Should not be desktop");
+        });
+    });
+}
+
+#[test]
+fn test_use_media_query_updates_on_resize() {
+    let _lock = TEST_MUTEX.lock();
+    with_test_isolate(|| {
+        // Start with narrow
+        set_current_event(Some(Arc::new(Event::Resize(60, 24))));
+
+        with_component_id("MediaQueryUpdatesTest", |_ctx| {
+            let is_narrow = use_media_query(|(w, _)| w < 80);
+            assert!(is_narrow, "Should start narrow");
+        });
+
+        // Resize to wide
+        set_current_event(Some(Arc::new(Event::Resize(120, 40))));
+
+        with_component_id("MediaQueryUpdatesTest", |_ctx| {
+            let is_narrow = use_media_query(|(w, _)| w < 80);
+            assert!(!is_narrow, "Should update to wide");
+        });
+    });
+}
