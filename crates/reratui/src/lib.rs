@@ -175,6 +175,7 @@ pub use reratui_hooks::{
     reducer::use_reducer,
     ref_hook::use_ref,
     state::use_state,
+    timeout::use_timeout,
 };
 
 // Re-export ratatui for use by the rsx macro and user convenience
@@ -204,6 +205,7 @@ pub mod prelude {
     pub use crate::hooks::ref_hook::*;
     pub use crate::hooks::resize::*;
     pub use crate::hooks::state::*;
+    pub use crate::hooks::timeout::*;
 
     // Re-export Props derive macro
     pub use reratui_macro::Props;

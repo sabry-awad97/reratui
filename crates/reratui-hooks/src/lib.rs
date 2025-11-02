@@ -15,6 +15,7 @@ pub mod reducer;
 pub mod ref_hook;
 pub mod resize;
 pub mod state;
+pub mod timeout;
 pub mod use_id;
 
 #[cfg(test)]
