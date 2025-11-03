@@ -436,12 +436,12 @@ fn test_use_mouse_drag_start() {
         set_current_event(Some(Arc::new(Event::Mouse(mouse_event))));
 
         with_component_id("MouseDragStartTest", |_ctx| {
-            use_mouse_drag(move |drag_info| {
-                if drag_info.is_start {
-                    *started_clone.lock() = true;
-                    *pos_clone.lock() = drag_info.start;
-                }
-            });
+            let (drag_info, _reset) = use_mouse_drag();
+
+            if drag_info.is_start {
+                *started_clone.lock() = true;
+                *pos_clone.lock() = drag_info.start;
+            }
         });
 
         assert!(*drag_started.lock(), "Drag should start");
@@ -468,12 +468,12 @@ fn test_use_mouse_drag_movement() {
         let moving_clone = drag_moving.clone();
         let pos_clone = current_pos.clone();
         with_component_id("MouseDragMovementTest", |_ctx| {
-            use_mouse_drag(move |drag_info| {
-                if !drag_info.is_start && !drag_info.is_end {
-                    *moving_clone.lock() = true;
-                    *pos_clone.lock() = drag_info.current;
-                }
-            });
+            let (drag_info, _reset) = use_mouse_drag();
+
+            if drag_info.is_dragging && !drag_info.is_start && !drag_info.is_end {
+                *moving_clone.lock() = true;
+                *pos_clone.lock() = drag_info.current;
+            }
         });
 
         // Then drag
@@ -488,12 +488,12 @@ fn test_use_mouse_drag_movement() {
         let moving_clone = drag_moving.clone();
         let pos_clone = current_pos.clone();
         with_component_id("MouseDragMovementTest", |_ctx| {
-            use_mouse_drag(move |drag_info| {
-                if !drag_info.is_start && !drag_info.is_end {
-                    *moving_clone.lock() = true;
-                    *pos_clone.lock() = drag_info.current;
-                }
-            });
+            let (drag_info, _reset) = use_mouse_drag();
+
+            if drag_info.is_dragging && !drag_info.is_start && !drag_info.is_end {
+                *moving_clone.lock() = true;
+                *pos_clone.lock() = drag_info.current;
+            }
         });
 
         assert!(*drag_moving.lock(), "Drag movement should be detected");
@@ -522,11 +522,11 @@ fn test_use_mouse_drag_end() {
 
         let ended_clone = drag_ended.clone();
         with_component_id("MouseDragEndTest", |_ctx| {
-            use_mouse_drag(move |drag_info| {
-                if drag_info.is_end {
-                    *ended_clone.lock() = true;
-                }
-            });
+            let (drag_info, _reset) = use_mouse_drag();
+
+            if drag_info.is_end {
+                *ended_clone.lock() = true;
+            }
         });
 
         // End drag
@@ -540,11 +540,11 @@ fn test_use_mouse_drag_end() {
 
         let ended_clone = drag_ended.clone();
         with_component_id("MouseDragEndTest", |_ctx| {
-            use_mouse_drag(move |drag_info| {
-                if drag_info.is_end {
-                    *ended_clone.lock() = true;
-                }
-            });
+            let (drag_info, _reset) = use_mouse_drag();
+
+            if drag_info.is_end {
+                *ended_clone.lock() = true;
+            }
         });
 
         assert!(*drag_ended.lock(), "Drag should end");
@@ -681,5 +681,264 @@ fn test_use_double_click_different_button() {
             !*double_clicked.lock(),
             "Different button should not trigger double-click"
         );
+    });
+}
+
+// Tests for use_mouse_position
+#[test]
+fn test_use_mouse_position_initial() {
+    let _lock = TEST_MUTEX.lock();
+    with_test_isolate(|| {
+        set_current_event(None);
+
+        with_component_id("MousePositionInitialTest", |_ctx| {
+            let (x, y) = use_mouse_position();
+            assert_eq!((x, y), (0, 0), "Initial position should be (0, 0)");
+        });
+    });
+}
+
+#[test]
+fn test_use_mouse_position_updates() {
+    let _lock = TEST_MUTEX.lock();
+    with_test_isolate(|| {
+        let mouse_event = MouseEvent {
+            kind: MouseEventKind::Moved,
+            column: 42,
+            row: 24,
+            modifiers: KeyModifiers::NONE,
+        };
+        set_current_event(Some(Arc::new(Event::Mouse(mouse_event))));
+
+        with_component_id("MousePositionUpdateTest", |_ctx| {
+            let (x, y) = use_mouse_position();
+            assert_eq!((x, y), (42, 24), "Position should update to (42, 24)");
+        });
+    });
+}
+
+#[test]
+fn test_use_mouse_position_on_click() {
+    let _lock = TEST_MUTEX.lock();
+    with_test_isolate(|| {
+        let mouse_event = MouseEvent {
+            kind: MouseEventKind::Down(MouseButton::Left),
+            column: 15,
+            row: 8,
+            modifiers: KeyModifiers::NONE,
+        };
+        set_current_event(Some(Arc::new(Event::Mouse(mouse_event))));
+
+        with_component_id("MousePositionClickTest", |_ctx| {
+            let (x, y) = use_mouse_position();
+            assert_eq!(
+                (x, y),
+                (15, 8),
+                "Position should update on click to (15, 8)"
+            );
+        });
+    });
+}
+
+#[test]
+fn test_use_mouse_position_on_scroll() {
+    let _lock = TEST_MUTEX.lock();
+    with_test_isolate(|| {
+        let mouse_event = MouseEvent {
+            kind: MouseEventKind::ScrollDown,
+            column: 30,
+            row: 20,
+            modifiers: KeyModifiers::NONE,
+        };
+        set_current_event(Some(Arc::new(Event::Mouse(mouse_event))));
+
+        with_component_id("MousePositionScrollTest", |_ctx| {
+            let (x, y) = use_mouse_position();
+            assert_eq!(
+                (x, y),
+                (30, 20),
+                "Position should update on scroll to (30, 20)"
+            );
+        });
+    });
+}
+
+#[test]
+fn test_use_mouse_position_ignores_non_mouse() {
+    let _lock = TEST_MUTEX.lock();
+    with_test_isolate(|| {
+        // Set a keyboard event
+        let key_event = KeyEvent::new(KeyCode::Char('a'), KeyModifiers::NONE);
+        set_current_event(Some(Arc::new(Event::Key(key_event))));
+
+        with_component_id("MousePositionIgnoreKeyTest", |_ctx| {
+            let (x, y) = use_mouse_position();
+            assert_eq!(
+                (x, y),
+                (0, 0),
+                "Position should remain (0, 0) for non-mouse events"
+            );
+        });
+    });
+}
+
+// Tests for use_mouse_hover
+#[test]
+fn test_use_mouse_hover_inside_area() {
+    let _lock = TEST_MUTEX.lock();
+    with_test_isolate(|| {
+        use ratatui::layout::Rect;
+
+        let area = Rect::new(10, 5, 20, 10);
+        let mouse_event = MouseEvent {
+            kind: MouseEventKind::Moved,
+            column: 15, // Inside area (10 <= 15 < 30)
+            row: 8,     // Inside area (5 <= 8 < 15)
+            modifiers: KeyModifiers::NONE,
+        };
+        set_current_event(Some(Arc::new(Event::Mouse(mouse_event))));
+
+        with_component_id("MouseHoverInsideTest", |_ctx| {
+            let is_hovering = super::use_mouse_hover(area);
+            assert!(is_hovering, "Should detect hover inside area");
+        });
+    });
+}
+
+#[test]
+fn test_use_mouse_hover_outside_area() {
+    let _lock = TEST_MUTEX.lock();
+    with_test_isolate(|| {
+        use ratatui::layout::Rect;
+
+        let area = Rect::new(10, 5, 20, 10);
+        let mouse_event = MouseEvent {
+            kind: MouseEventKind::Moved,
+            column: 5, // Outside area (< 10)
+            row: 8,
+            modifiers: KeyModifiers::NONE,
+        };
+        set_current_event(Some(Arc::new(Event::Mouse(mouse_event))));
+
+        with_component_id("MouseHoverOutsideTest", |_ctx| {
+            let is_hovering = super::use_mouse_hover(area);
+            assert!(!is_hovering, "Should not detect hover outside area");
+        });
+    });
+}
+
+#[test]
+fn test_use_mouse_hover_on_boundary() {
+    let _lock = TEST_MUTEX.lock();
+    with_test_isolate(|| {
+        use ratatui::layout::Rect;
+
+        let area = Rect::new(10, 5, 20, 10);
+
+        // Test left boundary (inclusive)
+        let mouse_event = MouseEvent {
+            kind: MouseEventKind::Moved,
+            column: 10, // On left boundary
+            row: 8,
+            modifiers: KeyModifiers::NONE,
+        };
+        set_current_event(Some(Arc::new(Event::Mouse(mouse_event))));
+
+        with_component_id("MouseHoverBoundaryTest", |_ctx| {
+            let is_hovering = super::use_mouse_hover(area);
+            assert!(is_hovering, "Should detect hover on left boundary");
+        });
+    });
+}
+
+#[test]
+fn test_use_mouse_hover_right_boundary() {
+    let _lock = TEST_MUTEX.lock();
+    with_test_isolate(|| {
+        use ratatui::layout::Rect;
+
+        let area = Rect::new(10, 5, 20, 10);
+
+        // Test right boundary (exclusive)
+        let mouse_event = MouseEvent {
+            kind: MouseEventKind::Moved,
+            column: 30, // On right boundary (10 + 20 = 30, exclusive)
+            row: 8,
+            modifiers: KeyModifiers::NONE,
+        };
+        set_current_event(Some(Arc::new(Event::Mouse(mouse_event))));
+
+        with_component_id("MouseHoverRightBoundaryTest", |_ctx| {
+            let is_hovering = super::use_mouse_hover(area);
+            assert!(
+                !is_hovering,
+                "Should not detect hover on right boundary (exclusive)"
+            );
+        });
+    });
+}
+
+#[test]
+fn test_use_mouse_hover_click_inside() {
+    let _lock = TEST_MUTEX.lock();
+    with_test_isolate(|| {
+        use ratatui::layout::Rect;
+
+        let area = Rect::new(10, 5, 20, 10);
+        let mouse_event = MouseEvent {
+            kind: MouseEventKind::Down(MouseButton::Left),
+            column: 20,
+            row: 10,
+            modifiers: KeyModifiers::NONE,
+        };
+        set_current_event(Some(Arc::new(Event::Mouse(mouse_event))));
+
+        with_component_id("MouseHoverClickTest", |_ctx| {
+            let is_hovering = super::use_mouse_hover(area);
+            assert!(is_hovering, "Should detect hover on click inside area");
+        });
+    });
+}
+
+#[test]
+fn test_use_mouse_hover_no_event() {
+    let _lock = TEST_MUTEX.lock();
+    with_test_isolate(|| {
+        use ratatui::layout::Rect;
+
+        set_current_event(None);
+        let area = Rect::new(10, 5, 20, 10);
+
+        with_component_id("MouseHoverNoEventTest", |_ctx| {
+            let is_hovering = super::use_mouse_hover(area);
+            assert!(!is_hovering, "Should not detect hover without event");
+        });
+    });
+}
+
+#[test]
+fn test_use_mouse_hover_corner_cases() {
+    let _lock = TEST_MUTEX.lock();
+    with_test_isolate(|| {
+        use ratatui::layout::Rect;
+
+        let area = Rect::new(10, 5, 20, 10);
+
+        // Test bottom-right corner (exclusive)
+        let mouse_event = MouseEvent {
+            kind: MouseEventKind::Moved,
+            column: 29, // Just inside right boundary
+            row: 14,    // Just inside bottom boundary
+            modifiers: KeyModifiers::NONE,
+        };
+        set_current_event(Some(Arc::new(Event::Mouse(mouse_event))));
+
+        with_component_id("MouseHoverCornerTest", |_ctx| {
+            let is_hovering = super::use_mouse_hover(area);
+            assert!(
+                is_hovering,
+                "Should detect hover at bottom-right corner (inside)"
+            );
+        });
     });
 }

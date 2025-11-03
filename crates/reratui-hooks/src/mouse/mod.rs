@@ -2,7 +2,9 @@
 //!
 //! Provides a convenient hook for handling mouse events with stable callbacks.
 
-use crate::{effect_event::use_effect_event, event::use_event, ref_hook::use_ref};
+use crate::{
+    effect_event::use_effect_event, event::use_event, ref_hook::use_ref, state::use_state,
+};
 use crossterm::event::{Event, MouseButton, MouseEvent, MouseEventKind};
 use std::time::{Duration, Instant};
 
@@ -109,86 +111,94 @@ where
 }
 
 /// Information about a drag operation
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Default, PartialEq)]
 pub struct DragInfo {
     /// The mouse button being used for dragging
-    pub button: MouseButton,
+    pub button: Option<MouseButton>,
     /// Starting position (column, row)
     pub start: (u16, u16),
     /// Current position (column, row)
     pub current: (u16, u16),
+    /// Whether the drag is currently active
+    pub is_dragging: bool,
     /// Whether the drag just started
     pub is_start: bool,
     /// Whether the drag just ended
     pub is_end: bool,
 }
 
-/// A hook that detects mouse drag operations with start and end positions.
+/// Hook for tracking mouse drag operations.
 ///
-/// This hook tracks drag operations, providing information about the drag button,
-/// start position, current position, and whether the drag is starting or ending.
+/// Returns a tuple containing the current drag state and a reset function.
+/// The reset function can be used to clear the drag state and reset tracking.
 ///
-/// # Type Parameters
+/// This hook automatically updates the drag state based on mouse events from the current event context.
 ///
-/// * `F` - A function that takes `DragInfo` and returns nothing
+/// # Returns
 ///
-/// # Arguments
-///
-/// * `handler` - A callback function that will be invoked during drag operations
+/// A tuple `(DragInfo, impl Fn())` where:
+/// - First element is the current drag information
+/// - Second element is a reset function to clear the drag state
 ///
 /// # Examples
 ///
 /// ```rust,no_run
 /// use reratui_hooks::mouse::use_mouse_drag;
-/// use crossterm::event::MouseButton;
 ///
-/// // Track drag operations
-/// use_mouse_drag(move |drag_info| {
-///     if drag_info.is_start {
-///         println!("Drag started at {:?}", drag_info.start);
-///     } else if drag_info.is_end {
-///         println!("Drag ended at {:?}", drag_info.current);
-///     } else {
-///         println!("Dragging from {:?} to {:?}", drag_info.start, drag_info.current);
-///     }
-/// });
+/// let (drag_info, reset_drag) = use_mouse_drag();
+///
+/// if drag_info.is_start {
+///     println!("Drag started at {:?}", drag_info.start);
+/// } else if drag_info.is_dragging {
+///     println!("Dragging from {:?} to {:?}", drag_info.start, drag_info.current);
+/// } else if drag_info.is_end {
+///     println!("Drag ended at {:?}", drag_info.current);
+/// }
+///
+/// // Reset drag state if needed
+/// if some_condition {
+///     reset_drag();
+/// }
 /// ```
 ///
 /// # Note
 ///
 /// - Tracks drag start (button down), drag movement, and drag end (button up)
-/// - Uses `use_ref` internally to track drag state without re-renders
-/// - The callback always sees the latest state values (via effect event pattern)
-/// - The callback has a stable identity across renders
-pub fn use_mouse_drag<F>(handler: F)
-where
-    F: Fn(DragInfo) + Clone + Send + Sync + 'static,
-{
-    // Track drag state: Option<(button, start_x, start_y)>
+/// - The drag state persists across renders until the drag ends or is reset
+/// - `is_dragging` is `true` during the entire drag operation
+/// - `is_start` is only `true` on the first frame of the drag
+/// - `is_end` is only `true` on the last frame of the drag
+pub fn use_mouse_drag() -> (DragInfo, impl Fn()) {
+    let (drag_info, set_drag_info) = use_state(DragInfo::default);
     let drag_state = use_ref(|| None::<(MouseButton, u16, u16)>);
+
+    let set_info_clone = set_drag_info.clone();
+    let state_clone = drag_state.clone();
 
     use_mouse(move |mouse_event| {
         match mouse_event.kind {
             MouseEventKind::Down(button) => {
                 // Start drag
-                drag_state.set(Some((button, mouse_event.column, mouse_event.row)));
-                handler(DragInfo {
-                    button,
+                state_clone.set(Some((button, mouse_event.column, mouse_event.row)));
+                set_info_clone.set(DragInfo {
+                    button: Some(button),
                     start: (mouse_event.column, mouse_event.row),
                     current: (mouse_event.column, mouse_event.row),
+                    is_dragging: true,
                     is_start: true,
                     is_end: false,
                 });
             }
             MouseEventKind::Drag(button) => {
                 // Continue drag
-                if let Some((drag_button, start_x, start_y)) = drag_state.get()
+                if let Some((drag_button, start_x, start_y)) = state_clone.get()
                     && button == drag_button
                 {
-                    handler(DragInfo {
-                        button,
+                    set_info_clone.set(DragInfo {
+                        button: Some(button),
                         start: (start_x, start_y),
                         current: (mouse_event.column, mouse_event.row),
+                        is_dragging: true,
                         is_start: false,
                         is_end: false,
                     });
@@ -196,22 +206,34 @@ where
             }
             MouseEventKind::Up(button) => {
                 // End drag
-                if let Some((drag_button, start_x, start_y)) = drag_state.get()
+                if let Some((drag_button, start_x, start_y)) = state_clone.get()
                     && button == drag_button
                 {
-                    handler(DragInfo {
-                        button,
+                    set_info_clone.set(DragInfo {
+                        button: Some(button),
                         start: (start_x, start_y),
                         current: (mouse_event.column, mouse_event.row),
+                        is_dragging: false,
                         is_start: false,
                         is_end: true,
                     });
-                    drag_state.set(None);
+                    state_clone.set(None);
                 }
             }
             _ => {}
         }
     });
+
+    let reset = {
+        let set_info = set_drag_info.clone();
+        let state = drag_state.clone();
+        move || {
+            set_info.set(DragInfo::default());
+            state.set(None);
+        }
+    };
+
+    (drag_info.get(), reset)
 }
 
 /// A hook that detects double-click events with configurable timing.
@@ -278,4 +300,102 @@ where
             last_click.set(Some((button, mouse_event.column, mouse_event.row, now)));
         }
     });
+}
+
+/// A hook that tracks the current mouse position.
+///
+/// Returns a tuple `(x, y)` representing the current mouse coordinates.
+/// The position is updated whenever any mouse event occurs (move, click, scroll, etc.).
+///
+/// # Returns
+///
+/// A tuple `(u16, u16)` where:
+/// - First element is the column (x-coordinate)
+/// - Second element is the row (y-coordinate)
+///
+/// # Examples
+///
+/// ```rust,no_run
+/// use reratui_hooks::mouse::use_mouse_position;
+///
+/// let (x, y) = use_mouse_position();
+/// println!("Mouse is at position: ({}, {})", x, y);
+/// ```
+///
+/// # Note
+///
+/// - The position starts at (0, 0) until the first mouse event
+/// - Mouse capture must be enabled in the terminal
+/// - The hook updates on any mouse event, including movement, clicks, and scrolling
+pub fn use_mouse_position() -> (u16, u16) {
+    let (position, set_position) = use_state(|| (0u16, 0u16));
+
+    use_mouse({
+        let position = position.clone();
+        move |mouse_event| {
+            let new_pos = (mouse_event.column, mouse_event.row);
+            if new_pos != position.get() {
+                set_position.set(new_pos);
+            }
+        }
+    });
+
+    position.get()
+}
+
+/// A hook that detects if the mouse is hovering over a specific rectangular area.
+///
+/// Returns `true` if the mouse cursor is currently within the specified area bounds,
+/// `false` otherwise. The hover state is updated on any mouse event.
+///
+/// # Arguments
+///
+/// * `area` - A `Rect` defining the rectangular area to monitor for hover events.
+///   The area is defined by its `x`, `y`, `width`, and `height` properties.
+///
+/// # Returns
+///
+/// A boolean indicating whether the mouse is currently hovering over the area.
+///
+/// # Examples
+///
+/// ```rust,no_run
+/// use reratui_hooks::mouse::use_mouse_hover;
+/// use ratatui::layout::Rect;
+///
+/// let button_area = Rect::new(10, 5, 20, 3);
+/// let is_hovering = use_mouse_hover(button_area);
+///
+/// if is_hovering {
+///     println!("Mouse is hovering over the button!");
+/// }
+/// ```
+///
+/// # Note
+///
+/// - The hover detection is inclusive of the area boundaries
+/// - Mouse position (x, y) is considered inside if:
+///   - `x >= area.x && x < area.x + area.width`
+///   - `y >= area.y && y < area.y + area.height`
+/// - The hook updates on any mouse event (movement, clicks, scrolling)
+/// - Mouse capture must be enabled in the terminal
+pub fn use_mouse_hover(area: ratatui::layout::Rect) -> bool {
+    let (is_hovering, set_hovering) = use_state(|| false);
+
+    use_mouse({
+        let is_hovering = is_hovering.clone();
+
+        move |mouse_event| {
+            let is_inside = mouse_event.column >= area.x
+                && mouse_event.column < area.x + area.width
+                && mouse_event.row >= area.y
+                && mouse_event.row < area.y + area.height;
+
+            if is_inside != is_hovering.get() {
+                set_hovering.set(is_inside);
+            }
+        }
+    });
+
+    is_hovering.get()
 }
