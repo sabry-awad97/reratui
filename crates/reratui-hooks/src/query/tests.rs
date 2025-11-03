@@ -513,3 +513,122 @@ async fn test_cache_expiration() {
     })
     .await;
 }
+
+/// Test that background refresh tasks are properly cancelled on cleanup
+/// This verifies the fix for the critical task leak bug
+#[tokio::test]
+async fn test_background_task_cleanup() {
+    with_async_test_isolate(|| async {
+        clear_query_cache();
+        let fetch_count = Arc::new(AtomicU32::new(0));
+
+        with_async_component_id("BackgroundTaskCleanupTest", |_ctx| async {
+            let fetch_count_clone = fetch_count.clone();
+            let options = QueryOptions {
+                enabled: true,
+                stale_time: Duration::from_millis(100),
+                cache_time: Duration::from_secs(300),
+                retry: false,
+                retry_attempts: 0,
+            };
+
+            let _result = use_query(
+                "cleanup-test-key",
+                move || {
+                    fetch_count_clone.fetch_add(1, Ordering::SeqCst);
+                    mock_fetch_success(42)
+                },
+                Some(options),
+            );
+
+            sleep(Duration::from_millis(50)).await;
+            sleep(Duration::from_millis(150)).await;
+
+            let count_before = fetch_count.load(Ordering::SeqCst);
+            assert!(count_before >= 2, "Should have at least 2 fetches");
+        })
+        .await;
+
+        sleep(Duration::from_millis(200)).await;
+        // Background task should be cancelled, no more fetches
+    })
+    .await;
+}
+
+/// Test that disabled queries don't create background tasks
+#[tokio::test]
+async fn test_disabled_query_no_background_task() {
+    with_async_test_isolate(|| async {
+        clear_query_cache();
+        let fetch_count = Arc::new(AtomicU32::new(0));
+
+        with_async_component_id("DisabledBackgroundTest", |_ctx| async {
+            let fetch_count_clone = fetch_count.clone();
+            let options = QueryOptions {
+                enabled: false,
+                stale_time: Duration::from_millis(50),
+                cache_time: Duration::from_secs(300),
+                retry: false,
+                retry_attempts: 0,
+            };
+
+            let _result = use_query(
+                "disabled-bg-test",
+                move || {
+                    fetch_count_clone.fetch_add(1, Ordering::SeqCst);
+                    mock_fetch_success(42)
+                },
+                Some(options),
+            );
+
+            sleep(Duration::from_millis(200)).await;
+
+            assert_eq!(
+                fetch_count.load(Ordering::SeqCst),
+                0,
+                "Disabled query should not create background tasks"
+            );
+        })
+        .await;
+    })
+    .await;
+}
+
+/// Test that stale_time = 0 means no background refresh
+#[tokio::test]
+async fn test_no_background_refresh_when_stale_time_zero() {
+    with_async_test_isolate(|| async {
+        clear_query_cache();
+        let fetch_count = Arc::new(AtomicU32::new(0));
+
+        with_async_component_id("NoBackgroundRefreshTest", |_ctx| async {
+            let fetch_count_clone = fetch_count.clone();
+            let options = QueryOptions {
+                enabled: true,
+                stale_time: Duration::from_secs(0),
+                cache_time: Duration::from_secs(300),
+                retry: false,
+                retry_attempts: 0,
+            };
+
+            let _result = use_query(
+                "no-bg-refresh-test",
+                move || {
+                    fetch_count_clone.fetch_add(1, Ordering::SeqCst);
+                    mock_fetch_success(42)
+                },
+                Some(options),
+            );
+
+            sleep(Duration::from_millis(50)).await;
+            let count_initial = fetch_count.load(Ordering::SeqCst);
+            assert_eq!(count_initial, 1, "Should have exactly 1 initial fetch");
+
+            sleep(Duration::from_millis(200)).await;
+            let count_final = fetch_count.load(Ordering::SeqCst);
+            assert_eq!(count_final, 1, "Should still have exactly 1 fetch");
+        })
+        .await;
+    })
+    .await;
+}

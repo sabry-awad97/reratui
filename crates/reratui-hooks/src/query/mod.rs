@@ -1,180 +1,22 @@
 //! Query hook for managing cached data fetching operations
 //!
-//! This module provides a runtime-agnostic hook similar to TanStack React Query for managing
-//! server state, caching, and data fetching operations. It works with any async runtime
-//! (Tokio, async-std, smol, etc.) through generic future abstractions.
+//! This module provides a hook similar to TanStack React Query for managing
+//! server state, caching, and data fetching operations using Tokio for async execution.
 
 use crate::effect::use_effect;
 use crate::reducer::use_reducer;
 
 #[cfg(test)]
 pub mod tests;
+
 use parking_lot::Mutex;
 use std::collections::HashMap;
 use std::fmt::Debug;
 use std::future::Future;
 use std::hash::Hash;
-use std::pin::Pin;
 use std::sync::Arc;
-use std::task::{Context, Poll, Waker};
 use std::time::{Duration, Instant};
 use tracing::{debug, error, info, trace, warn};
-
-/// A runtime-agnostic task handle that can be used to cancel async operations
-pub trait TaskHandle: Send + Sync {
-    /// Cancel the task
-    fn cancel(&self);
-
-    /// Check if the task is finished
-    fn is_finished(&self) -> bool;
-}
-
-/// A runtime-agnostic executor trait for spawning async tasks
-pub trait AsyncExecutor: Send + Sync {
-    /// The type of task handle returned by spawn
-    type Handle: TaskHandle;
-
-    /// Spawn an async task
-    fn spawn<F>(&self, future: F) -> Self::Handle
-    where
-        F: Future<Output = ()> + Send + 'static;
-
-    /// Sleep for a given duration
-    fn sleep(&self, duration: Duration) -> Pin<Box<dyn Future<Output = ()> + Send>>;
-}
-
-/// Default Tokio-based executor implementation
-pub struct TokioExecutor;
-
-impl AsyncExecutor for TokioExecutor {
-    type Handle = TokioTaskHandle;
-
-    fn spawn<F>(&self, future: F) -> Self::Handle
-    where
-        F: Future<Output = ()> + Send + 'static,
-    {
-        TokioTaskHandle {
-            handle: tokio::spawn(future),
-        }
-    }
-
-    fn sleep(&self, duration: Duration) -> Pin<Box<dyn Future<Output = ()> + Send>> {
-        Box::pin(tokio::time::sleep(duration))
-    }
-}
-
-/// Tokio-specific task handle implementation
-pub struct TokioTaskHandle {
-    handle: tokio::task::JoinHandle<()>,
-}
-
-impl TaskHandle for TokioTaskHandle {
-    fn cancel(&self) {
-        self.handle.abort();
-    }
-
-    fn is_finished(&self) -> bool {
-        self.handle.is_finished()
-    }
-}
-
-/// A simple timer future for runtime-agnostic sleep
-pub struct Timer {
-    deadline: Instant,
-    waker: Option<Waker>,
-}
-
-impl Timer {
-    /// Create a new timer that will complete after the specified duration
-    pub fn new(duration: Duration) -> Self {
-        Self {
-            deadline: Instant::now() + duration,
-            waker: None,
-        }
-    }
-}
-
-impl Future for Timer {
-    type Output = ();
-
-    fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
-        if Instant::now() >= self.deadline {
-            Poll::Ready(())
-        } else {
-            self.waker = Some(cx.waker().clone());
-            Poll::Pending
-        }
-    }
-}
-
-/// Fallback executor that uses std::thread for spawning tasks
-pub struct ThreadExecutor;
-
-impl AsyncExecutor for ThreadExecutor {
-    type Handle = ThreadTaskHandle;
-
-    fn spawn<F>(&self, future: F) -> Self::Handle
-    where
-        F: Future<Output = ()> + Send + 'static,
-    {
-        let (sender, receiver) = std::sync::mpsc::channel();
-        let cancelled = Arc::new(std::sync::atomic::AtomicBool::new(false));
-        let cancelled_clone = cancelled.clone();
-
-        std::thread::spawn(move || {
-            let _rt = futures::executor::LocalPool::new();
-
-            let task = async move {
-                let mut future = Box::pin(future);
-                loop {
-                    if cancelled_clone.load(std::sync::atomic::Ordering::Relaxed) {
-                        break;
-                    }
-
-                    match futures::poll!(&mut future) {
-                        Poll::Ready(()) => break,
-                        Poll::Pending => {
-                            std::thread::sleep(Duration::from_millis(1));
-                        }
-                    }
-                }
-            };
-
-            futures::executor::block_on(task);
-            let _ = sender.send(());
-        });
-
-        ThreadTaskHandle {
-            receiver: Some(Arc::new(Mutex::new(receiver))),
-            cancelled,
-        }
-    }
-
-    fn sleep(&self, duration: Duration) -> Pin<Box<dyn Future<Output = ()> + Send>> {
-        Box::pin(Timer::new(duration))
-    }
-}
-
-/// Thread-based task handle implementation for fallback executor
-pub struct ThreadTaskHandle {
-    receiver: Option<Arc<Mutex<std::sync::mpsc::Receiver<()>>>>,
-    cancelled: Arc<std::sync::atomic::AtomicBool>,
-}
-
-impl TaskHandle for ThreadTaskHandle {
-    fn cancel(&self) {
-        self.cancelled
-            .store(true, std::sync::atomic::Ordering::Relaxed);
-    }
-
-    fn is_finished(&self) -> bool {
-        if let Some(ref receiver) = self.receiver {
-            receiver.lock().try_recv().is_ok()
-        } else {
-            true
-        }
-    }
-}
 
 /// Status of a query operation
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
@@ -205,12 +47,6 @@ pub struct QueryOptions {
     pub retry: bool,
     /// Number of retry attempts
     pub retry_attempts: u32,
-    /// Whether to refetch on window focus
-    pub refetch_on_window_focus: bool,
-    /// Whether to refetch on reconnect
-    pub refetch_on_reconnect: bool,
-    /// Custom executor for async operations (defaults to Tokio)
-    pub executor: Option<Arc<TokioExecutor>>,
 }
 
 impl Default for QueryOptions {
@@ -221,9 +57,6 @@ impl Default for QueryOptions {
             cache_time: Duration::from_secs(300), // 5 minutes
             retry: true,
             retry_attempts: 3,
-            refetch_on_window_focus: true,
-            refetch_on_reconnect: true,
-            executor: None,
         }
     }
 }
@@ -251,11 +84,6 @@ type QueryCache = HashMap<String, Box<dyn std::any::Any + Send + Sync>>;
 
 static QUERY_CACHE: once_cell::sync::Lazy<Arc<Mutex<QueryCache>>> =
     once_cell::sync::Lazy::new(|| Arc::new(Mutex::new(HashMap::new())));
-
-/// Get the default executor - always use Tokio since it's available in this codebase
-fn get_default_executor() -> Arc<TokioExecutor> {
-    Arc::new(TokioExecutor)
-}
 
 /// Result of a query operation
 #[derive(Clone)]
@@ -292,10 +120,10 @@ enum QueryAction<T: Clone, E: Clone> {
     Error(E),
 }
 
-/// A hook for managing cached query operations with runtime-agnostic async execution
+/// A hook for managing cached query operations with Tokio
 ///
 /// This hook provides caching, background updates, retry logic with exponential backoff,
-/// and query invalidation while being compatible with any async runtime through the AsyncExecutor trait.
+/// and query invalidation using Tokio for async execution.
 ///
 /// # Retry Logic
 ///
@@ -363,17 +191,13 @@ where
     E: Clone + PartialEq + Send + Sync + Debug + 'static,
 {
     let options = options.unwrap_or_default();
-    let executor = options
-        .executor
-        .clone()
-        .unwrap_or_else(get_default_executor);
 
     // Create a unique cache key using the query key
     let cache_key = format!("{:?}", key);
     debug!(
         query_key = ?key,
         cache_key = %cache_key,
-        "Initializing runtime-agnostic query hook"
+        "Initializing query hook with Tokio"
     );
 
     // Define the reducer function
@@ -423,7 +247,7 @@ where
     // Create a shared state for the query execution
     let query_state = Arc::new(Mutex::new(()));
 
-    // Create the refetch function with runtime-agnostic execution
+    // Create the refetch function using Tokio
     let refetch_arc = {
         let query_state = Arc::clone(&query_state);
         let query_fn = query_fn.clone();
@@ -431,7 +255,6 @@ where
         let state = state.clone();
         let options = options.clone();
         let key = key.clone();
-        let executor = executor.clone();
         let cache_key = cache_key.clone();
 
         Arc::new(move || {
@@ -439,19 +262,17 @@ where
             let key = key.clone();
             info!(
                 query_key = ?key,
-                "Refetching query data with runtime-agnostic executor"
+                "Refetching query data with Tokio"
             );
 
             let dispatch = dispatch.clone();
             let current_state = state.get();
             let query_fn = query_fn.clone();
             let options = options.clone();
-            let executor = executor.clone();
             let cache_key = cache_key.clone();
 
-            // Spawn the query execution task using the runtime-agnostic executor
-            let executor_for_spawn = executor.clone();
-            let _handle = executor_for_spawn.spawn(async move {
+            // Spawn the query execution task using Tokio
+            let _handle = tokio::spawn(async move {
                 // Update status based on current data
                 if current_state.data.is_some() {
                     debug!(
@@ -532,8 +353,8 @@ where
                                 "Query failed, retrying"
                             );
 
-                            // Use runtime-agnostic sleep with exponential backoff
-                            executor.sleep(Duration::from_millis(delay_ms)).await;
+                            // Use Tokio sleep with exponential backoff
+                            tokio::time::sleep(Duration::from_millis(delay_ms)).await;
                         }
                     }
                 }
@@ -592,7 +413,6 @@ where
     {
         let refetch = Arc::clone(&refetch_arc);
         let key = key.clone();
-        let executor = executor.clone();
         let unique_key = format!("{:?}", key);
 
         use_effect(
@@ -601,7 +421,7 @@ where
                     debug!(
                         query_key = ?key,
                         stale_time_secs = ?options.stale_time.as_secs(),
-                        "Setting up runtime-agnostic query effect"
+                        "Setting up query effect with Tokio"
                     );
 
                     // Only refetch if we don't have fresh cached successful data
@@ -617,37 +437,46 @@ where
                     }
 
                     // Set up background refresh if stale_time is configured
-                    if options.stale_time > Duration::from_secs(0) {
-                        let refetch = Arc::clone(&refetch);
-                        let key = key.clone();
-                        let executor_for_bg = executor.clone();
-                        let executor_for_sleep = executor_for_bg.clone();
+                    let bg_task_handle = if options.stale_time > Duration::from_secs(0) {
+                        let refetch_for_bg = Arc::clone(&refetch);
+                        let key_for_bg = key.clone();
 
-                        let _handle = executor_for_bg.spawn(async move {
+                        Some(tokio::spawn(async move {
                             loop {
-                                executor_for_sleep.sleep(options.stale_time).await;
+                                tokio::time::sleep(options.stale_time).await;
                                 trace!(
-                                    query_key = ?key,
+                                    query_key = ?key_for_bg,
                                     "Executing background refresh"
                                 );
-                                refetch();
+                                refetch_for_bg();
                             }
-                        });
-                    }
+                        }))
+                    } else {
+                        None
+                    };
+
+                    // Return cleanup function that cancels the background task
+                    let key = key.clone();
+                    Some(move || {
+                        if let Some(handle) = bg_task_handle {
+                            handle.abort();
+                            debug!(
+                                query_key = ?key,
+                                "Cancelled background refresh task"
+                            );
+                        }
+                        debug!(
+                            query_key = ?key,
+                            "Cleaning up query effect"
+                        );
+                    })
                 } else {
                     debug!(
                         query_key = ?key,
                         "Query disabled, skipping effect"
                     );
+                    None
                 }
-
-                let key = key.clone();
-                Some(move || {
-                    debug!(
-                        query_key = ?key,
-                        "Cleaning up runtime-agnostic query effect"
-                    );
-                })
             },
             unique_key,
         );
@@ -661,7 +490,7 @@ where
         has_data = current_state.data.is_some(),
         has_error = current_state.error.is_some(),
         is_stale = current_state.is_stale,
-        "Returning runtime-agnostic query result"
+        "Returning query result"
     );
 
     QueryResult {
