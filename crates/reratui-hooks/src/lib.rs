@@ -13,6 +13,7 @@ pub mod id;
 pub mod interval;
 pub mod keyboard;
 pub mod mouse;
+pub mod query;
 pub mod reducer;
 pub mod ref_hook;
 pub mod resize;

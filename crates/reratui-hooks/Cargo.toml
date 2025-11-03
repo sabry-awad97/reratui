@@ -15,6 +15,7 @@ publish = true
 [dependencies]
 anyhow = { workspace = true }
 crossterm = { workspace = true }
+futures = { workspace = true }
 once_cell = { workspace = true }
 parking_lot = { workspace = true }
 ratatui = { workspace = true }
