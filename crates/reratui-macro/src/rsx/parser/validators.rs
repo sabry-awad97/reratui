@@ -48,6 +48,7 @@ use crate::rsx::parser::ast::Node;
 /// Validates element structure and naming conventions
 pub struct ElementValidator {
     allowed_elements: Option<HashSet<String>>,
+    forbidden_elements: HashSet<String>,
     naming_convention: NamingConvention,
 }
 
@@ -60,8 +61,12 @@ pub enum NamingConvention {
 
 impl ElementValidator {
     pub fn new() -> Self {
+        let mut forbidden_elements = HashSet::new();
+        forbidden_elements.insert("Span".to_string());
+
         Self {
             allowed_elements: None,
+            forbidden_elements,
             naming_convention: NamingConvention::Any,
         }
     }
@@ -72,6 +77,17 @@ impl ElementValidator {
     }
 
     fn validate_element_name(&self, name: &str) -> syn::Result<()> {
+        // Check if element is forbidden
+        if self.forbidden_elements.contains(name) {
+            return Err(syn::Error::new(
+                proc_macro2::Span::call_site(),
+                format!(
+                    "Element '{}' is not supported in RSX. Span elements are generated automatically within Line and Paragraph components.",
+                    name
+                ),
+            ));
+        }
+
         // Check if element is in allowed list
         if let Some(ref allowed) = self.allowed_elements
             && !allowed.contains(name)

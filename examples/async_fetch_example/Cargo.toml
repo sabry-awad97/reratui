@@ -1,0 +1,12 @@
+[package]
+name = "async_fetch_example"
+version = "0.1.0"
+edition = "2024"
+publish = false
+
+[dependencies]
+reratui = { workspace = true }
+tokio = { workspace = true }
+reqwest = { workspace = true, features = ["json"] }
+serde = { workspace = true, features = ["derive"] }
+serde_json = { workspace = true }

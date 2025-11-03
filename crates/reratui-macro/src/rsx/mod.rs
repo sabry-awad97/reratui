@@ -70,16 +70,8 @@ fn generate_node_vnode_code(node: &Node) -> proc_macro2::TokenStream {
             let first_char = name_str.chars().next().unwrap_or('_');
             let is_component = first_char.is_uppercase()
                 && !name_str.contains("::")
-                && ![
-                    "Paragraph",
-                    "Line",
-                    "Span",
-                    "List",
-                    "Tabs",
-                    "Layout",
-                    "Block",
-                ]
-                .contains(&name_str.as_str());
+                && !["Paragraph", "Line", "List", "Tabs", "Layout", "Block"]
+                    .contains(&name_str.as_str());
 
             if is_component {
                 // For components, create component instance and wrap in VNode::component
@@ -142,16 +134,7 @@ fn generate_element_code(element: &Element) -> proc_macro2::TokenStream {
     let first_char = name_str.chars().next().unwrap_or('_');
     let is_component = first_char.is_uppercase()
         && !name_str.contains("::")
-        && ![
-            "Paragraph",
-            "Line",
-            "Span",
-            "List",
-            "Tabs",
-            "Layout",
-            "Block",
-        ]
-        .contains(&name_str.as_str());
+        && !["Paragraph", "Line", "List", "Tabs", "Layout", "Block"].contains(&name_str.as_str());
 
     if is_component {
         // Handle component - always use VNode::component
@@ -323,16 +306,6 @@ fn generate_element_code(element: &Element) -> proc_macro2::TokenStream {
             let line_code = generate_line_code(element);
             quote! {
                 ::reratui::ratatui::widgets::Paragraph::new(vec![#line_code])
-                    #(#attributes)*
-            }
-        }
-        "Span" => {
-            // When Span is used outside of Line, create a Line with the Span
-            let span_code = generate_span_code(element);
-            quote! {
-                ::reratui::ratatui::widgets::Paragraph::new(vec![
-                    ::reratui::ratatui::text::Line::from(vec![#span_code])
-                ])
                     #(#attributes)*
             }
         }
@@ -556,16 +529,8 @@ fn generate_node_code(node: &Node) -> proc_macro2::TokenStream {
             let first_char = name_str.chars().next().unwrap_or('_');
             let is_component = first_char.is_uppercase()
                 && !name_str.contains("::")
-                && ![
-                    "Paragraph",
-                    "Line",
-                    "Span",
-                    "List",
-                    "Tabs",
-                    "Layout",
-                    "Block",
-                ]
-                .contains(&name_str.as_str());
+                && !["Paragraph", "Line", "List", "Tabs", "Layout", "Block"]
+                    .contains(&name_str.as_str());
 
             if is_component {
                 // For components, create component instance and wrap in VNode, then AnyWidget
@@ -883,36 +848,22 @@ fn collect_text_content(nodes: &[Node]) -> proc_macro2::TokenStream {
         }
     } else {
         // Concatenate multiple expressions properly, handling string literals
-        let format_args: Vec<_> = expressions
-            .iter()
-            .map(|expr| match expr {
-                syn::Expr::Lit(syn::ExprLit {
-                    lit: syn::Lit::Str(lit_str),
-                    ..
-                }) => {
-                    let value = &lit_str.value();
-                    quote! { #value }
-                }
-                _ => quote! { #expr },
-            })
-            .collect();
+        let format_parts: Vec<_> = expressions.iter().map(|_| "{}".to_string()).collect();
+        let format_string = format_parts.join("");
+
         quote! {
-            format!("{}", vec![#(#format_args),*].join(""))
+            format!(#format_string, #(#expressions),*)
         }
     }
 }
 
 // Helper function to generate code for Paragraph components
 fn generate_paragraph_code(element: &Element, name: &syn::Path) -> proc_macro2::TokenStream {
-    let regular_attributes = element
-        .attributes
-        .iter()
-        .filter(|attr| !is_style_shorthand(&attr.key))
-        .map(|attr| {
-            let key = &attr.key;
-            let value = &attr.value;
-            quote! { .#key(#value) }
-        });
+    let regular_attributes = element.attributes.iter().map(|attr| {
+        let key = &attr.key;
+        let value = &attr.value;
+        quote! { .#key(#value) }
+    });
 
     if element.children.is_empty() {
         // Empty paragraph
@@ -921,12 +872,14 @@ fn generate_paragraph_code(element: &Element, name: &syn::Path) -> proc_macro2::
                 #(#regular_attributes)*
         }
     } else {
-        // Check if children contain Line components, conditionals, or fragments
+        // Check if children contain Line components, expressions, conditionals, or fragments
+        // Expressions could be Line objects, so treat them as complex children
         let has_complex_children = element.children.iter().any(|child| {
             matches!(
                 child,
                 Node::Element(el) if el.name.segments.last().unwrap().ident == "Line"
-            ) || matches!(child, Node::Conditional(_))
+            ) || matches!(child, Node::Expression(_))
+                || matches!(child, Node::Conditional(_))
                 || matches!(child, Node::Fragment(_))
                 || matches!(child, Node::ForLoop(_))
         });
@@ -964,24 +917,9 @@ fn generate_line_code(element: &Element) -> proc_macro2::TokenStream {
         // Empty line
         quote! { ::reratui::ratatui::text::Line::from("") }
     } else {
-        // Generate spans from all children (including conditionals and expressions)
-        let span_codes = element
-            .children
-            .iter()
-            .map(generate_span_from_node)
-            .collect::<Vec<_>>();
-
-        if span_codes.is_empty() {
-            quote! { ::reratui::ratatui::text::Line::from("") }
-        } else {
-            quote! {
-                ::reratui::ratatui::text::Line::from({
-                    let mut spans = Vec::new();
-                    #(spans.extend(#span_codes);)*
-                    spans
-                })
-            }
-        }
+        // Collect text content from children
+        let content = collect_text_content(&element.children);
+        quote! { ::reratui::ratatui::text::Line::from(#content) }
     }
 }
 
@@ -1000,17 +938,20 @@ fn generate_lines_from_node(node: &Node) -> proc_macro2::TokenStream {
             }
         }
         Node::Expression(expr) => {
-            // Handle expressions as text lines
+            // Handle expressions - could be Line objects or text
             match expr {
                 syn::Expr::Lit(syn::ExprLit {
                     lit: syn::Lit::Str(lit_str),
                     ..
                 }) => {
+                    // String literal - convert to Line
                     let value = &lit_str.value();
                     quote! { vec![::reratui::ratatui::text::Line::from(#value)] }
                 }
                 _ => {
-                    quote! { vec![::reratui::ratatui::text::Line::from(format!("{}", #expr))] }
+                    // Other expressions - could be Line objects or strings/other types
+                    // Convert to Line using From trait
+                    quote! { vec![::reratui::ratatui::text::Line::from(#expr)] }
                 }
             }
         }
@@ -1105,14 +1046,12 @@ fn generate_lines_from_node(node: &Node) -> proc_macro2::TokenStream {
             let iterable = &for_loop.iterable;
             let preparation_stmts = &for_loop.preparation_stmts;
 
-            // Check if the body is an expression that should be auto-converted to Line/Span
+            // Check if the body is an expression that should be auto-converted to Line
             let body_lines = match &*for_loop.body {
                 Node::Expression(expr) => {
-                    // Auto-convert string expressions to Line/Span within Paragraph context
+                    // Auto-convert string expressions to Line within Paragraph context
                     quote! {
-                        vec![::reratui::ratatui::text::Line::from(vec![
-                            ::reratui::ratatui::text::Span::raw(format!("{}", #expr))
-                        ])]
+                        vec![::reratui::ratatui::text::Line::from(format!("{}", #expr))]
                     }
                 }
                 _ => generate_lines_from_node(&for_loop.body),
@@ -1133,321 +1072,5 @@ fn generate_lines_from_node(node: &Node) -> proc_macro2::TokenStream {
             // Comments are ignored
             quote! { Vec::new() }
         }
-    }
-}
-
-// Helper function to generate spans from any node type
-fn generate_span_from_node(node: &Node) -> proc_macro2::TokenStream {
-    match node {
-        Node::Element(element) => {
-            if element.name.segments.last().unwrap().ident == "Span" {
-                // Direct Span element
-                let span_code = generate_span_code(element);
-                quote! { vec![#span_code] }
-            } else {
-                // Other elements - convert to text span
-                let content = collect_text_content(std::slice::from_ref(node));
-                quote! { vec![::reratui::ratatui::text::Span::raw(#content)] }
-            }
-        }
-        Node::Expression(expr) => {
-            // Handle expressions (including string literals)
-            match expr {
-                syn::Expr::Lit(syn::ExprLit {
-                    lit: syn::Lit::Str(lit_str),
-                    ..
-                }) => {
-                    // String literal - create raw span
-                    let value = &lit_str.value();
-                    quote! { vec![::reratui::ratatui::text::Span::raw(#value)] }
-                }
-                _ => {
-                    // Other expressions - evaluate and create raw span
-                    quote! { vec![::reratui::ratatui::text::Span::raw(format!("{}", #expr))] }
-                }
-            }
-        }
-        Node::Conditional(conditional) => {
-            // Handle conditional rendering based on the conditional type
-            match conditional {
-                ConditionalNode::If {
-                    condition,
-                    then_branch,
-                    else_ifs: _,
-                    else_branch,
-                } => {
-                    let then_spans = generate_span_from_node(then_branch);
-                    let else_spans = else_branch
-                        .as_ref()
-                        .map(|node| generate_span_from_node(node))
-                        .unwrap_or_else(|| quote! { Vec::new() });
-
-                    // For now, handle simple if-else (ignore else_ifs for simplicity)
-                    quote! {
-                        if #condition {
-                            #then_spans
-                        } else {
-                            #else_spans
-                        }
-                    }
-                }
-                ConditionalNode::IfLet {
-                    pattern,
-                    expr,
-                    then_branch,
-                    else_branch,
-                } => {
-                    let then_spans = generate_span_from_node(then_branch);
-                    let else_spans = else_branch
-                        .as_ref()
-                        .map(|node| generate_span_from_node(node))
-                        .unwrap_or_else(|| quote! { Vec::new() });
-
-                    quote! {
-                        if let #pattern = #expr {
-                            #then_spans
-                        } else {
-                            #else_spans
-                        }
-                    }
-                }
-                ConditionalNode::LogicalAnd {
-                    condition,
-                    then_branch,
-                } => {
-                    let then_spans = generate_span_from_node(then_branch);
-                    quote! {
-                        if #condition {
-                            #then_spans
-                        } else {
-                            Vec::new()
-                        }
-                    }
-                }
-                ConditionalNode::Match { expr, arms } => {
-                    // Handle match expressions
-                    let match_arms = arms.iter().map(|arm| {
-                        let pattern = &arm.pattern;
-                        let guard = arm.guard.as_ref().map(|g| quote! { if #g });
-                        let body_spans = generate_span_from_node(&arm.body);
-                        quote! {
-                            #pattern #guard => #body_spans,
-                        }
-                    });
-
-                    quote! {
-                        match #expr {
-                            #(#match_arms)*
-                        }
-                    }
-                }
-            }
-        }
-        Node::ForLoop(for_loop) => {
-            // Handle for-loops in spans
-            let pattern = &for_loop.pattern;
-            let iterable = &for_loop.iterable;
-            let preparation_stmts = &for_loop.preparation_stmts;
-            let body_spans = generate_span_from_node(&for_loop.body);
-
-            quote! {
-                {
-                    let mut loop_spans = Vec::new();
-                    for #pattern in #iterable {
-                        #(#preparation_stmts)*
-                        loop_spans.extend(#body_spans);
-                    }
-                    loop_spans
-                }
-            }
-        }
-        Node::Fragment(fragment) => {
-            // Handle fragments
-            let child_spans = fragment.children.iter().map(generate_span_from_node);
-            quote! {
-                {
-                    let mut fragment_spans = Vec::new();
-                    #(fragment_spans.extend(#child_spans);)*
-                    fragment_spans
-                }
-            }
-        }
-        Node::Comment(_) => {
-            // Comments are ignored
-            quote! { Vec::new() }
-        }
-    }
-}
-
-// Helper function to generate code for Span components
-fn generate_span_code(element: &Element) -> proc_macro2::TokenStream {
-    let content = if element.children.is_empty() {
-        quote! { "" }
-    } else {
-        // Enhanced content collection that handles string literals directly
-        let content_parts: Vec<_> = element
-            .children
-            .iter()
-            .filter_map(|node| match node {
-                Node::Expression(expr) => match expr {
-                    syn::Expr::Lit(syn::ExprLit {
-                        lit: syn::Lit::Str(lit_str),
-                        ..
-                    }) => {
-                        // Extract string literal value directly
-                        let value = &lit_str.value();
-                        Some(quote! { #value })
-                    }
-                    _ => Some(quote! { #expr }),
-                },
-                _ => None,
-            })
-            .collect();
-
-        if content_parts.is_empty() {
-            quote! { "" }
-        } else if content_parts.len() == 1 {
-            content_parts[0].clone()
-        } else {
-            quote! {
-                format!("{}", vec![#(#content_parts),*].join(""))
-            }
-        }
-    };
-
-    // Process style attributes
-    let style_code = generate_style_from_attributes(&element.attributes);
-
-    // Get regular (non-style) attributes
-    let regular_attributes = element
-        .attributes
-        .iter()
-        .filter(|attr| !is_style_shorthand(&attr.key) && attr.key != "style")
-        .map(|attr| {
-            let key = &attr.key;
-            let value = &attr.value;
-            quote! { .#key(#value) }
-        });
-
-    if let Some(style) = style_code {
-        quote! {
-            ::reratui::ratatui::text::Span::styled(#content, #style)
-                #(#regular_attributes)*
-        }
-    } else {
-        // Check for explicit style attribute
-        if let Some(style_attr) = element.attributes.iter().find(|attr| attr.key == "style") {
-            let style_value = &style_attr.value;
-            quote! {
-                ::reratui::ratatui::text::Span::styled(#content, #style_value)
-                    #(#regular_attributes)*
-            }
-        } else {
-            quote! {
-                ::reratui::ratatui::text::Span::raw(#content)
-                    #(#regular_attributes)*
-            }
-        }
-    }
-}
-
-// Helper function to check if an attribute is a style shorthand
-fn is_style_shorthand(key: &syn::Ident) -> bool {
-    let key_str = key.to_string();
-    matches!(
-        key_str.as_str(),
-        // Color attributes
-        "white" | "black" | "red" | "green" | "blue" | "cyan" | "yellow" | "magenta" |
-        "gray" | "dark_gray" | "light_red" | "light_green" | "light_blue" |
-        "light_cyan" | "light_yellow" | "light_magenta" |
-        // Modifier attributes
-        "bold" | "italic" | "underlined" | "crossed_out" | "dim" | "reversed" |
-        "rapid_blink" | "slow_blink"
-    )
-}
-
-// Helper function to generate Style from shorthand attributes
-fn generate_style_from_attributes(
-    attributes: &[crate::rsx::parser::Prop],
-) -> Option<proc_macro2::TokenStream> {
-    let style_attrs: Vec<_> = attributes
-        .iter()
-        .filter(|attr| is_style_shorthand(&attr.key))
-        .collect();
-
-    if style_attrs.is_empty() {
-        return None;
-    }
-
-    let mut style_parts = Vec::new();
-
-    // Process color attributes
-    for attr in &style_attrs {
-        let key_str = attr.key.to_string();
-        match key_str.as_str() {
-            // Colors
-            "white" => style_parts.push(quote! { .fg(::reratui::ratatui::style::Color::White) }),
-            "black" => style_parts.push(quote! { .fg(::reratui::ratatui::style::Color::Black) }),
-            "red" => style_parts.push(quote! { .fg(::reratui::ratatui::style::Color::Red) }),
-            "green" => style_parts.push(quote! { .fg(::reratui::ratatui::style::Color::Green) }),
-            "blue" => style_parts.push(quote! { .fg(::reratui::ratatui::style::Color::Blue) }),
-            "cyan" => style_parts.push(quote! { .fg(::reratui::ratatui::style::Color::Cyan) }),
-            "yellow" => style_parts.push(quote! { .fg(::reratui::ratatui::style::Color::Yellow) }),
-            "magenta" => {
-                style_parts.push(quote! { .fg(::reratui::ratatui::style::Color::Magenta) })
-            }
-            "gray" => style_parts.push(quote! { .fg(::reratui::ratatui::style::Color::Gray) }),
-            "dark_gray" => {
-                style_parts.push(quote! { .fg(::reratui::ratatui::style::Color::DarkGray) })
-            }
-            "light_red" => {
-                style_parts.push(quote! { .fg(::reratui::ratatui::style::Color::LightRed) })
-            }
-            "light_green" => {
-                style_parts.push(quote! { .fg(::reratui::ratatui::style::Color::LightGreen) })
-            }
-            "light_blue" => {
-                style_parts.push(quote! { .fg(::reratui::ratatui::style::Color::LightBlue) })
-            }
-            "light_cyan" => {
-                style_parts.push(quote! { .fg(::reratui::ratatui::style::Color::LightCyan) })
-            }
-            "light_yellow" => {
-                style_parts.push(quote! { .fg(::reratui::ratatui::style::Color::LightYellow) })
-            }
-            "light_magenta" => {
-                style_parts.push(quote! { .fg(::reratui::ratatui::style::Color::LightMagenta) })
-            }
-
-            // Modifiers
-            "bold" => style_parts
-                .push(quote! { .add_modifier(::reratui::ratatui::style::Modifier::BOLD) }),
-            "italic" => style_parts
-                .push(quote! { .add_modifier(::reratui::ratatui::style::Modifier::ITALIC) }),
-            "underlined" => style_parts
-                .push(quote! { .add_modifier(::reratui::ratatui::style::Modifier::UNDERLINED) }),
-            "crossed_out" => style_parts
-                .push(quote! { .add_modifier(::reratui::ratatui::style::Modifier::CROSSED_OUT) }),
-            "dim" => {
-                style_parts.push(quote! { .add_modifier(::reratui::ratatui::style::Modifier::DIM) })
-            }
-            "reversed" => style_parts
-                .push(quote! { .add_modifier(::reratui::ratatui::style::Modifier::REVERSED) }),
-            "rapid_blink" => style_parts
-                .push(quote! { .add_modifier(::reratui::ratatui::style::Modifier::RAPID_BLINK) }),
-            "slow_blink" => style_parts
-                .push(quote! { .add_modifier(::reratui::ratatui::style::Modifier::SLOW_BLINK) }),
-
-            _ => {} // Unknown style attribute, ignore
-        }
-    }
-
-    if style_parts.is_empty() {
-        None
-    } else {
-        Some(quote! {
-            ::reratui::ratatui::style::Style::default()
-                #(#style_parts)*
-        })
     }
 }
