@@ -1,0 +1,9 @@
+[package]
+name = "layout_demo"
+version = "0.1.0"
+edition = "2024"
+publish = false
+
+[dependencies]
+reratui = { workspace = true }
+tokio = { workspace = true }
