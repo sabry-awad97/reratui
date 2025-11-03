@@ -172,6 +172,8 @@ pub use reratui_hooks::{
     form::use_form,
     frame::use_frame,
     future::use_future,
+    history::use_history,
+    id::use_id,
     reducer::use_reducer,
     ref_hook::use_ref,
     state::use_state,
@@ -198,6 +200,8 @@ pub mod prelude {
     pub use crate::hooks::form::*;
     pub use crate::hooks::frame::*;
     pub use crate::hooks::future::*;
+    pub use crate::hooks::history::*;
+    pub use crate::hooks::id::*;
     pub use crate::hooks::interval::*;
     pub use crate::hooks::keyboard::*;
     pub use crate::hooks::mouse::*;

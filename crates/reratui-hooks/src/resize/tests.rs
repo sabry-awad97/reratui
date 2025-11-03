@@ -430,8 +430,8 @@ fn test_use_media_query_breakpoints() {
 
         with_component_id("MediaQueryBreakpointsTest", |_ctx| {
             let is_xs = use_media_query(|(w, _)| w < 40);
-            let is_sm = use_media_query(|(w, _)| w >= 40 && w < 80);
-            let is_md = use_media_query(|(w, _)| w >= 80 && w < 120);
+            let is_sm = use_media_query(|(w, _)| (40..80).contains(&w));
+            let is_md = use_media_query(|(w, _)| (80..120).contains(&w));
 
             assert!(is_xs, "Should match xs breakpoint");
             assert!(!is_sm, "Should not match sm breakpoint");
@@ -443,8 +443,8 @@ fn test_use_media_query_breakpoints() {
 
         with_component_id("MediaQueryBreakpointsTest", |_ctx| {
             let is_xs = use_media_query(|(w, _)| w < 40);
-            let is_sm = use_media_query(|(w, _)| w >= 40 && w < 80);
-            let is_md = use_media_query(|(w, _)| w >= 80 && w < 120);
+            let is_sm = use_media_query(|(w, _)| (40..80).contains(&w));
+            let is_md = use_media_query(|(w, _)| (80..120).contains(&w));
 
             assert!(!is_xs, "Should not match xs breakpoint");
             assert!(is_sm, "Should match sm breakpoint");
@@ -456,8 +456,8 @@ fn test_use_media_query_breakpoints() {
 
         with_component_id("MediaQueryBreakpointsTest", |_ctx| {
             let is_xs = use_media_query(|(w, _)| w < 40);
-            let is_sm = use_media_query(|(w, _)| w >= 40 && w < 80);
-            let is_md = use_media_query(|(w, _)| w >= 80 && w < 120);
+            let is_sm = use_media_query(|(w, _)| (40..80).contains(&w));
+            let is_md = use_media_query(|(w, _)| (80..120).contains(&w));
 
             assert!(!is_xs, "Should not match xs breakpoint");
             assert!(!is_sm, "Should not match sm breakpoint");
@@ -502,7 +502,7 @@ fn test_use_media_query_multiple_queries() {
 
         with_component_id("MediaQueryMultipleTest", |_ctx| {
             let is_mobile = use_media_query(|(w, _)| w < 60);
-            let is_tablet = use_media_query(|(w, _)| w >= 60 && w < 120);
+            let is_tablet = use_media_query(|(w, _)| (60..120).contains(&w));
             let is_desktop = use_media_query(|(w, _)| w >= 120);
 
             assert!(!is_mobile, "Should not be mobile");

@@ -9,6 +9,9 @@
 use crate::state::use_state;
 use uuid::Uuid;
 
+#[cfg(test)]
+pub mod tests;
+
 /// Generates a unique, stable ID for the component
 ///
 /// The ID is generated once per component instance and remains stable across re-renders.
