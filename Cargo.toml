@@ -18,17 +18,7 @@ rust-version = "1.85.0"
 [workspace.dependencies]
 # Internal dependencies
 reratui = { path = "crates/reratui" }
-reratui-charts = { path = "crates/reratui-charts" }
-reratui-core = { path = "crates/reratui-core" }
 reratui-fiber = { path = "crates/reratui-fiber" }
-reratui-forms = { path = "crates/reratui-forms" }
-reratui-hooks = { path = "crates/reratui-hooks" }
-reratui-icons = { path = "crates/reratui-icons" }
-reratui-macro = { path = "crates/reratui-macro" }
-reratui-panic = { path = "crates/reratui-panic" }
-reratui-ratatui = { path = "crates/reratui-ratatui" }
-reratui-router = { path = "crates/reratui-router" }
-reratui-runtime = { path = "crates/reratui-runtime" }
 
 # External dependencies
 anyhow = "1.0.100"
