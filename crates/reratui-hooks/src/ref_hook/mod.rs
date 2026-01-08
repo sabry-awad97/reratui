@@ -230,6 +230,10 @@ impl<T> Clone for RefHandle<T> {
 ///
 /// This function will panic if called outside of a component render context.
 /// Always ensure `use_ref` is called within a component function.
+#[deprecated(
+    since = "0.2.0",
+    note = "use `reratui_fiber::hooks::use_ref_v2` instead for proper fiber-based state management"
+)]
 pub fn use_ref<T, F>(initializer: F) -> RefHandle<T>
 where
     T: 'static,

@@ -1,4 +1,5 @@
-use reratui::prelude::*;
+use reratui_fiber::prelude::*;
+use reratui_fiber::ratatui::widgets::BorderType;
 
 use crate::theme::Theme;
 
@@ -6,7 +7,7 @@ pub struct HelpBar {
     pub theme: Theme,
 }
 
-impl Component for HelpBar {
+impl ComponentV2 for HelpBar {
     fn render(&self, area: Rect, buffer: &mut Buffer) {
         // Use the theme passed from the parent component
         let theme = &self.theme;

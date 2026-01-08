@@ -1,6 +1,5 @@
-use std::time::Duration;
-
-use reratui::prelude::*;
+use reratui_fiber::prelude::*;
+use reratui_fiber::ratatui::widgets::{BorderType, Clear, List, ListItem};
 
 use crate::hooks::CommandPalette;
 use crate::theme::Theme;
@@ -11,26 +10,18 @@ pub struct CommandPaletteComponent {
     pub theme: Theme,
 }
 
-impl Component for CommandPaletteComponent {
+impl ComponentV2 for CommandPaletteComponent {
     fn render(&self, area: Rect, buffer: &mut Buffer) {
-        let (frame_count, set_frame_count) = use_state(|| 0usize);
-        let (cursor_visible, set_cursor_visible) = use_state(|| true);
+        let (frame_count, set_frame_count) = use_state_v2(|| 0usize);
+        let (cursor_visible, set_cursor_visible) = use_state_v2(|| true);
 
-        use_interval(
-            {
-                let frame_count = frame_count.clone();
-                let set_frame_count = set_frame_count.clone();
-                let cursor_visible = cursor_visible.clone();
-                let set_cursor_visible = set_cursor_visible.clone();
-
-                move || {
-                    set_frame_count.set(frame_count.get() + 1);
-                    if frame_count.get() % 10 == 0 {
-                        set_cursor_visible.set(!cursor_visible.get());
-                    }
-                }
+        use_interval_v2(
+            move || {
+                set_frame_count.update(|count| *count + 1);
+                // Toggle cursor visibility every 10 frames
+                set_cursor_visible.update(|visible| !*visible);
             },
-            Duration::from_millis(50),
+            500, // milliseconds - slower for cursor blink
         );
 
         let popup_area = centered_rect(60, 40, area);
@@ -54,8 +45,8 @@ impl Component for CommandPaletteComponent {
 
         let filter = self.palette.get_filter();
         let cursor = if self.theme.is_dark {
-            if cursor_visible.get() { "▎" } else { "│" }
-        } else if cursor_visible.get() {
+            if cursor_visible { "▎" } else { "│" }
+        } else if cursor_visible {
             "┃"
         } else {
             "│"

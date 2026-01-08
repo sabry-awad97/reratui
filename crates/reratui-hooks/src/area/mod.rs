@@ -160,6 +160,10 @@ impl Deref for ComponentArea {
 ///     }
 /// }
 /// ```
+#[deprecated(
+    since = "0.2.0",
+    note = "use `reratui_fiber::hooks::use_area_v2` instead for proper fiber-based area access"
+)]
 pub fn use_area() -> ComponentArea {
     use_context::<ComponentArea>()
 }

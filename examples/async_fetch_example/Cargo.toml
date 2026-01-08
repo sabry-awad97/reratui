@@ -5,7 +5,7 @@ edition = "2024"
 publish = false
 
 [dependencies]
-reratui = { workspace = true }
+reratui-fiber = { workspace = true }
 tokio = { workspace = true }
 reqwest = { workspace = true, features = ["json"] }
 serde = { workspace = true, features = ["derive"] }

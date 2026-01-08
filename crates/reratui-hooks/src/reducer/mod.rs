@@ -294,6 +294,10 @@ where
 /// - State updates are atomic and thread-safe
 /// - The reducer function should be pure (no side effects)
 /// - State transitions are immutable - the reducer should return new state
+#[deprecated(
+    since = "0.2.0",
+    note = "use `reratui_fiber::hooks::use_reducer_v2` instead for proper fiber-based state management"
+)]
 pub fn use_reducer<S, A, R>(reducer: R, initial_state: S) -> (ReducerStateHandle<S>, DispatchFn<A>)
 where
     S: Clone + Send + Sync + 'static,

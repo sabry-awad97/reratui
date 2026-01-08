@@ -15,16 +15,9 @@ description = "A modern, reactive TUI framework for Rust with React-inspired hoo
 publish = true
 
 [dependencies]
-# Internal crates (not published separately - bundled in this crate)
-reratui-core = { version = "0.2.1", path = "../reratui-core" }
-reratui-hooks = { version = "0.2.1", path = "../reratui-hooks" }
-reratui-macro = { version = "0.2.1", path = "../reratui-macro" }
-reratui-ratatui = { version = "0.2.1", path = "../reratui-ratatui" }
-reratui-runtime = { version = "0.2.1", path = "../reratui-runtime" }
+# Fiber architecture - the primary API
+reratui-fiber = { version = "0.2.1", path = "../reratui-fiber" }
 
 # External dependencies
-anyhow = { workspace = true }
-tokio = { workspace = true }
 crossterm = { workspace = true }
-once_cell = { workspace = true }
 ratatui = { workspace = true }

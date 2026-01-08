@@ -1,6 +1,6 @@
 //! 🔄 Mutation Hook Example - User Management System
 //!
-//! A beautiful demonstration of the `use_mutation` and `use_reducer` hooks with:
+//! A beautiful demonstration of the `use_mutation_v2` and `use_reducer_v2` hooks with:
 //! - 🎯 Create, Update, Delete operations
 //! - 🔄 Retry logic with exponential backoff
 //! - ✅ Success/Error callbacks with notifications
@@ -11,7 +11,11 @@
 //! - 📦 Reducer pattern for form state management
 
 use parking_lot::Mutex;
-use reratui::prelude::*;
+use reratui_fiber::prelude::*;
+use reratui_fiber::hooks::{
+    MutationHandleV2, MutationOptions, MutationStatus, use_keyboard_press_v2, use_mutation_v2,
+};
+use reratui_fiber::ratatui::widgets::BorderType;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use std::time::Duration;
@@ -123,20 +127,20 @@ enum FormAction {
 }
 
 // Reducer function for form state
-fn form_reducer(state: FormState, action: FormAction) -> FormState {
+fn form_reducer(state: &FormState, action: FormAction) -> FormState {
     match action {
         FormAction::Open => FormState {
             is_open: true,
-            ..state
+            ..state.clone()
         },
         FormAction::Close => FormState {
             is_open: false,
-            ..state
+            ..state.clone()
         },
         FormAction::Reset => FormState::default(),
-        FormAction::SetName(name) => FormState { name, ..state },
-        FormAction::SetEmail(email) => FormState { email, ..state },
-        FormAction::SetRole(role) => FormState { role, ..state },
+        FormAction::SetName(name) => FormState { name, ..state.clone() },
+        FormAction::SetEmail(email) => FormState { email, ..state.clone() },
+        FormAction::SetRole(role) => FormState { role, ..state.clone() },
         FormAction::Submit => FormState {
             is_open: false,
             name: String::new(),
@@ -164,126 +168,101 @@ struct App {
     notification: Arc<Mutex<Option<Notification>>>,
 }
 
-impl Component for App {
+impl ComponentV2 for App {
     fn render(&self, area: Rect, buffer: &mut Buffer) {
         // State management with reducer for form
-        let (form_state, form_dispatch) = use_reducer(form_reducer, FormState::default());
-        let (selected_index, set_selected_index) = use_state(|| 0usize);
+        let (form_state, form_dispatch) = use_reducer_v2(form_reducer, FormState::default());
+        let (selected_index, set_selected_index) = use_state_v2(|| 0usize);
 
         let users_clone = self.users.clone();
         let notification_clone = self.notification.clone();
 
         // Create User Mutation
-        let create_mutation = use_mutation(
+        let create_mutation = use_mutation_v2(
             |request: CreateUserRequest| async move { create_user_api(request).await },
-            Some(
-                MutationOptions::builder()
-                    .retry(true)
-                    .retry_attempts(3)
-                    .retry_delay(Duration::from_millis(500))
-                    .retry_exponential_backoff(true)
-                    .on_success({
-                        let users = users_clone.clone();
-                        let notif = notification_clone.clone();
-                        move |user: &User, _vars, _ctx| {
-                            users.lock().push(user.clone());
-                            *notif.lock() = Some(Notification {
-                                message: format!("✅ User '{}' created successfully!", user.name),
-                                notification_type: NotificationType::Success,
-                            });
-                        }
-                    })
-                    .on_error({
-                        let notif = notification_clone.clone();
-                        move |error, _vars, _ctx| {
-                            *notif.lock() = Some(Notification {
-                                message: format!("❌ Failed to create user: {}", error),
-                                notification_type: NotificationType::Error,
-                            });
-                        }
-                    })
-                    .build(),
-            ),
+            Some(MutationOptions {
+                retry: true,
+                retry_attempts: 3,
+                retry_delay: Duration::from_millis(500),
+                retry_exponential_backoff: true,
+                ..Default::default()
+            }),
         );
 
         // Update User Mutation
-        let update_mutation = use_mutation(
+        let update_mutation = use_mutation_v2(
             |request: UpdateUserRequest| async move { update_user_api(request).await },
-            Some(
-                MutationOptions::builder()
-                    .retry(true)
-                    .retry_attempts(2)
-                    .on_success({
-                        let users = users_clone.clone();
-                        let notif = notification_clone.clone();
-                        move |updated_user: &User, _vars, _ctx| {
-                            let mut users = users.lock();
-                            if let Some(user) = users.iter_mut().find(|u| u.id == updated_user.id) {
-                                *user = updated_user.clone();
-                            }
-                            *notif.lock() = Some(Notification {
-                                message: format!("✅ User '{}' updated!", updated_user.name),
-                                notification_type: NotificationType::Success,
-                            });
-                        }
-                    })
-                    .on_error({
-                        let notif = notification_clone.clone();
-                        move |error, _vars, _ctx| {
-                            *notif.lock() = Some(Notification {
-                                message: format!("❌ Update failed: {}", error),
-                                notification_type: NotificationType::Error,
-                            });
-                        }
-                    })
-                    .build(),
-            ),
+            Some(MutationOptions {
+                retry: true,
+                retry_attempts: 2,
+                ..Default::default()
+            }),
         );
 
         // Delete User Mutation
-        let delete_mutation = use_mutation(
+        let delete_mutation = use_mutation_v2(
             |user_id: u32| async move { delete_user_api(user_id).await },
-            Some(
-                MutationOptions::builder()
-                    .on_success({
-                        let users = users_clone.clone();
-                        let notif = notification_clone.clone();
-                        move |deleted_id: &u32, _vars, _ctx| {
-                            let mut users = users.lock();
-                            users.retain(|u| u.id != *deleted_id);
-                            *notif.lock() = Some(Notification {
-                                message: "🗑️  User deleted successfully!".to_string(),
-                                notification_type: NotificationType::Success,
-                            });
-                        }
-                    })
-                    .on_error({
-                        let notif = notification_clone.clone();
-                        move |error, _vars, _ctx| {
-                            *notif.lock() = Some(Notification {
-                                message: format!("❌ Delete failed: {}", error),
-                                notification_type: NotificationType::Error,
-                            });
-                        }
-                    })
-                    .build(),
-            ),
+            None,
         );
 
-        // Keyboard controls - clone everything needed in the closure
+        // Handle mutation results via effect
+        {
+            let users = users_clone.clone();
+            let notif = notification_clone.clone();
+            let create_state = create_mutation.state();
+            if create_state.is_success {
+                if let Some(user) = create_state.data {
+                    users.lock().push(user.clone());
+                    *notif.lock() = Some(Notification {
+                        message: format!("✅ User '{}' created successfully!", user.name),
+                        notification_type: NotificationType::Success,
+                    });
+                }
+            } else if create_state.is_error {
+                if let Some(error) = create_state.error {
+                    *notif.lock() = Some(Notification {
+                        message: format!("❌ Failed to create user: {}", error),
+                        notification_type: NotificationType::Error,
+                    });
+                }
+            }
+        }
+
+        {
+            let users = users_clone.clone();
+            let notif = notification_clone.clone();
+            let delete_state = delete_mutation.state();
+            if delete_state.is_success {
+                if let Some(deleted_id) = delete_state.data {
+                    users.lock().retain(|u| u.id != deleted_id);
+                    *notif.lock() = Some(Notification {
+                        message: "🗑️  User deleted successfully!".to_string(),
+                        notification_type: NotificationType::Success,
+                    });
+                }
+            } else if delete_state.is_error {
+                if let Some(error) = delete_state.error {
+                    *notif.lock() = Some(Notification {
+                        message: format!("❌ Delete failed: {}", error),
+                        notification_type: NotificationType::Error,
+                    });
+                }
+            }
+        }
+
+        // Keyboard controls
         let create_mut_clone = create_mutation.clone();
         let delete_mut_clone = delete_mutation.clone();
         let users_for_kb = self.users.clone();
         let form_dispatch_clone = form_dispatch.clone();
         let form_state_clone = form_state.clone();
-        let selected_index_clone = selected_index.clone();
 
-        use_keyboard_press(move |key| {
-            let form = form_state_clone.get();
+        use_keyboard_press_v2(move |key| {
+            let form = &form_state_clone;
 
             match key.code {
                 KeyCode::Char('q') if key.modifiers.contains(KeyModifiers::CONTROL) => {
-                    request_exit();
+                    request_exit_v2();
                 }
                 KeyCode::Char('n') if !form.is_open => {
                     form_dispatch_clone.dispatch(FormAction::Open);
@@ -313,7 +292,7 @@ impl Component for App {
                     form_dispatch_clone.dispatch(FormAction::SetRole(new_role.to_string()));
                 }
                 KeyCode::Char(c)
-                    if form.is_open && c.is_alphanumeric() || c == '@' || c == '.' || c == ' ' =>
+                    if form.is_open && (c.is_alphanumeric() || c == '@' || c == '.' || c == ' ') =>
                 {
                     // Simple text input - append to name field
                     let mut new_name = form.name.clone();
@@ -333,27 +312,27 @@ impl Component for App {
                 }
                 KeyCode::Char('d') if !form.is_open => {
                     let users = users_for_kb.lock();
-                    if let Some(user) = users.get(selected_index_clone.get()) {
+                    if let Some(user) = users.get(selected_index) {
                         delete_mut_clone.mutate(user.id);
                     }
                 }
                 KeyCode::Char('x') => {
-                    // Cancel any pending mutations
-                    create_mut_clone.cancel();
-                    delete_mut_clone.cancel();
+                    // Reset mutations
+                    create_mut_clone.reset();
+                    delete_mut_clone.reset();
                 }
                 KeyCode::Esc => {
                     form_dispatch_clone.dispatch(FormAction::Close);
                 }
                 KeyCode::Up if !form.is_open => {
-                    if selected_index_clone.get() > 0 {
-                        set_selected_index.set(selected_index_clone.get() - 1);
+                    if selected_index > 0 {
+                        set_selected_index.set(selected_index - 1);
                     }
                 }
                 KeyCode::Down if !form.is_open => {
                     let users = users_for_kb.lock();
-                    if selected_index_clone.get() < users.len().saturating_sub(1) {
-                        set_selected_index.set(selected_index_clone.get() + 1);
+                    if selected_index < users.len().saturating_sub(1) {
+                        set_selected_index.set(selected_index + 1);
                     }
                 }
                 _ => {}
@@ -375,11 +354,10 @@ impl Component for App {
         render_title(buffer, chunks[0]);
         render_notification(buffer, chunks[1], &self.notification);
 
-        let form = form_state.get();
-        if form.is_open {
-            render_create_form(buffer, chunks[2], &form, &create_mutation);
+        if form_state.is_open {
+            render_create_form(buffer, chunks[2], &form_state, &create_mutation);
         } else {
-            render_user_list(buffer, chunks[2], &self.users, selected_index.get());
+            render_user_list(buffer, chunks[2], &self.users, selected_index);
         }
 
         render_status_panel(
@@ -389,7 +367,7 @@ impl Component for App {
             &update_mutation,
             &delete_mutation,
         );
-        render_controls(buffer, chunks[4], form.is_open);
+        render_controls(buffer, chunks[4], form_state.is_open);
     }
 }
 
@@ -534,7 +512,7 @@ fn render_create_form(
     buffer: &mut Buffer,
     area: Rect,
     form: &FormState,
-    mutation: &Mutation<User, ApiError, CreateUserRequest>,
+    mutation: &MutationHandleV2<User, ApiError, CreateUserRequest>,
 ) {
     let block = Block::default()
         .title("➕ Create New User")
@@ -545,7 +523,7 @@ fn render_create_form(
     let inner = block.inner(area);
     block.render(area, buffer);
 
-    let state = mutation.get_state();
+    let state = mutation.state();
     let status_text = if state.is_pending {
         "⏳ Creating user..."
     } else {
@@ -602,16 +580,16 @@ fn render_create_form(
         )),
     ];
 
-    let form = Paragraph::new(lines).alignment(Alignment::Center);
-    form.render(inner, buffer);
+    let form_paragraph = Paragraph::new(lines).alignment(Alignment::Center);
+    form_paragraph.render(inner, buffer);
 }
 
 fn render_status_panel(
     buffer: &mut Buffer,
     area: Rect,
-    create_mut: &Mutation<User, ApiError, CreateUserRequest>,
-    update_mut: &Mutation<User, ApiError, UpdateUserRequest>,
-    delete_mut: &Mutation<u32, ApiError, u32>,
+    create_mut: &MutationHandleV2<User, ApiError, CreateUserRequest>,
+    update_mut: &MutationHandleV2<User, ApiError, UpdateUserRequest>,
+    delete_mut: &MutationHandleV2<u32, ApiError, u32>,
 ) {
     let block = Block::default()
         .title("📊 Mutation Status")
@@ -622,17 +600,16 @@ fn render_status_panel(
     let inner = block.inner(area);
     block.render(area, buffer);
 
-    let create_state = create_mut.get_state();
-    let update_state = update_mut.get_state();
-    let delete_state = delete_mut.get_state();
+    let create_state = create_mut.state();
+    let update_state = update_mut.state();
+    let delete_state = delete_mut.state();
 
-    let make_status_line = |name: &str, status: &MutationStatus, failed_count: u32| -> Line {
+    let make_status_line = |name: &str, status: MutationStatus| -> Line {
         let (status_text, color) = match status {
             MutationStatus::Idle => ("Idle", Color::Gray),
             MutationStatus::Pending => ("Pending", Color::Yellow),
             MutationStatus::Success => ("Success", Color::Green),
             MutationStatus::Error => ("Error", Color::Red),
-            MutationStatus::Cancelled => ("Cancelled", Color::DarkGray),
         };
 
         Line::from(vec![
@@ -642,22 +619,13 @@ fn render_status_panel(
                 format!("{:<10}", status_text),
                 Style::default().fg(color).add_modifier(Modifier::BOLD),
             ),
-            Span::styled(" │ ", Style::default().fg(Color::DarkGray)),
-            Span::styled(
-                if failed_count > 0 {
-                    format!("Retries: {}", failed_count)
-                } else {
-                    "No retries".to_string()
-                },
-                Style::default().fg(Color::DarkGray),
-            ),
         ])
     };
 
     let lines = vec![
-        make_status_line("Create", &create_state.status, create_state.failed_count),
-        make_status_line("Update", &update_state.status, update_state.failed_count),
-        make_status_line("Delete", &delete_state.status, delete_state.failed_count),
+        make_status_line("Create", create_state.status),
+        make_status_line("Update", update_state.status),
+        make_status_line("Delete", delete_state.status),
     ];
 
     let status = Paragraph::new(lines);
@@ -755,7 +723,7 @@ fn render_controls(buffer: &mut Buffer, area: Rect, in_form: bool) {
                         .fg(Color::Yellow)
                         .add_modifier(Modifier::BOLD),
                 ),
-                Span::styled(" Cancel mutation  ", Style::default().fg(Color::Gray)),
+                Span::styled(" Reset mutation  ", Style::default().fg(Color::Gray)),
                 Span::styled(
                     "Ctrl+Q",
                     Style::default().fg(Color::Red).add_modifier(Modifier::BOLD),
@@ -801,6 +769,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         notification: Arc::new(Mutex::new(None)),
     };
 
-    render(move || app.clone().into()).await?;
+    render_v2(move || app.clone()).await?;
     Ok(())
 }

@@ -26,6 +26,10 @@ use crate::{effect::use_effect, state::use_state};
 ///     }
 /// }
 /// ```
+#[deprecated(
+    since = "0.2.0",
+    note = "use `reratui_fiber::hooks::use_watch_v2` instead for proper fiber-based form watching"
+)]
 pub fn use_watch(form: &FormHandle, field_name: &str) -> String {
     let (value, set_value) = use_state(|| form.get_value(field_name).unwrap_or_default());
 
@@ -70,6 +74,10 @@ pub fn use_watch(form: &FormHandle, field_name: &str) -> String {
 ///     }
 /// }
 /// ```
+#[deprecated(
+    since = "0.2.0",
+    note = "use `reratui_fiber::hooks::use_watch_multiple_v2` instead for proper fiber-based form watching"
+)]
 pub fn use_watch_multiple(
     form: &FormHandle,
     field_names: &[&str],
@@ -136,6 +144,10 @@ pub fn use_watch_multiple(
 ///     }
 /// }
 /// ```
+#[deprecated(
+    since = "0.2.0",
+    note = "use `reratui_fiber::hooks::use_watch_all_v2` instead for proper fiber-based form watching"
+)]
 pub fn use_watch_all(form: &FormHandle) -> std::collections::HashMap<String, String> {
     let (values, set_values) = use_state(|| form.get_all_values());
 
@@ -179,6 +191,10 @@ pub fn use_watch_all(form: &FormHandle) -> std::collections::HashMap<String, Str
 ///     rsx! { /* ... */ }
 /// }
 /// ```
+#[deprecated(
+    since = "0.2.0",
+    note = "use `reratui_fiber::hooks::use_watch_v2` with callback instead for proper fiber-based form watching"
+)]
 pub fn use_watch_callback<F>(form: &FormHandle, field_name: &str, callback: F)
 where
     F: Fn(&str) + 'static,

@@ -1,153 +1,145 @@
-use std::time::Duration;
-
-use reratui::prelude::*;
+use reratui_fiber::prelude::*;
+use reratui_fiber::hooks::{use_interval_v2, use_keyboard_press_v2};
+use reratui_fiber::ratatui::widgets::BorderType;
 
 /// A React-like Counter component that mimics the Ink example
 ///
 /// This component demonstrates:
-/// - useState equivalent with use_state
-/// - useEffect equivalent with use_interval
-/// - Component composition with rsx!
+/// - useState equivalent with use_state_v2
+/// - useEffect equivalent with use_interval_v2
+/// - Component composition with ComponentV2
 /// - Automatic cleanup on unmount
-#[component]
-fn Counter() -> Element {
-    // useState equivalent - initialize counter to 0
-    let (counter, set_counter) = use_state(|| 0);
-    let counter_value = counter.get();
+struct Counter;
 
-    // useEffect equivalent - setInterval that increments counter every 100ms
-    use_interval(
-        {
-            move || {
-                // setCounter(previousCounter => previousCounter + 1)
-                set_counter.update(|counter| counter + 1);
-            }
-        },
-        Duration::from_millis(100), // 100ms interval like the React example
-    );
+impl ComponentV2 for Counter {
+    fn render(&self, area: Rect, buffer: &mut Buffer) {
+        // useState equivalent - initialize counter to 0
+        let (counter_value, set_counter) = use_state_v2(|| 0i32);
 
-    // Return JSX-like rsx! - equivalent to: <Text color="green">{counter} tests passed</Text>
-    rsx! {
-        <Paragraph
-            style={Style::default().fg(Color::Green).add_modifier(Modifier::BOLD)}
-            alignment={Alignment::Center}
-        >
-            {format!("{} tests passed", counter_value)}
-        </Paragraph>
+        // useEffect equivalent - setInterval that increments counter every 100ms
+        use_interval_v2(
+            {
+                move || {
+                    // setCounter(previousCounter => previousCounter + 1)
+                    set_counter.update(|counter| counter + 1);
+                }
+            },
+            100, // 100ms interval like the React example
+        );
+
+        // Render - equivalent to: <Text color="green">{counter} tests passed</Text>
+        let paragraph = Paragraph::new(format!("{} tests passed", counter_value))
+            .style(Style::default().fg(Color::Green).add_modifier(Modifier::BOLD))
+            .alignment(Alignment::Center);
+
+        paragraph.render(area, buffer);
     }
 }
 
 /// A more elaborate version with multiple counters and styling
-#[component]
-fn EnhancedCounter() -> Element {
-    // Multiple state hooks - like multiple useState calls
-    let (tests_passed, set_tests_passed) = use_state(|| 0);
-    let (tests_failed, set_tests_failed) = use_state(|| 0);
-    let (uptime_seconds, set_uptime_seconds) = use_state(|| 0);
+struct EnhancedCounter;
 
-    // Get current values
-    let tests_passed_value = tests_passed.get();
-    let tests_failed_value = tests_failed.get();
-    let uptime_seconds_value = uptime_seconds.get();
+impl ComponentV2 for EnhancedCounter {
+    fn render(&self, area: Rect, buffer: &mut Buffer) {
+        // Multiple state hooks - like multiple useState calls
+        let (tests_passed_value, set_tests_passed) = use_state_v2(|| 0i32);
+        let (tests_failed_value, set_tests_failed) = use_state_v2(|| 0i32);
+        let (uptime_seconds_value, set_uptime_seconds) = use_state_v2(|| 0i32);
 
-    // Fast counter for tests passed (every 100ms like React example)
-    use_interval(
-        {
-            move || {
-                set_tests_passed.update(|tests_passed| tests_passed + 1);
-            }
-        },
-        Duration::from_millis(100),
-    );
-
-    // Slower counter for failed tests (every 500ms)
-    use_interval(
-        {
-            move || {
-                if tests_failed.get() < 5 {
-                    set_tests_failed.update(|tests_failed| tests_failed + 1);
+        // Fast counter for tests passed (every 100ms like React example)
+        use_interval_v2(
+            {
+                move || {
+                    set_tests_passed.update(|tests_passed| tests_passed + 1);
                 }
-            }
-        },
-        Duration::from_millis(500),
-    );
+            },
+            100,
+        );
 
-    // Uptime counter (every second)
-    use_interval(
-        {
-            move || {
-                set_uptime_seconds.update(|uptime_seconds| uptime_seconds + 1);
-            }
-        },
-        Duration::from_secs(1),
-    );
+        // Slower counter for failed tests (every 500ms)
+        use_interval_v2(
+            {
+                move || {
+                    if tests_failed_value < 5 {
+                        set_tests_failed.update(|tests_failed| tests_failed + 1);
+                    }
+                }
+            },
+            500,
+        );
 
-    rsx! {
-        <Layout
-            direction={Direction::Vertical}
-            constraints={vec![
+        // Uptime counter (every second)
+        use_interval_v2(
+            {
+                move || {
+                    set_uptime_seconds.update(|uptime_seconds| uptime_seconds + 1);
+                }
+            },
+            1000,
+        );
+
+        // Create layout
+        let chunks = Layout::default()
+            .direction(Direction::Vertical)
+            .constraints([
                 Constraint::Length(3),
                 Constraint::Length(3),
                 Constraint::Length(3),
                 Constraint::Min(0),
-            ]}
-        >
-            {/* Tests Passed - Green like the original */}
-            <Block
-                borders={Borders::ALL}
-                border_style={Style::default().fg(Color::Green)}
-                title="✅ Tests Passed"
-            >
-                <Paragraph
-                    style={Style::default().fg(Color::Green).add_modifier(Modifier::BOLD)}
-                    alignment={Alignment::Center}
-                >
-                    {format!("{} tests passed", tests_passed_value)}
-                </Paragraph>
-            </Block>
+            ])
+            .split(area);
 
-            {/* Tests Failed - Red */}
-            <Block
-                borders={Borders::ALL}
-                border_style={Style::default().fg(Color::Red)}
-                title="❌ Tests Failed"
-            >
-                <Paragraph
-                    style={Style::default().fg(Color::Red).add_modifier(Modifier::BOLD)}
-                    alignment={Alignment::Center}
-                >
-                    {format!("{} tests failed", tests_failed_value)}
-                </Paragraph>
-            </Block>
+        // Tests Passed - Green like the original
+        let passed_block = Block::default()
+            .borders(Borders::ALL)
+            .border_style(Style::default().fg(Color::Green))
+            .title("✅ Tests Passed");
+        let passed_inner = passed_block.inner(chunks[0]);
+        passed_block.render(chunks[0], buffer);
 
-            {/* Uptime - Blue */}
-            <Block
-                borders={Borders::ALL}
-                border_style={Style::default().fg(Color::Blue)}
-                title="⏱️ Uptime"
-            >
-                <Paragraph
-                    style={Style::default().fg(Color::Blue).add_modifier(Modifier::BOLD)}
-                    alignment={Alignment::Center}
-                >
-                    {format!("{}s uptime", uptime_seconds_value)}
-                </Paragraph>
-            </Block>
+        let passed_text = Paragraph::new(format!("{} tests passed", tests_passed_value))
+            .style(Style::default().fg(Color::Green).add_modifier(Modifier::BOLD))
+            .alignment(Alignment::Center);
+        passed_text.render(passed_inner, buffer);
 
-            {/* Instructions */}
-            <Block
-                borders={Borders::ALL}
-                border_style={Style::default().fg(Color::Yellow)}
-                title="📝 Instructions"
-            >
-                <Paragraph
-                    style={Style::default().fg(Color::Yellow)}
-                    alignment={Alignment::Center}
-                >
-                    {"Press 'q' to quit • React-like hooks in Rust TUI"}
-                </Paragraph>
-            </Block>
-        </Layout>
+        // Tests Failed - Red
+        let failed_block = Block::default()
+            .borders(Borders::ALL)
+            .border_style(Style::default().fg(Color::Red))
+            .title("❌ Tests Failed");
+        let failed_inner = failed_block.inner(chunks[1]);
+        failed_block.render(chunks[1], buffer);
+
+        let failed_text = Paragraph::new(format!("{} tests failed", tests_failed_value))
+            .style(Style::default().fg(Color::Red).add_modifier(Modifier::BOLD))
+            .alignment(Alignment::Center);
+        failed_text.render(failed_inner, buffer);
+
+        // Uptime - Blue
+        let uptime_block = Block::default()
+            .borders(Borders::ALL)
+            .border_style(Style::default().fg(Color::Blue))
+            .title("⏱️ Uptime");
+        let uptime_inner = uptime_block.inner(chunks[2]);
+        uptime_block.render(chunks[2], buffer);
+
+        let uptime_text = Paragraph::new(format!("{}s uptime", uptime_seconds_value))
+            .style(Style::default().fg(Color::Blue).add_modifier(Modifier::BOLD))
+            .alignment(Alignment::Center);
+        uptime_text.render(uptime_inner, buffer);
+
+        // Instructions
+        let instructions_block = Block::default()
+            .borders(Borders::ALL)
+            .border_style(Style::default().fg(Color::Yellow))
+            .title("📝 Instructions");
+        let instructions_inner = instructions_block.inner(chunks[3]);
+        instructions_block.render(chunks[3], buffer);
+
+        let instructions_text = Paragraph::new("Press 'q' to quit • React-like hooks in Rust TUI")
+            .style(Style::default().fg(Color::Yellow))
+            .alignment(Alignment::Center);
+        instructions_text.render(instructions_inner, buffer);
     }
 }
 
@@ -166,67 +158,52 @@ impl ReactLikeApp {
     }
 }
 
-impl Component for ReactLikeApp {
+impl ComponentV2 for ReactLikeApp {
     fn render(&self, area: Rect, buffer: &mut Buffer) {
         // Handle events (like event listeners in React)
-        if let Some(event) = use_event()
-            && let Event::Key(key) = event
-            && key.kind == KeyEventKind::Press
-        {
-            match key.code {
-                KeyCode::Char('q') => {
-                    request_exit();
-                }
-                KeyCode::Char('e') => {
-                    // In a real app, you'd use state for this
-                }
-                _ => {}
+        use_keyboard_press_v2(|key| {
+            if key.code == KeyCode::Char('q') {
+                request_exit_v2();
             }
-        }
+        });
 
         // Create the layout
-        let layout = rsx! {
-            <Layout
-                direction={Direction::Vertical}
-                margin={1}
-                constraints={vec![
-                    Constraint::Length(3),  // Header
-                    Constraint::Min(0),     // Counter content
-                ]}
-            >
-                {/* Header */}
-                <Block
-                    title="🚀 React-like Counter in Rust TUI"
-                    borders={Borders::ALL}
-                    border_style={Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD)}
-                >
-                    <Paragraph
-                        alignment={Alignment::Center}
-                        style={Style::default().fg(Color::White).add_modifier(Modifier::BOLD)}
-                    >
-                        {self.title.clone()}
-                    </Paragraph>
-                </Block>
+        let chunks = Layout::default()
+            .direction(Direction::Vertical)
+            .margin(1)
+            .constraints([
+                Constraint::Length(3),  // Header
+                Constraint::Min(0),     // Counter content
+            ])
+            .split(area);
 
-                {/* Counter Component */}
-                {
-                    if self.enhanced_mode {
-                        <EnhancedCounter />
-                    } else {
-                        <Block
-                            title="🧪 Test Runner"
-                            borders={Borders::ALL}
-                            border_style={Style::default().fg(Color::Green)}
-                        >
-                            <Counter />
-                        </Block>
-                    }
-                }
-            </Layout>
-        };
+        // Header
+        let header_block = Block::default()
+            .title("🚀 React-like Counter in Rust TUI")
+            .borders(Borders::ALL)
+            .border_style(Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD))
+            .border_type(BorderType::Double);
+        let header_inner = header_block.inner(chunks[0]);
+        header_block.render(chunks[0], buffer);
 
-        // Render the layout
-        layout.render(area, buffer);
+        let header_text = Paragraph::new(self.title.clone())
+            .alignment(Alignment::Center)
+            .style(Style::default().fg(Color::White).add_modifier(Modifier::BOLD));
+        header_text.render(header_inner, buffer);
+
+        // Counter Component
+        if self.enhanced_mode {
+            EnhancedCounter.render(chunks[1], buffer);
+        } else {
+            let counter_block = Block::default()
+                .title("🧪 Test Runner")
+                .borders(Borders::ALL)
+                .border_style(Style::default().fg(Color::Green));
+            let counter_inner = counter_block.inner(chunks[1]);
+            counter_block.render(chunks[1], buffer);
+
+            Counter.render(counter_inner, buffer);
+        }
     }
 }
 
@@ -241,23 +218,21 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let enhanced_mode = std::env::args().any(|arg| arg == "--enhanced");
 
     // render(<ReactLikeApp />) - equivalent to the React render call
-    if let Err(err) = render(move || {
-        ReactLikeApp::new(
-            if enhanced_mode {
-                "🎨 Enhanced Multi-Counter Demo"
-            } else {
-                "⚡ Simple Counter (React/Ink Style)"
-            },
-            enhanced_mode,
-        )
-        .into()
+    let title = if enhanced_mode {
+        "🎨 Enhanced Multi-Counter Demo"
+    } else {
+        "⚡ Simple Counter (React/Ink Style)"
+    };
+    
+    if let Err(err) = render_v2(move || {
+        ReactLikeApp::new(title, enhanced_mode)
     })
     .await
     {
         eprintln!("❌ Application error: {:?}", err);
     } else {
         println!("✨ React-like counter demo completed successfully!");
-        println!("🎯 Demonstrated: useState → use_state, useEffect → use_interval");
+        println!("🎯 Demonstrated: useState → use_state_v2, useEffect → use_interval_v2");
     }
 
     Ok(())

@@ -131,6 +131,10 @@ fn history_reducer<T: Clone>(state: HistoryState<T>, action: HistoryAction<T>) -
 }
 
 /// A hook for managing state history for undo/redo functionality
+#[deprecated(
+    since = "0.2.0",
+    note = "use `reratui_fiber::hooks::use_history_v2` instead for proper fiber-based history management"
+)]
 pub fn use_history<T>(initial_state: T, max_history: usize) -> HistoryManager<T>
 where
     T: Clone + Send + Sync + PartialEq + 'static,

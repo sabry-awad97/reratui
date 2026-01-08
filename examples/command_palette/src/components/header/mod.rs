@@ -17,7 +17,7 @@ pub use system_info::SystemInfoComponent;
 
 use crate::theme::Theme;
 
-use reratui::prelude::*;
+use reratui_fiber::{prelude::*, ratatui::widgets::BorderType};
 
 pub struct Header {
     pub title: String,
@@ -28,7 +28,7 @@ pub struct Header {
     pub marquee_text: String,
 }
 
-impl Component for Header {
+impl ComponentV2 for Header {
     fn render(&self, area: Rect, buffer: &mut Buffer) {
         // Create layout for header with menu bar, status icons, title, and marquee
         let main_chunks = Layout::default()
@@ -49,7 +49,7 @@ impl Component for Header {
             match action {
                 MenuAction::Exit => {
                     // Handle exit action
-                    request_exit();
+                    request_exit_v2();
                 }
                 MenuAction::Custom(action_name) => {
                     // Handle custom actions
@@ -104,7 +104,7 @@ struct LeftHeaderComponent {
     theme: Theme,
 }
 
-impl Component for LeftHeaderComponent {
+impl ComponentV2 for LeftHeaderComponent {
     fn render(&self, area: Rect, buffer: &mut Buffer) {
         // Get the rendered content from both components
         let mut system_info_spans = Vec::new();

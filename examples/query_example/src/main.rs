@@ -1,6 +1,6 @@
 //! 🔍 Query Hook Example - GitHub Repository Search
 //!
-//! A beautiful demonstration of the `use_query` hook with:
+//! A beautiful demonstration of the `use_query_v2` hook with:
 //! - 🎯 Smart caching with automatic background refresh
 //! - 🔄 Retry logic with exponential backoff
 //! - 📊 Real-time loading states and error handling
@@ -10,7 +10,9 @@
 
 use std::time::Duration;
 
-use reratui::prelude::*;
+use reratui_fiber::prelude::*;
+use reratui_fiber::hooks::{QueryOptions, QueryResultV2, QueryStatus, use_keyboard_press_v2, use_query_v2};
+use reratui_fiber::ratatui::widgets::BorderType;
 use serde::Deserialize;
 
 #[derive(Debug, Clone, PartialEq, Deserialize)]
@@ -54,10 +56,10 @@ async fn search_github_repos(query: &str) -> Result<SearchResponse, String> {
 
 struct App;
 
-impl Component for App {
+impl ComponentV2 for App {
     fn render(&self, area: Rect, buffer: &mut Buffer) {
-        let (search_query, set_search_query) = use_state(|| String::from("rust"));
-        let current_query = search_query.get();
+        let (search_query, set_search_query) = use_state_v2(|| String::from("rust"));
+        let current_query = search_query.clone();
 
         // Query with caching and background refresh
         let query_options = QueryOptions {
@@ -66,11 +68,12 @@ impl Component for App {
             cache_time: Duration::from_secs(300), // Cache for 5 minutes
             retry: true,
             retry_attempts: 3,
+            ..Default::default()
         };
 
         // Clone for the query closure
         let query_for_fetch = current_query.clone();
-        let query_result = use_query(
+        let query_result = use_query_v2(
             current_query.clone(),
             move || {
                 let query = query_for_fetch.clone();
@@ -80,19 +83,18 @@ impl Component for App {
         );
 
         // Clone for keyboard handler
-        let refetch = query_result.refetch.clone();
-        let invalidate = query_result.invalidate.clone();
+        let query_result_clone = query_result.clone();
 
         // Keyboard controls
-        use_keyboard_press(move |key| match key.code {
+        use_keyboard_press_v2(move |key| match key.code {
             KeyCode::Char('q') if key.modifiers.contains(KeyModifiers::CONTROL) => {
-                request_exit();
+                request_exit_v2();
             }
             KeyCode::Char('r') => {
-                refetch();
+                query_result_clone.refetch();
             }
             KeyCode::Char('c') => {
-                invalidate();
+                query_result_clone.invalidate();
             }
             KeyCode::Char('1') => {
                 set_search_query.set(String::from("rust"));
@@ -155,7 +157,7 @@ fn render_search_info(
     buffer: &mut Buffer,
     area: Rect,
     query: &str,
-    result: &QueryResult<SearchResponse, String>,
+    result: &QueryResultV2<SearchResponse, String>,
 ) {
     let block = Block::default()
         .borders(Borders::ALL)
@@ -187,7 +189,7 @@ fn render_search_info(
     text.render(area, buffer);
 }
 
-fn render_results(buffer: &mut Buffer, area: Rect, result: &QueryResult<SearchResponse, String>) {
+fn render_results(buffer: &mut Buffer, area: Rect, result: &QueryResultV2<SearchResponse, String>) {
     match result.status {
         QueryStatus::Idle => render_idle(buffer, area),
         QueryStatus::Loading => render_loading(buffer, area),
@@ -354,7 +356,7 @@ fn render_error(buffer: &mut Buffer, area: Rect, error: &str) {
     text.render(area, buffer);
 }
 
-fn render_status(buffer: &mut Buffer, area: Rect, result: &QueryResult<SearchResponse, String>) {
+fn render_status(buffer: &mut Buffer, area: Rect, result: &QueryResultV2<SearchResponse, String>) {
     let block = Block::default()
         .title("📊 Query Status")
         .borders(Borders::ALL)
@@ -491,6 +493,6 @@ fn render_controls(buffer: &mut Buffer, area: Rect) {
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    render(|| App.into()).await?;
+    render_v2(|| App).await?;
     Ok(())
 }

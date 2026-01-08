@@ -11,4 +11,4 @@ pub mod vnode;
 pub use component::Component;
 pub use layout::{AnyWidget, BlockWrapper, LayoutWrapper};
 pub use props::ComponentProps;
-pub use vnode::{Element, PropValue};
+pub use vnode::{Element, PropValue, RenderableComponentV2};

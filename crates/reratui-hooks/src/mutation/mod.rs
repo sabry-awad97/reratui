@@ -667,6 +667,10 @@ where
 /// // Usage in component
 /// mutation.mutate(CreateUserRequest { name: "John".to_string() });
 /// ```
+#[deprecated(
+    since = "0.2.0",
+    note = "use `reratui_fiber::hooks::use_mutation_v2` instead for proper fiber-based mutation management"
+)]
 pub fn use_mutation<TData, TError, TVariables, F, Fut>(
     mutation_fn: F,
     options: Option<MutationOptions<TData, TError, TVariables>>,

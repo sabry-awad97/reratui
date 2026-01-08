@@ -97,6 +97,10 @@ mod tests;
 ///
 /// This hook is lightweight and only processes events when they occur. It does not
 /// poll or create additional overhead when the terminal is not being resized.
+#[deprecated(
+    since = "0.2.0",
+    note = "use `reratui_fiber::hooks::use_resize_v2` instead for proper fiber-based event handling"
+)]
 pub fn use_on_resize<F>(callback: F)
 where
     F: Fn((u16, u16)) + Clone + Send + Sync + 'static,
@@ -151,6 +155,10 @@ where
 ///
 /// use_on_resize_callback(handle_resize);
 /// ```
+#[deprecated(
+    since = "0.2.0",
+    note = "use `reratui_fiber::hooks::use_resize_v2` instead for proper fiber-based event handling"
+)]
 pub fn use_on_resize_callback<OUT>(callback: Callback<(u16, u16), OUT>)
 where
     OUT: 'static,
@@ -202,6 +210,10 @@ where
 /// - Automatically updates when the terminal is resized
 /// - Re-renders the component when dimensions change
 /// - Most convenient API for read-only dimension access
+#[deprecated(
+    since = "0.2.0",
+    note = "use `reratui_fiber::hooks::use_resize_v2` instead for proper fiber-based event handling"
+)]
 pub fn use_terminal_dimensions() -> (u16, u16) {
     let (size, set_size) = use_state(|| (0u16, 0u16));
 
@@ -317,6 +329,10 @@ pub fn use_terminal_dimensions() -> (u16, u16) {
 /// - Multiple `use_media_query` calls can be used in the same component
 /// - Each query independently tracks its own match state
 /// - Useful for creating responsive TUI layouts
+#[deprecated(
+    since = "0.2.0",
+    note = "use `reratui_fiber::hooks::use_media_query_v2` instead for proper fiber-based event handling"
+)]
 pub fn use_media_query<F>(predicate: F) -> bool
 where
     F: Fn((u16, u16)) -> bool + Clone + Send + Sync + 'static,

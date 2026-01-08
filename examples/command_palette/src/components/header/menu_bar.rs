@@ -1,4 +1,4 @@
-use reratui::prelude::*;
+use reratui_fiber::prelude::*;
 
 use crate::theme::Theme;
 
@@ -67,7 +67,7 @@ fn render_menu_title(menu: &DropdownMenu, area: Rect, buffer: &mut Buffer) {
     title_widget.render(area, buffer);
 }
 
-impl Component for MenuBar {
+impl ComponentV2 for MenuBar {
     fn render(&self, area: Rect, buffer: &mut Buffer) {
         // Clear any previously stored menus
         clear_active_menus();

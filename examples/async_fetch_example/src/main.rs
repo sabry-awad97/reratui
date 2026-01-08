@@ -1,8 +1,9 @@
 //! 🎨 Beautiful Async Fetch Example - Direct Rendering Version
 //!
-//! A modern demonstration of `use_future` hook without RSX/VNode
+//! A modern demonstration of `use_future_v2` hook without RSX/VNode
 
-use reratui::prelude::*;
+use reratui_fiber::hooks::{FutureState, use_future_v2};
+use reratui_fiber::prelude::*;
 use serde::Deserialize;
 
 #[derive(Debug, Default, Deserialize, Clone, PartialEq)]
@@ -16,22 +17,18 @@ struct Post {
 
 struct App;
 
-impl Component for App {
+impl ComponentV2 for App {
     fn render(&self, area: Rect, buffer: &mut Buffer) {
         // State management
-        let (post_id, set_post_id) = use_state(|| 1u32);
-        let current_post_id = post_id.get();
+        let (post_id, set_post_id) = use_state_v2(|| 1u32);
 
         // Fetch post data with automatic refetch on ID change
-        let future_handle = use_future(
+        let future_handle = use_future_v2(
             move || async move {
                 // Simulate network delay for better UX demonstration
                 tokio::time::sleep(std::time::Duration::from_millis(500)).await;
 
-                let url = format!(
-                    "https://jsonplaceholder.typicode.com/posts/{}",
-                    current_post_id
-                );
+                let url = format!("https://jsonplaceholder.typicode.com/posts/{}", post_id);
 
                 let response = reqwest::get(&url)
                     .await
@@ -48,34 +45,41 @@ impl Component for App {
 
                 Ok::<Post, String>(post)
             },
-            current_post_id,
+            Some((post_id,)),
         );
 
         let future_state = future_handle.state();
 
         // Keyboard navigation
-        use_keyboard_press(move |key| match key.code {
-            KeyCode::Char('q') => {
-                request_exit();
-            }
-            KeyCode::Left | KeyCode::Char('h') => {
-                if current_post_id > 1 {
-                    set_post_id.set(current_post_id - 1);
+        if let Some(Event::Key(KeyEvent {
+            code,
+            kind: KeyEventKind::Press,
+            ..
+        })) = use_event()
+        {
+            match code {
+                KeyCode::Char('q') => {
+                    request_exit_v2();
                 }
-            }
-            KeyCode::Right | KeyCode::Char('l') => {
-                if current_post_id < 100 {
-                    set_post_id.set(current_post_id + 1);
+                KeyCode::Left | KeyCode::Char('h') => {
+                    if post_id > 1 {
+                        set_post_id.set(post_id - 1);
+                    }
                 }
+                KeyCode::Right | KeyCode::Char('l') => {
+                    if post_id < 100 {
+                        set_post_id.set(post_id + 1);
+                    }
+                }
+                KeyCode::Home => {
+                    set_post_id.set(1);
+                }
+                KeyCode::End => {
+                    set_post_id.set(100);
+                }
+                _ => {}
             }
-            KeyCode::Home => {
-                set_post_id.set(1);
-            }
-            KeyCode::End => {
-                set_post_id.set(100);
-            }
-            _ => {}
-        });
+        }
 
         // Layout
         let chunks = Layout::default()
@@ -88,13 +92,13 @@ impl Component for App {
             .split(area);
 
         // Render header
-        render_header(buffer, chunks[0], current_post_id);
+        render_header(buffer, chunks[0], post_id);
 
         // Render content based on state
         render_content(buffer, chunks[1], &future_state);
 
         // Render footer
-        render_footer(buffer, chunks[2], current_post_id);
+        render_footer(buffer, chunks[2], post_id);
     }
 }
 
@@ -133,7 +137,6 @@ fn render_content(buffer: &mut Buffer, area: Rect, state: &FutureState<Post, Str
             let block = Block::default()
                 .title("⏳ Loading...")
                 .borders(Borders::ALL)
-                .border_type(BorderType::Double)
                 .border_style(
                     Style::default()
                         .fg(Color::Yellow)
@@ -163,7 +166,6 @@ fn render_content(buffer: &mut Buffer, area: Rect, state: &FutureState<Post, Str
             let block = Block::default()
                 .title(format!("✅ Post #{}", post.id))
                 .borders(Borders::ALL)
-                .border_type(BorderType::Rounded)
                 .border_style(
                     Style::default()
                         .fg(Color::Green)
@@ -198,7 +200,6 @@ fn render_content(buffer: &mut Buffer, area: Rect, state: &FutureState<Post, Str
             let block = Block::default()
                 .title("❌ Error")
                 .borders(Borders::ALL)
-                .border_type(BorderType::Double)
                 .border_style(Style::default().fg(Color::Red).add_modifier(Modifier::BOLD));
 
             let text = Paragraph::new(vec![
@@ -282,6 +283,6 @@ fn render_footer(buffer: &mut Buffer, area: Rect, post_id: u32) {
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    render(|| App.into()).await?;
+    render_v2(|| App).await?;
     Ok(())
 }

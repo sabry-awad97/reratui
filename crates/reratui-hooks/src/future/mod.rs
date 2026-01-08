@@ -409,6 +409,10 @@ impl std::error::Error for FutureError {}
 /// - Dependency comparison uses PartialEq for efficient change detection
 /// - Multiple futures in the same component are managed independently
 /// - Memory usage is minimal with Arc-based sharing
+#[deprecated(
+    since = "0.2.0",
+    note = "use `reratui_fiber::hooks::use_future_v2` instead for proper fiber-based async management"
+)]
 pub fn use_future<Deps, F, Fut, T, E>(
     future_factory: F,
     deps: impl Into<Option<Deps>>,

@@ -336,6 +336,10 @@ impl FrameInfo {
 /// let frame = frame_ctx.frame();
 /// let area = frame.area();
 /// ```
+#[deprecated(
+    since = "0.2.0",
+    note = "use `reratui_fiber::hooks::use_frame_v2` instead for proper fiber-based frame access"
+)]
 pub fn use_frame() -> FrameContext {
     use_context::<FrameContext>()
 }

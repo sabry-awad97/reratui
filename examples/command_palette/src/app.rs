@@ -1,10 +1,12 @@
-use std::time::{Duration, SystemTime};
+use std::time::SystemTime;
 
 use chrono::Local;
-use reratui::prelude::*;
+use reratui_fiber::prelude::*;
 
 use crate::components::header::{AppMode, ConnectionStatus, NotificationLevel};
-use crate::components::{CommandPaletteComponent, Header, HelpBar, MessageList};
+use crate::components::{
+    CommandPaletteComponent, DebugPanel, Header, HelpBar, MessageList, debug_log,
+};
 use crate::hooks::use_command_palette;
 use crate::models::{Message, MessageType};
 use crate::theme::Theme;
@@ -26,48 +28,51 @@ impl CommandPaletteApp {
     }
 }
 
-impl Component for CommandPaletteApp {
+impl ComponentV2 for CommandPaletteApp {
     fn render(&self, area: Rect, buffer: &mut Buffer) {
+        // Log each render
+        debug_log("App render");
+
         // Set up themes
-        let (theme_index, set_theme_index) = use_state(|| 0usize);
-        let themes = vec![
+        let (theme_index, set_theme_index) = use_state_v2(|| 0usize);
+        let themes = [
             Theme::github_dark(),
             Theme::github_light(),
             Theme::nord_dark(),
         ];
 
-        let theme = themes[theme_index.get()].clone();
+        let theme = themes[theme_index].clone();
 
         // Set up command palette
         let palette = use_command_palette();
 
         // Set up status states
-        let (connection_status, set_connection_status) = use_state(|| ConnectionStatus::Connected);
-        let (notification_level, set_notification_level) = use_state(|| NotificationLevel::None);
-        let (app_mode, set_app_mode) = use_state(|| AppMode::Normal);
+        let (connection_status, set_connection_status) =
+            use_state_v2(|| ConnectionStatus::Connected);
+        let (notification_level, set_notification_level) = use_state_v2(|| NotificationLevel::None);
+        let (app_mode, set_app_mode) = use_state_v2(|| AppMode::Normal);
 
-        use_interval(
+        // Debug: track render count
+        let (render_count, set_render_count) = use_state_v2(|| 0usize);
+
+        use_interval_v2(
             {
                 // Simulate connection status changes
-                let connection_status = connection_status.clone();
-                let set_connection_status = set_connection_status.clone();
-
                 move || {
-                    // Cycle through connection statuses for demo purposes
-                    match connection_status.get() {
-                        ConnectionStatus::Connected => {
-                            set_connection_status.set(ConnectionStatus::Connecting)
+                    debug_log("Connection status interval fired!");
+                    // Cycle through connection statuses for demo purposes using update()
+                    set_connection_status.update(|status| {
+                        debug_log(format!("Updating connection status from {:?}", status));
+                        match status {
+                            ConnectionStatus::Connected => ConnectionStatus::Connecting,
+                            ConnectionStatus::Connecting => ConnectionStatus::Disconnected,
+                            ConnectionStatus::Disconnected => ConnectionStatus::Connected,
                         }
-                        ConnectionStatus::Connecting => {
-                            set_connection_status.set(ConnectionStatus::Disconnected)
-                        }
-                        ConnectionStatus::Disconnected => {
-                            set_connection_status.set(ConnectionStatus::Connected)
-                        }
-                    }
+                    });
+                    set_render_count.update(|c| *c + 1);
                 }
             },
-            Duration::from_secs(5), // Change every 5 seconds
+            5000, // Change every 5 seconds
         );
 
         // Update app mode based on palette visibility
@@ -75,34 +80,30 @@ impl Component for CommandPaletteApp {
             set_app_mode.set(AppMode::Command);
         } else {
             // Only set back to normal if we're currently in command mode
-            if app_mode.get() == AppMode::Command {
+            if app_mode == AppMode::Command {
                 set_app_mode.set(AppMode::Normal);
             }
         }
 
         // Register theme commands
         {
-            let theme_index = theme_index.clone();
-            let set_theme_index = set_theme_index.clone();
             let themes_len = themes.len();
             palette.register("theme:next", "🎨 Switch to next theme", move || {
-                let next_index = (theme_index.get() + 1) % themes_len;
+                let next_index = (theme_index + 1) % themes_len;
                 set_theme_index.set(next_index);
             });
         }
 
         {
-            let theme_index = theme_index.clone();
-            let set_theme_index = set_theme_index.clone();
             let themes_len = themes.len();
             palette.register(
                 "theme:previous",
                 "🎨 Switch to previous theme",
                 move || {
-                    let prev_index = if theme_index.get() == 0 {
+                    let prev_index = if theme_index == 0 {
                         themes_len - 1
                     } else {
-                        theme_index.get() - 1
+                        theme_index - 1
                     };
                     set_theme_index.set(prev_index);
                 },
@@ -110,19 +111,17 @@ impl Component for CommandPaletteApp {
         }
 
         // Set up messages state
-        let (messages, set_messages) = use_state(Vec::<Message>::new);
+        let (messages, set_messages) = use_state_v2(Vec::<Message>::new);
 
         // Register message commands
         {
-            let set_messages = set_messages.clone();
             let messages = messages.clone();
-            let set_notification_level = set_notification_level.clone();
             palette.register(
                 "greet",
                 "👋 Display a friendly greeting message",
                 move || {
                     set_messages.set({
-                        let mut msgs = messages.get();
+                        let mut msgs = messages.clone();
                         msgs.push(Message {
                             text: "Hello, World! Welcome to the enhanced command palette demo!"
                                 .to_string(),
@@ -138,8 +137,6 @@ impl Component for CommandPaletteApp {
         }
 
         {
-            let set_messages = set_messages.clone();
-            let set_notification_level = set_notification_level.clone();
             palette.register(
                 "clear",
                 "🧹 Clear all messages from the display",
@@ -152,14 +149,13 @@ impl Component for CommandPaletteApp {
         }
 
         {
-            let set_messages = set_messages.clone();
             let messages = messages.clone();
             palette.register(
                 "add timestamp",
                 "🕒 Insert current timestamp",
                 move || {
                     set_messages.set({
-                        let mut msgs = messages.get();
+                        let mut msgs = messages.clone();
                         msgs.push(Message {
                             text: format!(
                                 "Current time: {}",
@@ -175,12 +171,10 @@ impl Component for CommandPaletteApp {
         }
 
         {
-            let set_messages = set_messages.clone();
             let messages = messages.clone();
-            let set_notification_level = set_notification_level.clone();
             palette.register("warning", "⚠️ Add a warning message", move || {
                 set_messages.set({
-                    let mut msgs = messages.get();
+                    let mut msgs = messages.clone();
                     msgs.push(Message {
                         text: "This is a warning message!".to_string(),
                         timestamp: Local::now(),
@@ -194,12 +188,10 @@ impl Component for CommandPaletteApp {
         }
 
         {
-            let set_messages = set_messages.clone();
             let messages = messages.clone();
-            let set_notification_level = set_notification_level.clone();
             palette.register("error", "❌ Add an error message", move || {
                 set_messages.set({
-                    let mut msgs = messages.get();
+                    let mut msgs = messages.clone();
                     msgs.push(Message {
                         text: "This is an error message!".to_string(),
                         timestamp: Local::now(),
@@ -218,21 +210,21 @@ impl Component for CommandPaletteApp {
         {
             match (key.code, key.modifiers) {
                 (KeyCode::Char('c'), KeyModifiers::CONTROL) => {
-                    request_exit();
+                    request_exit_v2();
                 }
                 (KeyCode::Char('p'), KeyModifiers::CONTROL) => {
                     palette.show_palette();
                 }
                 (KeyCode::Char('e'), KeyModifiers::CONTROL) => {
                     // Toggle edit mode
-                    set_app_mode.set(match app_mode.get() {
+                    set_app_mode.set(match app_mode {
                         AppMode::Edit => AppMode::Normal,
                         _ => AppMode::Edit,
                     });
                 }
                 (KeyCode::Char('v'), KeyModifiers::CONTROL) => {
                     // Toggle view mode
-                    set_app_mode.set(match app_mode.get() {
+                    set_app_mode.set(match app_mode {
                         AppMode::View => AppMode::Normal,
                         _ => AppMode::View,
                     });
@@ -288,12 +280,13 @@ impl Component for CommandPaletteApp {
             }
         }
 
-        // Create layout
+        // Create layout with debug panel
         let chunks = Layout::default()
             .direction(Direction::Vertical)
             .constraints([
                 Constraint::Length(7), // Header (1 for menu + 3 for main header + 3 for marquee)
                 Constraint::Min(1),    // Message list
+                Constraint::Length(10), // Debug panel
                 Constraint::Length(3), // Help bar
             ])
             .split(area);
@@ -302,23 +295,29 @@ impl Component for CommandPaletteApp {
         Header {
             title: self.title.clone(),
             theme: theme.clone(),
-            connection_status: connection_status.get(),
-            notification_level: notification_level.get(),
-            app_mode: app_mode.get(),
+            connection_status,
+            notification_level,
+            app_mode,
             marquee_text: "🔔 Welcome to the Command Palette Demo! Press Ctrl+P to open the command palette. Press Ctrl+E to toggle edit mode. Press Ctrl+V to toggle view mode. 🚀 Explore all the features and enjoy the enhanced UI! 🎉".to_string(),
         }
         .render(chunks[0], buffer);
 
         MessageList {
-            messages: messages.get(),
+            messages: messages.clone(),
             theme: theme.clone(),
         }
         .render(chunks[1], buffer);
 
-        HelpBar {
+        // Render debug panel
+        DebugPanel {
             theme: theme.clone(),
         }
         .render(chunks[2], buffer);
+
+        HelpBar {
+            theme: theme.clone(),
+        }
+        .render(chunks[3], buffer);
 
         // Render all active dropdown menus (on top of other UI elements)
         let active_menus = crate::components::header::menu_bar::get_active_menus();

@@ -1,7 +1,6 @@
 use crate::theme::Theme;
 use rand::Rng;
-use reratui::prelude::*;
-use std::time::Duration;
+use reratui_fiber::prelude::*;
 
 pub struct SystemInfoComponent {
     theme: Theme,
@@ -15,72 +14,41 @@ impl SystemInfoComponent {
     /// Get the spans for the system info without rendering to a frame
     pub fn get_spans<'a>(&'a self, spans: &mut Vec<Span<'a>>) {
         // Simulated system information state
-        let (cpu_usage, set_cpu_usage) = use_state(|| 30.0f32); // Start with reasonable values
-        let (memory_used, set_memory_used) = use_state(|| 4.0f32); // GB
-        let (memory_total, set_memory_total) = use_state(|| 16.0f32); // GB
+        let (cpu_usage, set_cpu_usage) = use_state_v2(|| 30.0f32); // Start with reasonable values
+        let (memory_used, set_memory_used) = use_state_v2(|| 4.0f32); // GB
+        let (memory_total, _set_memory_total) = use_state_v2(|| 16.0f32); // GB
 
-        // CPU usage history for smoothing
-        let (cpu_history, set_cpu_history) = use_state(|| vec![30.0f32; 5]);
-
-        use_interval(
+        use_interval_v2(
             {
                 // Set up system info update interval
-                let cpu_usage = cpu_usage.clone();
-                let memory_used = memory_used.clone();
-                let set_cpu_usage = set_cpu_usage.clone();
-                let set_memory_used = set_memory_used.clone();
-                let set_memory_total = set_memory_total.clone();
-
                 move || {
-                    // Only update system info every 5 seconds to reduce CPU usage
-                    static mut COUNTER: u8 = 0;
-                    unsafe {
-                        COUNTER = (COUNTER + 1) % 5;
-                        if COUNTER == 0 {
-                            // Generate simulated CPU usage that varies realistically
-                            let mut rng = rand::rng();
-                            let current_cpu =
-                                (cpu_usage.get() + rng.random_range(-5.0..5.0)).clamp(5.0, 95.0);
+                    // Update CPU usage with simulated variation
+                    set_cpu_usage.update(|current| {
+                        let mut rng = rand::rng();
+                        let change: f32 = rng.random_range(-5.0..5.0);
+                        (*current + change).clamp(5.0, 95.0)
+                    });
 
-                            // Update CPU history for smoothing
-                            let mut history = cpu_history.get();
-                            history.remove(0); // Remove oldest value
-                            history.push(current_cpu); // Add new value
-                            set_cpu_history.set(history.clone());
-
-                            // Calculate average CPU usage for smoother display
-                            let avg_cpu = history.iter().sum::<f32>() / history.len() as f32;
-
-                            // Simulate memory usage changes (more stable than CPU)
-                            let memory_total = 16.0; // 16 GB total memory
-                            let memory_used = (memory_used.get() + rng.random_range(-0.2..0.2))
-                                .clamp(2.0, memory_total - 1.0);
-
-                            // Update system information state
-                            set_cpu_usage.set(avg_cpu);
-                            set_memory_used.set(memory_used);
-                            set_memory_total.set(memory_total);
-                        }
-                    }
+                    // Simulate memory usage changes (more stable than CPU)
+                    set_memory_used.update(|current| {
+                        let mut rng = rand::rng();
+                        let change: f32 = rng.random_range(-0.2..0.2);
+                        (*current + change).clamp(2.0, 15.0)
+                    });
                 }
             },
-            Duration::from_secs(1), // Update every second
+            5000, // Update every 5 seconds to reduce CPU usage
         );
 
         // Create system information display
-        let system_info = create_system_info(
-            cpu_usage.get(),
-            memory_used.get(),
-            memory_total.get(),
-            &self.theme,
-        );
+        let system_info = create_system_info(cpu_usage, memory_used, memory_total, &self.theme);
 
         // Add the spans to the output vector
         spans.extend(system_info.spans);
     }
 }
 
-impl Component for SystemInfoComponent {
+impl ComponentV2 for SystemInfoComponent {
     fn render(&self, area: Rect, buffer: &mut Buffer) {
         let mut spans = Vec::new();
         self.get_spans(&mut spans);

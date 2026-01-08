@@ -49,6 +49,10 @@ mod tests;
 /// - The callback has a stable identity across renders
 /// - Only mouse events trigger the callback (keyboard, resize, etc. are ignored)
 /// - Mouse capture must be enabled in the terminal (enabled by default in tui-pulse)
+#[deprecated(
+    since = "0.2.0",
+    note = "use `reratui_fiber::hooks::use_mouse_v2` instead for proper fiber-based event handling"
+)]
 pub fn use_mouse<F>(handler: F)
 where
     F: Fn(MouseEvent) + Clone + Send + Sync + 'static,
@@ -98,6 +102,10 @@ where
 /// - Filters out movement, drag, scroll, and button release events
 /// - The callback always sees the latest state values (via effect event pattern)
 /// - The callback has a stable identity across renders
+#[deprecated(
+    since = "0.2.0",
+    note = "use `reratui_fiber::hooks::use_mouse_v2` instead for proper fiber-based event handling"
+)]
 pub fn use_mouse_click<F>(handler: F)
 where
     F: Fn(MouseButton, u16, u16) + Clone + Send + Sync + 'static,
@@ -168,6 +176,10 @@ pub struct DragInfo {
 /// - `is_dragging` is `true` during the entire drag operation
 /// - `is_start` is only `true` on the first frame of the drag
 /// - `is_end` is only `true` on the last frame of the drag
+#[deprecated(
+    since = "0.2.0",
+    note = "use `reratui_fiber::hooks::use_drag_v2` instead for proper fiber-based event handling"
+)]
 pub fn use_mouse_drag() -> (DragInfo, impl Fn()) {
     let (drag_info, set_drag_info) = use_state(DragInfo::default);
     let drag_state = use_ref(|| None::<(MouseButton, u16, u16)>);
@@ -269,6 +281,10 @@ pub fn use_mouse_drag() -> (DragInfo, impl Fn()) {
 /// - Uses `use_ref` internally to track click timing without re-renders
 /// - The callback always sees the latest state values (via effect event pattern)
 /// - The callback has a stable identity across renders
+#[deprecated(
+    since = "0.2.0",
+    note = "use `reratui_fiber::hooks::use_mouse_v2` instead for proper fiber-based event handling"
+)]
 pub fn use_double_click<F>(max_delay: Duration, handler: F)
 where
     F: Fn(MouseButton, u16, u16) + Clone + Send + Sync + 'static,
@@ -327,6 +343,10 @@ where
 /// - The position starts at (0, 0) until the first mouse event
 /// - Mouse capture must be enabled in the terminal
 /// - The hook updates on any mouse event, including movement, clicks, and scrolling
+#[deprecated(
+    since = "0.2.0",
+    note = "use `reratui_fiber::hooks::use_mouse_v2` instead for proper fiber-based event handling"
+)]
 pub fn use_mouse_position() -> (u16, u16) {
     let (position, set_position) = use_state(|| (0u16, 0u16));
 
@@ -379,6 +399,10 @@ pub fn use_mouse_position() -> (u16, u16) {
 ///   - `y >= area.y && y < area.y + area.height`
 /// - The hook updates on any mouse event (movement, clicks, scrolling)
 /// - Mouse capture must be enabled in the terminal
+#[deprecated(
+    since = "0.2.0",
+    note = "use `reratui_fiber::hooks::use_hover_v2` instead for proper fiber-based event handling"
+)]
 pub fn use_mouse_hover(area: ratatui::layout::Rect) -> bool {
     let (is_hovering, set_hovering) = use_state(|| false);
 

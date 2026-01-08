@@ -9,6 +9,27 @@ use std::{
     rc::Rc,
 };
 
+/// A trait for components that can be rendered with fiber management.
+///
+/// This trait is implemented by `ComponentV2Wrapper` in `reratui-fiber` to enable
+/// fiber-based components to be used in the Element system.
+pub trait RenderableComponentV2: 'static {
+    /// Render the component with proper fiber management.
+    fn render_with_fiber(&self, area: Rect, buffer: &mut Buffer);
+
+    /// Get the component ID.
+    fn component_id(&self) -> u64;
+
+    /// Clone the wrapper into a boxed trait object.
+    fn clone_box(&self) -> Box<dyn RenderableComponentV2>;
+}
+
+impl Clone for Box<dyn RenderableComponentV2> {
+    fn clone(&self) -> Self {
+        self.clone_box()
+    }
+}
+
 impl Default for Element {
     fn default() -> Self {
         Self::new()
@@ -39,6 +60,13 @@ pub enum Element {
         key: Option<String>,
         /// The actual component instance.
         component: Rc<dyn Component>,
+    },
+    /// Represents a fiber-based component (ComponentV2) in the virtual DOM tree.
+    ComponentV2 {
+        /// The wrapper that handles fiber management.
+        wrapper: Box<dyn RenderableComponentV2>,
+        /// The key of the component.
+        key: Option<String>,
     },
     /// Represents a primitive widget in the virtual DOM tree.
     Widget {
@@ -86,6 +114,11 @@ impl Element {
         }
     }
 
+    /// Creates a new ComponentV2 node from a RenderableComponentV2.
+    pub fn component_v2(wrapper: Box<dyn RenderableComponentV2>) -> Self {
+        Element::ComponentV2 { wrapper, key: None }
+    }
+
     /// Creates a new text node.
     pub fn text<S: Into<String>>(text: S) -> Self {
         Element::Text(text.into())
@@ -130,6 +163,7 @@ impl Element {
     pub fn with_key<S: Into<String>>(mut self, key: S) -> Self {
         match &mut self {
             Element::Component { key: k, .. } => *k = Some(key.into()),
+            Element::ComponentV2 { key: k, .. } => *k = Some(key.into()),
             Element::Widget { key: k, .. } => *k = Some(key.into()),
             Element::Text(_) => {} // Text nodes don't have keys
         }
@@ -142,6 +176,10 @@ impl Element {
             Element::Component { component, .. } => {
                 // Render with lifecycle hooks (on_mount/on_unmount)
                 crate::component::render_component_with_lifecycle(component, area, buffer);
+            }
+            Element::ComponentV2 { wrapper, .. } => {
+                // Render with fiber management
+                wrapper.render_with_fiber(area, buffer);
             }
             Element::Widget {
                 widget, render_fn, ..

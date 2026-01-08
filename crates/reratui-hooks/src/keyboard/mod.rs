@@ -42,6 +42,10 @@ mod tests;
 /// - Each key event is only processed once per component
 /// - The callback has a stable identity across renders
 /// - Only keyboard events trigger the callback (mouse, resize, etc. are ignored)
+#[deprecated(
+    since = "0.2.0",
+    note = "use `reratui_fiber::hooks::use_keyboard_v2` instead for proper fiber-based event handling"
+)]
 pub fn use_keyboard<F>(handler: F)
 where
     F: Fn(KeyEvent) + Clone + Send + Sync + 'static,
@@ -92,6 +96,10 @@ where
 /// - Filters out `KeyEventKind::Release` and `KeyEventKind::Repeat`
 /// - The callback always sees the latest state values (via effect event pattern)
 /// - The callback has a stable identity across renders
+#[deprecated(
+    since = "0.2.0",
+    note = "use `reratui_fiber::hooks::use_keyboard_v2` instead for proper fiber-based event handling"
+)]
 pub fn use_keyboard_press<F>(handler: F)
 where
     F: Fn(KeyEvent) + Clone + Send + Sync + 'static,
@@ -163,6 +171,10 @@ where
 /// - The callback always sees the latest state values (via effect event pattern)
 /// - The callback has a stable identity across renders
 /// - For multiple modifiers, use bitwise OR: `KeyModifiers::CONTROL | KeyModifiers::SHIFT`
+#[deprecated(
+    since = "0.2.0",
+    note = "use `reratui_fiber::hooks::use_keyboard_v2` instead for proper fiber-based event handling"
+)]
 pub fn use_keyboard_shortcut<F>(key_code: KeyCode, modifiers: KeyModifiers, handler: F)
 where
     F: Fn() + Clone + Send + Sync + 'static,

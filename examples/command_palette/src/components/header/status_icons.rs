@@ -1,7 +1,5 @@
-use std::time::Duration;
-
 use chrono::{DateTime, Local};
-use reratui::prelude::*;
+use reratui_fiber::{prelude::*, ratatui::widgets::BorderType};
 
 use super::utils::interpolate_color;
 use crate::theme::Theme;
@@ -40,79 +38,60 @@ impl StatusIconsComponent {
     }
 }
 
-impl Component for StatusIconsComponent {
+impl ComponentV2 for StatusIconsComponent {
     fn render(&self, area: Rect, buffer: &mut Buffer) {
         // Animation state for notification blinking
-        let (animation_step, set_animation_step) = use_state(|| 0usize);
+        let (animation_step, set_animation_step) = use_state_v2(|| 0usize);
 
         // Clock state
-        let (current_time, set_current_time) = use_state(Local::now);
+        let (current_time, set_current_time) = use_state_v2(Local::now);
 
         // Border breathing effect state for consistent border color with other components
-        let (breath_value, set_breath_value) = use_state(|| 0.0f32);
-        let (breath_increasing, set_breath_increasing) = use_state(|| true);
+        let (breath_value, set_breath_value) = use_state_v2(|| 0.0f32);
 
-        use_interval(
+        use_interval_v2(
             {
                 // Set up animation interval
-                let animation_step_clone = animation_step.clone();
-                let set_animation_step = set_animation_step.clone();
                 move || {
-                    // Simple counter for animation
-                    set_animation_step.set(animation_step_clone.get() + 1);
+                    // Simple counter for animation using update() to get fresh value
+                    set_animation_step.update(|step| *step + 1);
                 }
             },
-            Duration::from_millis(500), // Slower animation speed to reduce CPU usage
+            500, // Slower animation speed to reduce CPU usage
         );
 
-        use_interval(
+        use_interval_v2(
             {
                 // Set up clock update interval
-                let set_current_time = set_current_time.clone();
                 move || {
                     // Update current time every second
                     set_current_time.set(Local::now());
                 }
             },
-            Duration::from_secs(1), // Update every second
+            1000, // Update every second
         );
 
-        use_interval(
+        use_interval_v2(
             {
                 // Set up border breathing effect
-                let breath_value = breath_value.clone();
-                let set_breath_value = set_breath_value.clone();
-                let breath_increasing = breath_increasing.clone();
-                let set_breath_increasing = set_breath_increasing.clone();
                 move || {
-                    let current_value = breath_value.get();
-                    let is_increasing = breath_increasing.get();
-
-                    // Update breathing value
-                    if is_increasing {
-                        let new_value = current_value + 0.05;
+                    // Update breathing value using update() to get fresh value
+                    set_breath_value.update(move |current| {
+                        // Use a simple sine-wave-like oscillation
+                        let new_value = *current + 0.05;
                         if new_value >= 1.0 {
-                            set_breath_increasing.set(false);
-                            set_breath_value.set(1.0);
+                            0.0 // Reset to start
                         } else {
-                            set_breath_value.set(new_value);
+                            new_value
                         }
-                    } else {
-                        let new_value = current_value - 0.05;
-                        if new_value <= 0.0 {
-                            set_breath_increasing.set(true);
-                            set_breath_value.set(0.0);
-                        } else {
-                            set_breath_value.set(new_value);
-                        }
-                    }
+                    });
                 }
             },
-            Duration::from_millis(200), // Slower breathing speed to reduce CPU usage
+            200, // Slower breathing speed to reduce CPU usage
         );
 
         // Calculate border color based on breathing effect
-        let breath_factor = breath_value.get();
+        let breath_factor = breath_value;
 
         // Interpolate between border color and accent color based on breath value
         let border_color = interpolate_color(self.theme.border, self.theme.accent, breath_factor);
@@ -122,8 +101,8 @@ impl Component for StatusIconsComponent {
             self.notification_level,
             self.app_mode,
             &self.theme,
-            animation_step.get(),
-            current_time.get(),
+            animation_step,
+            current_time,
         );
 
         // Render right status icons
@@ -162,7 +141,7 @@ fn create_notification_and_mode_icons(
         NotificationLevel::Medium => ("🔔 2 ", Style::default().fg(theme.warning)),
         NotificationLevel::High => (
             // Blinking effect for high notification level
-            if animation_step % 2 == 0 {
+            if animation_step.is_multiple_of(2) {
                 "🔔 3!"
             } else {
                 "🔔 3 "

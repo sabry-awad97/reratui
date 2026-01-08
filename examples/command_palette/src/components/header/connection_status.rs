@@ -1,8 +1,8 @@
 use crate::theme::Theme;
-use reratui::prelude::*;
+use reratui_fiber::prelude::*;
 
 /// Connection status for the status icon
-#[derive(Clone, Copy, PartialEq)]
+#[derive(Clone, Copy, PartialEq, Debug)]
 pub enum ConnectionStatus {
     Connected,
     Disconnected,
@@ -26,7 +26,7 @@ impl ConnectionStatusComponent {
     }
 }
 
-impl Component for ConnectionStatusComponent {
+impl ComponentV2 for ConnectionStatusComponent {
     fn render(&self, area: Rect, buffer: &mut Buffer) {
         let mut spans = Vec::new();
         self.get_spans(&mut spans);

@@ -1,4 +1,4 @@
-use reratui::prelude::*;
+use reratui_fiber::prelude::*;
 
 mod app;
 mod components;
@@ -13,6 +13,6 @@ use app::CommandPaletteApp;
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Create app with CommandPaletteApp component
-    render(|| CommandPaletteApp::new("✨ Enhanced Command Palette Demo ✨").into()).await?;
+    render_v2(|| CommandPaletteApp::new("✨ Enhanced Command Palette Demo ✨")).await?;
     Ok(())
 }

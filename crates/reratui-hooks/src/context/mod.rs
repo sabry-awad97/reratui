@@ -42,6 +42,10 @@ pub fn clear_context_providers() {
 /// # Returns
 ///
 /// * The context value
+#[deprecated(
+    since = "0.2.0",
+    note = "use `reratui_fiber::hooks::use_context_provider_v2` instead for proper lifecycle management"
+)]
 pub fn use_context_provider<T, F>(create_value: F) -> T
 where
     T: Clone + Send + Sync + 'static,
@@ -76,6 +80,10 @@ where
 ///
 /// * The context value
 ///
+#[deprecated(
+    since = "0.2.0",
+    note = "use `reratui_fiber::hooks::use_context_v2` instead for proper lifecycle management"
+)]
 pub fn use_context<T>() -> T
 where
     T: Clone + Send + Sync + 'static,

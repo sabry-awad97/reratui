@@ -113,6 +113,10 @@ mod tests;
 ///
 /// This hook spawns a lightweight async task that sleeps for the specified duration.
 /// The task is automatically cancelled if the component unmounts.
+#[deprecated(
+    since = "0.2.0",
+    note = "use `reratui_fiber::hooks::use_timeout_v2` instead for proper fiber-based timing"
+)]
 pub fn use_timeout<F>(callback: F, duration: Duration)
 where
     F: Fn() + Send + 'static,
@@ -174,6 +178,10 @@ where
 /// // Reset the timer (e.g., on user activity)
 /// reset();
 /// ```
+#[deprecated(
+    since = "0.2.0",
+    note = "use `reratui_fiber::hooks::use_timeout_v2` instead for proper fiber-based timing"
+)]
 pub fn use_timeout_with_reset<F>(callback: F, duration: Duration) -> impl Fn() + Clone
 where
     F: Fn() + Send + 'static,
@@ -248,6 +256,10 @@ where
 ///     cancel();
 /// }
 /// ```
+#[deprecated(
+    since = "0.2.0",
+    note = "use `reratui_fiber::hooks::use_timeout_v2` instead for proper fiber-based timing"
+)]
 pub fn use_timeout_controlled<F>(
     callback: F,
     duration: Duration,

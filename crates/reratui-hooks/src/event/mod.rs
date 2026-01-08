@@ -200,6 +200,10 @@ pub fn mark_event_processed(component_id: usize) {
 ///
 /// * `Option<Event>` - The current event if available and not yet processed by this hook,
 ///   or None if no event is available or already processed
+#[deprecated(
+    since = "0.2.0",
+    note = "use `reratui_fiber::hooks::use_event_v2` instead for proper fiber-based event handling"
+)]
 pub fn use_event() -> Option<Event> {
     use crate::panic_handler::catch_panic;
 

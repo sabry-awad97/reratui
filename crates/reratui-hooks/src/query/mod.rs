@@ -178,6 +178,10 @@ enum QueryAction<T: Clone, E: Clone> {
 /// result.refetch(); // Force refetch
 /// result.invalidate(); // Clear cache
 /// ```
+#[deprecated(
+    since = "0.2.0",
+    note = "use `reratui_fiber::hooks::use_query_v2` instead for proper fiber-based query management"
+)]
 pub fn use_query<K, F, Fut, T, E>(
     key: K,
     query_fn: F,

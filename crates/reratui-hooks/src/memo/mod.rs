@@ -82,6 +82,10 @@ impl<T> MemoState<T> {
 ///
 /// assert_eq!(area, 200);
 /// ```
+#[deprecated(
+    since = "0.2.0",
+    note = "use `reratui_fiber::hooks::use_memo_v2` instead for proper fiber-based memoization"
+)]
 pub fn use_memo<T, F, Deps>(factory: F, deps: impl Into<Option<Deps>>) -> T
 where
     T: Clone + 'static,
@@ -161,6 +165,11 @@ where
 ///     42
 /// });
 /// ```
+#[deprecated(
+    since = "0.2.0",
+    note = "use `reratui_fiber::hooks::use_memo_v2` with empty deps instead"
+)]
+#[allow(deprecated)]
 pub fn use_memo_once<T, F>(factory: F) -> T
 where
     T: Clone + 'static,

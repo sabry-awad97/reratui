@@ -50,6 +50,10 @@ pub type EffectEvent<IN, OUT> = Callback<IN, OUT>;
 ///
 /// log_count.emit(());
 /// ```
+#[deprecated(
+    since = "0.2.0",
+    note = "use `reratui_fiber::hooks::use_effect_event_v2` instead for proper fiber-based effect events"
+)]
 pub fn use_effect_event<IN, OUT, F>(handler: F) -> EffectEvent<IN, OUT>
 where
     F: Fn(IN) -> OUT + Send + Sync + Clone + 'static,

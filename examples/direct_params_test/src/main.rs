@@ -1,53 +1,9 @@
-use reratui::prelude::*;
+//! Direct Parameters Test - ComponentV2 with Direct Rendering
+//!
+//! Demonstrates using ComponentV2 trait with direct widget rendering.
 
-/// A component that takes direct parameters instead of a props struct
-#[component]
-fn Counter(initial_value: i32) -> Element {
-    rsx! {
-        <Block
-            title="Counter Component"
-            borders={Borders::ALL}
-            border_style={Style::default().fg(Color::Cyan)}
-        >
-            <Paragraph alignment={Alignment::Center}>
-                {format!("Counter value: {}", initial_value)}
-            </Paragraph>
-        </Block>
-    }
-}
+use reratui_fiber::prelude::*;
 
-/// A component that takes multiple direct parameters
-#[component]
-fn UserCard(name: String, age: u32, email: String) -> Element {
-    rsx! {
-        <Block
-            title="User Card"
-            borders={Borders::ALL}
-            border_style={Style::default().fg(Color::Green)}
-        >
-            <Layout
-                direction={Direction::Vertical}
-                constraints={vec![
-                    Constraint::Length(1),
-                    Constraint::Length(1),
-                    Constraint::Length(1),
-                ]}
-            >
-                <Paragraph>
-                    {format!("Name: {}", name)}
-                </Paragraph>
-                <Paragraph>
-                    {format!("Age: {}", age)}
-                </Paragraph>
-                <Paragraph>
-                    {format!("Email: {}", email)}
-                </Paragraph>
-            </Layout>
-        </Block>
-    }
-}
-
-/// A demo component that uses the direct parameter components
 struct DirectParamsDemo {
     title: String,
 }
@@ -60,133 +16,100 @@ impl DirectParamsDemo {
     }
 }
 
-impl Component for DirectParamsDemo {
+impl ComponentV2 for DirectParamsDemo {
     fn render(&self, area: Rect, buffer: &mut Buffer) {
-        // Create the entire layout using rsx! macro
-        let layout = rsx! {
-            <Layout
-                direction={Direction::Vertical}
-                margin={1}
-                constraints={vec![
-                    Constraint::Length(3),
-                    Constraint::Min(10),
-                    Constraint::Length(5),
-                ]}
-            >
-                {/* Header */}
-                <Block
-                    title={self.title.clone()}
-                    borders={Borders::ALL}
-                    border_style={Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD)}
-                >
-                    <Paragraph alignment={Alignment::Center}>
-                        {"🚀 Direct Parameters + RSX Layout Demo"}
-                    </Paragraph>
-                </Block>
+        // Handle exit
+        if let Some(Event::Key(KeyEvent {
+            code: KeyCode::Char('q'),
+            kind: KeyEventKind::Press,
+            ..
+        })) = use_event()
+        {
+            request_exit_v2();
+        }
 
-                {/* Main content area with horizontal layout */}
-                <Layout
-                    direction={Direction::Horizontal}
-                    constraints={vec![
-                        Constraint::Percentage(50),
-                        Constraint::Percentage(50),
-                    ]}
-                >
-                    {/* Left side - Counter component */}
-                    <Layout
-                        direction={Direction::Vertical}
-                        constraints={vec![
-                            Constraint::Length(8),
-                            Constraint::Min(0),
-                        ]}
-                    >
-                        <Counter initial_value={42} />
+        // Create layout
+        let chunks = Layout::default()
+            .direction(Direction::Vertical)
+            .margin(1)
+            .constraints([
+                Constraint::Length(3), // Header
+                Constraint::Min(10),   // Main content
+                Constraint::Length(5), // Footer
+            ])
+            .split(area);
 
-                        <Block
-                            title="📊 Layout Features"
-                            borders={Borders::ALL}
-                            border_style={Style::default().fg(Color::Blue)}
-                        >
-                            <Layout
-                                direction={Direction::Vertical}
-                                constraints={vec![
-                                    Constraint::Length(1),
-                                    Constraint::Length(1),
-                                    Constraint::Length(1),
-                                ]}
-                            >
-                                <Paragraph>{"✅ Nested Layouts"}</Paragraph>
-                                <Paragraph>{"✅ Direct Parameters"}</Paragraph>
-                                <Paragraph>{"✅ RSX Syntax"}</Paragraph>
-                            </Layout>
-                        </Block>
-                    </Layout>
+        // Header
+        let header_block = Block::default()
+            .title(self.title.clone())
+            .borders(Borders::ALL)
+            .border_style(
+                Style::default()
+                    .fg(Color::Cyan)
+                    .add_modifier(Modifier::BOLD),
+            );
+        let header = Paragraph::new("🚀 Direct Parameters + ComponentV2 Demo")
+            .alignment(Alignment::Center)
+            .block(header_block);
+        header.render(chunks[0], buffer);
 
-                    {/* Right side - UserCard component */}
-                    <UserCard
-                        name={"Alice Johnson".to_string()}
-                        age={28}
-                        email={"alice@example.com".to_string()}
-                    />
-                </Layout>
+        // Main content - horizontal split
+        let main_chunks = Layout::default()
+            .direction(Direction::Horizontal)
+            .constraints([Constraint::Percentage(50), Constraint::Percentage(50)])
+            .split(chunks[1]);
 
-                {/* Footer with multiple columns */}
-                <Layout
-                    direction={Direction::Horizontal}
-                    constraints={vec![
-                        Constraint::Percentage(33),
-                        Constraint::Percentage(34),
-                        Constraint::Percentage(33),
-                    ]}
-                >
-                    <Block
-                        title="🎯 Component Types"
-                        borders={Borders::ALL}
-                        border_style={Style::default().fg(Color::Green)}
-                    >
-                        <Paragraph alignment={Alignment::Center}>
-                            {"Direct Params"}
-                        </Paragraph>
-                    </Block>
+        // Left side - Counter info
+        let left_block = Block::default()
+            .title("📊 Layout Features")
+            .borders(Borders::ALL)
+            .border_style(Style::default().fg(Color::Blue));
+        let left_content =
+            Paragraph::new("✅ Nested Layouts\n✅ Direct Parameters\n✅ ComponentV2 Trait")
+                .block(left_block);
+        left_content.render(main_chunks[0], buffer);
 
-                    <Block
-                        title="🎨 Layout System"
-                        borders={Borders::ALL}
-                        border_style={Style::default().fg(Color::Yellow)}
-                    >
-                        <Paragraph alignment={Alignment::Center}>
-                            {"RSX Layouts"}
-                        </Paragraph>
-                    </Block>
+        // Right side - User card
+        let right_block = Block::default()
+            .title("👤 User Card")
+            .borders(Borders::ALL)
+            .border_style(Style::default().fg(Color::Green));
+        let right_content =
+            Paragraph::new("Name: Alice Johnson\nAge: 28\nEmail: alice@example.com")
+                .block(right_block);
+        right_content.render(main_chunks[1], buffer);
 
-                    <Block
-                        title="⚡ Performance"
-                        borders={Borders::ALL}
-                        border_style={Style::default().fg(Color::Magenta)}
-                    >
-                        <Paragraph alignment={Alignment::Center}>
-                            {"Zero Runtime Cost"}
-                        </Paragraph>
-                    </Block>
-                </Layout>
-            </Layout>
-        };
+        // Footer - three columns
+        let footer_chunks = Layout::default()
+            .direction(Direction::Horizontal)
+            .constraints([
+                Constraint::Percentage(33),
+                Constraint::Percentage(34),
+                Constraint::Percentage(33),
+            ])
+            .split(chunks[2]);
 
-        // Render the entire layout
-        layout.render(area, buffer);
+        let labels = [
+            ("🎯 Component Types", Color::Green, "Direct Params"),
+            ("🎨 Layout System", Color::Yellow, "Nested Layouts"),
+            ("⚡ Performance", Color::Magenta, "Zero Runtime Cost"),
+        ];
+
+        for (i, (title, color, content)) in labels.iter().enumerate() {
+            let block = Block::default()
+                .title(*title)
+                .borders(Borders::ALL)
+                .border_style(Style::default().fg(*color));
+            let para = Paragraph::new(*content)
+                .alignment(Alignment::Center)
+                .block(block);
+            para.render(footer_chunks[i], buffer);
+        }
     }
 }
 
-/// Entry point for the application
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    println!("🚀 Testing direct parameter components with rsx! macro...");
-
-    if let Err(err) = render(|| DirectParamsDemo::new("✨ Direct Parameters Test ✨").into()).await
-    {
-        eprintln!("Error: {:?}", err);
-    }
-
-    println!("✅ Direct parameter components work perfectly!");
+    render_v2(|| DirectParamsDemo::new("✨ Direct Parameters Test ✨")).await?;
     Ok(())
 }

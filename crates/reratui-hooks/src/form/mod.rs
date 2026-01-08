@@ -70,6 +70,10 @@ pub use validation::*;
 ///     rsx! { <></> }
 /// }
 /// ```
+#[deprecated(
+    since = "0.2.0",
+    note = "use `reratui_fiber::hooks::use_form_v2` instead for proper fiber-based form management"
+)]
 pub fn use_form(config: FormConfig) -> FormHandle {
     let (values, set_values) = use_state(|| config.initial_values.clone());
     let (errors, set_errors) = use_state(HashMap::<String, String>::new);
@@ -143,6 +147,10 @@ pub fn use_form(config: FormConfig) -> FormHandle {
 ///     }
 /// }
 /// ```
+#[deprecated(
+    since = "0.2.0",
+    note = "use `reratui_fiber::hooks::use_form_context_v2` instead for proper fiber-based form management"
+)]
 pub fn use_form_context() -> FormHandle {
     use_context::<FormHandle>()
 }

@@ -1,6 +1,7 @@
 use std::sync::Arc;
 
-use reratui::prelude::{StateHandle, StateSetter, use_state};
+use reratui_fiber::hooks::StateSetterV2;
+use reratui_fiber::prelude::use_state_v2;
 use std::collections::HashMap;
 
 /// A command that can be executed
@@ -24,14 +25,14 @@ impl PartialEq for Command {
 
 /// Manages keyboard commands and command palette UI
 pub struct CommandPalette {
-    commands: StateHandle<HashMap<String, Command>>,
-    set_commands: StateSetter<HashMap<String, Command>>,
-    is_visible: StateHandle<bool>,
-    set_is_visible: StateSetter<bool>,
-    selected_index: StateHandle<usize>,
-    set_selected_index: StateSetter<usize>,
-    filter_text: StateHandle<String>,
-    set_filter_text: StateSetter<String>,
+    commands: HashMap<String, Command>,
+    set_commands: StateSetterV2<HashMap<String, Command>>,
+    is_visible: bool,
+    set_is_visible: StateSetterV2<bool>,
+    selected_index: usize,
+    set_selected_index: StateSetterV2<usize>,
+    filter_text: String,
+    set_filter_text: StateSetterV2<String>,
 }
 
 impl CommandPalette {
@@ -40,7 +41,7 @@ impl CommandPalette {
     where
         F: Fn() + Send + Sync + 'static,
     {
-        let mut commands = self.commands.get();
+        let mut commands = self.commands.clone();
         commands.insert(
             name.to_string(),
             Command {
@@ -54,7 +55,7 @@ impl CommandPalette {
 
     /// Execute a command by name
     pub fn execute(&self, name: &str) -> bool {
-        if let Some(command) = self.commands.get().get(name) {
+        if let Some(command) = self.commands.get(name) {
             (command.action)();
             true
         } else {
@@ -76,14 +77,13 @@ impl CommandPalette {
 
     /// Check if the command palette is visible
     pub fn is_palette_visible(&self) -> bool {
-        self.is_visible.get()
+        self.is_visible
     }
 
     /// Get the filtered list of commands
     pub fn get_commands(&self) -> Vec<Command> {
-        let filter = self.filter_text.get().to_lowercase();
+        let filter = self.filter_text.to_lowercase();
         self.commands
-            .get()
             .values()
             .filter(|cmd| {
                 cmd.name.to_lowercase().contains(&filter)
@@ -101,12 +101,12 @@ impl CommandPalette {
 
     /// Get the current filter text
     pub fn get_filter(&self) -> String {
-        self.filter_text.get()
+        self.filter_text.clone()
     }
 
     /// Get the currently selected command index
     pub fn get_selected_index(&self) -> usize {
-        self.selected_index.get()
+        self.selected_index
     }
 
     /// Set the selected command index
@@ -117,10 +117,10 @@ impl CommandPalette {
 
 /// Hook for managing keyboard commands and command palette
 pub fn use_command_palette() -> CommandPalette {
-    let (commands, set_commands) = use_state(HashMap::new);
-    let (is_visible, set_is_visible) = use_state(|| false);
-    let (selected_index, set_selected_index) = use_state(|| 0);
-    let (filter_text, set_filter_text) = use_state(String::new);
+    let (commands, set_commands) = use_state_v2(HashMap::new);
+    let (is_visible, set_is_visible) = use_state_v2(|| false);
+    let (selected_index, set_selected_index) = use_state_v2(|| 0usize);
+    let (filter_text, set_filter_text) = use_state_v2(String::new);
 
     CommandPalette {
         commands,

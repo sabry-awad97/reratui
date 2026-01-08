@@ -1,6 +1,4 @@
-use std::time::Duration;
-
-use reratui::prelude::*;
+use reratui_fiber::{prelude::*, ratatui::widgets::BorderType};
 
 use super::utils::interpolate_color;
 use crate::theme::Theme;
@@ -16,64 +14,46 @@ impl MarqueeComponent {
     }
 }
 
-impl Component for MarqueeComponent {
+impl ComponentV2 for MarqueeComponent {
     fn render(&self, area: Rect, buffer: &mut Buffer) {
         // Border breathing effect state for consistent border color with other components
-        let (breath_value, set_breath_value) = use_state(|| 0.0f32);
-        let (breath_increasing, set_breath_increasing) = use_state(|| true);
+        let (breath_value, set_breath_value) = use_state_v2(|| 0.0f32);
 
         // Marquee state
-        let (marquee_offset, set_marquee_offset) = use_state(|| 0usize);
+        let (marquee_offset, set_marquee_offset) = use_state_v2(|| 0usize);
 
-        use_interval(
+        use_interval_v2(
             {
                 // Set up marquee animation
-                let set_marquee_offset = set_marquee_offset.clone();
                 move || {
                     // Update marquee position
-                    set_marquee_offset.update(|prev| prev + 1);
+                    set_marquee_offset.update(|prev| *prev + 1);
                 }
             },
-            Duration::from_millis(250), // Slower marquee speed to reduce CPU usage
+            250, // Slower marquee speed to reduce CPU usage
         );
 
-        use_interval(
+        use_interval_v2(
             {
                 // Set up border breathing effect
-                let breath_value = breath_value.clone();
-                let set_breath_value = set_breath_value.clone();
-                let breath_increasing = breath_increasing.clone();
-                let set_breath_increasing = set_breath_increasing.clone();
-
                 move || {
-                    let current_value = breath_value.get();
-                    let is_increasing = breath_increasing.get();
-
-                    // Update breathing value
-                    if is_increasing {
-                        let new_value = current_value + 0.05;
+                    // Update breathing value using update() to get fresh value
+                    set_breath_value.update(move |current| {
+                        // Use a simple sine-wave-like oscillation
+                        let new_value = *current + 0.05;
                         if new_value >= 1.0 {
-                            set_breath_increasing.set(false);
-                            set_breath_value.set(1.0);
+                            0.0 // Reset to start
                         } else {
-                            set_breath_value.set(new_value);
+                            new_value
                         }
-                    } else {
-                        let new_value = current_value - 0.05;
-                        if new_value <= 0.0 {
-                            set_breath_increasing.set(true);
-                            set_breath_value.set(0.0);
-                        } else {
-                            set_breath_value.set(new_value);
-                        }
-                    }
+                    });
                 }
             },
-            Duration::from_millis(200), // Slower breathing speed to reduce CPU usage
+            200, // Slower breathing speed to reduce CPU usage
         );
 
         // Calculate border color based on breathing effect
-        let breath_factor = breath_value.get();
+        let breath_factor = breath_value;
 
         // Interpolate between border color and accent color based on breath value
         let border_color = interpolate_color(self.theme.border, self.theme.accent, breath_factor);
@@ -82,7 +62,7 @@ impl Component for MarqueeComponent {
         let marquee = create_marquee(
             &self.text,
             area.width as usize - 4, // Account for borders
-            marquee_offset.get(),
+            marquee_offset,
             &self.theme,
         );
 

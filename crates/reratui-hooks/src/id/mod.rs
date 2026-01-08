@@ -63,6 +63,10 @@ pub mod tests;
 /// # Returns
 ///
 /// Returns a `String` containing a UUID that is unique and stable across re-renders.
+#[deprecated(
+    since = "0.2.0",
+    note = "use `reratui_fiber::hooks::use_id_v2` instead for proper fiber-based ID generation"
+)]
 pub fn use_id() -> String {
     // Use use_state to store the ID, initialized with a new UUID
     let (id, _) = use_state(Uuid::now_v7);
@@ -89,6 +93,10 @@ pub fn use_id() -> String {
 ///     }
 /// }
 /// ```
+#[deprecated(
+    since = "0.2.0",
+    note = "use `reratui_fiber::hooks::use_id_v2` with custom prefix instead"
+)]
 pub fn use_id_with_prefix(prefix: &str) -> String {
     let id = use_id();
     format!("{}_{}", prefix, id)

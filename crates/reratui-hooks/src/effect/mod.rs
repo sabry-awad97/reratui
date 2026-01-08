@@ -426,6 +426,10 @@ where
 /// - Dependency comparison uses PartialEq for efficient change detection
 /// - Async cleanup functions are automatically managed and called when needed
 /// - Multiple effects in the same component are executed in declaration order
+#[deprecated(
+    since = "0.2.0",
+    note = "use `reratui_fiber::hooks::use_async_effect_v2` instead for proper post-commit execution"
+)]
 pub fn use_async_effect<Deps, F, Fut, C, CFut>(effect: F, deps: impl Into<Option<Deps>>)
 where
     Deps: EffectDependencies + Clone + PartialEq + 'static,
@@ -522,6 +526,10 @@ where
 /// - Dependency comparison uses PartialEq for efficient change detection
 /// - Cleanup functions are automatically managed and called when needed
 /// - Multiple effects in the same component are executed in declaration order
+#[deprecated(
+    since = "0.2.0",
+    note = "use `reratui_fiber::hooks::use_effect_v2` instead for proper post-commit execution"
+)]
 pub fn use_effect<Deps, F, C>(effect: F, deps: impl Into<Option<Deps>>)
 where
     Deps: EffectDependencies + Clone + PartialEq + 'static,

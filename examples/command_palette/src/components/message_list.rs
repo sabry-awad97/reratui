@@ -1,4 +1,5 @@
-use reratui::prelude::*;
+use reratui_fiber::prelude::*;
+use reratui_fiber::ratatui::widgets::BorderType;
 
 use crate::models::Message;
 use crate::theme::Theme;
@@ -8,7 +9,7 @@ pub struct MessageList {
     pub theme: Theme,
 }
 
-impl Component for MessageList {
+impl ComponentV2 for MessageList {
     fn render(&self, area: Rect, buffer: &mut Buffer) {
         // Use the theme passed from the parent component
         let theme = &self.theme;

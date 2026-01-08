@@ -47,6 +47,10 @@ use std::{
 /// }).await.unwrap();
 /// # }
 /// ```
+#[deprecated(
+    since = "0.2.0",
+    note = "use `reratui_fiber::runtime::render_v2` instead for proper React-like render phases (event → render → commit → effect)"
+)]
 pub async fn render<F>(initializer: F) -> Result<()>
 where
     F: Fn() -> Element + 'static,

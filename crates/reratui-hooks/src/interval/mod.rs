@@ -127,6 +127,10 @@ impl EffectDependencies for Duration {
 /// ## Performance:
 /// Uses std::thread with sleep for timing. The implementation avoids busy-waiting
 /// and provides accurate timing without requiring an async runtime.
+#[deprecated(
+    since = "0.2.0",
+    note = "use `reratui_fiber::hooks::use_interval_v2` instead for proper fiber-based timing"
+)]
 pub fn use_interval<F>(callback: F, duration: Duration)
 where
     F: Fn() + Send + 'static,
@@ -229,6 +233,10 @@ where
 ///     }
 /// }, Duration::from_secs(5));
 /// ```
+#[deprecated(
+    since = "0.2.0",
+    note = "use `reratui_fiber::hooks::use_interval_v2` instead for proper fiber-based timing"
+)]
 pub fn use_async_interval<F, Fut>(callback: F, duration: Duration)
 where
     F: Fn() -> Fut + Send + 'static,

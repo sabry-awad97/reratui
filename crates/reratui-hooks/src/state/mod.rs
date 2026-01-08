@@ -405,6 +405,10 @@ where
 /// - State updates are batched and don't cause immediate re-renders
 /// - Version tracking enables efficient change detection
 /// - Memory usage is minimal with Arc-based sharing
+#[deprecated(
+    since = "0.2.0",
+    note = "use `reratui_fiber::hooks::use_state_v2` instead for proper React-like batching"
+)]
 pub fn use_state<T, F>(initializer: F) -> (StateHandle<T>, StateSetter<T>)
 where
     T: 'static,

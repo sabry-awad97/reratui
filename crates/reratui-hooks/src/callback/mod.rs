@@ -330,6 +330,10 @@ impl<IN, OUT> CallbackState<IN, OUT> {
 ///     }
 /// }
 /// ```
+#[deprecated(
+    since = "0.2.0",
+    note = "use `reratui_fiber::hooks::use_callback_v2` instead for proper fiber-based memoization"
+)]
 pub fn use_callback<IN, OUT, F, Deps>(func: F, deps: impl Into<Option<Deps>>) -> Callback<IN, OUT>
 where
     F: Fn(IN) -> OUT + Send + Sync + Clone + 'static,

@@ -1,5 +1,8 @@
 use crate::theme::Theme;
-use reratui::prelude::*;
+use reratui_fiber::{
+    prelude::*,
+    ratatui::widgets::{BorderType, Clear, List, ListItem},
+};
 
 /// Represents a menu item in a dropdown menu
 #[derive(Clone)]
@@ -117,7 +120,7 @@ impl DropdownMenu {
     /// Render just the dropdown part (for z-index control)
     pub fn render_dropdown(&self, area: Rect, buffer: &mut Buffer) {
         // State for the currently selected item
-        let (selected_index, _set_selected_index) = use_state(|| 0);
+        let (_selected_index, _set_selected_index) = use_state_v2(|| 0);
 
         // Check if this menu should be open based on active submenu
         let active_submenu = get_active_submenu();
@@ -174,10 +177,6 @@ impl DropdownMenu {
                 })
                 .collect();
 
-            // Create a list state with the selected item
-            let mut list_state = ListState::default();
-            list_state.select(Some(selected_index.get()));
-
             // Create the list widget
             let list = List::new(items)
                 .block(
@@ -195,21 +194,19 @@ impl DropdownMenu {
                 )
                 .highlight_symbol("> ");
 
-            let mut frame_ctx = use_frame();
-            let frame = frame_ctx.frame_mut();
-            // Render the stateful list
-            frame.render_stateful_widget(list, dropdown_area, &mut list_state);
+            // Render the list (without stateful widget since we don't have use_frame)
+            list.render(dropdown_area, buffer);
         }
     }
 }
 
-impl Component for DropdownMenu {
+impl ComponentV2 for DropdownMenu {
     fn render(&self, area: Rect, buffer: &mut Buffer) {
         // State for whether the menu is open
-        let (is_open, set_is_open) = use_state(|| false);
+        let (is_open, set_is_open) = use_state_v2(|| false);
 
         // State for the currently selected item
-        let (selected_index, set_selected_index) = use_state(|| 0);
+        let (selected_index, set_selected_index) = use_state_v2(|| 0);
 
         // Check if this menu should be open based on active submenu
         let active_submenu = get_active_submenu();
@@ -217,7 +214,7 @@ impl Component for DropdownMenu {
             // This is a submenu, open if it matches the active submenu
             Some(parent) => active_submenu.as_ref() == Some(parent),
             // This is a main menu, open if no submenu is active or if it's already open
-            None => is_open.get() || active_submenu.is_none(),
+            None => is_open || active_submenu.is_none(),
         };
 
         // Handle keyboard events
@@ -226,7 +223,7 @@ impl Component for DropdownMenu {
         {
             // Toggle menu open/closed with shortcut (only for main menus)
             if self.parent.is_none() && self.matches_shortcut(&key) {
-                if is_open.get() {
+                if is_open {
                     set_is_open.set(false);
                     set_active_submenu(None); // Close any active submenu
                 } else {
@@ -237,26 +234,26 @@ impl Component for DropdownMenu {
             }
 
             // If menu is open or should be open (submenu), handle navigation and selection
-            if is_open.get() || should_be_open {
+            if is_open || should_be_open {
                 match key.code {
                     KeyCode::Esc => {
                         set_is_open.set(false);
                     }
                     KeyCode::Up => {
-                        let new_index = if selected_index.get() > 0 {
-                            selected_index.get() - 1
+                        let new_index = if selected_index > 0 {
+                            selected_index - 1
                         } else {
                             self.items.len() - 1
                         };
                         set_selected_index.set(new_index);
                     }
                     KeyCode::Down => {
-                        let new_index = (selected_index.get() + 1) % self.items.len();
+                        let new_index = (selected_index + 1) % self.items.len();
                         set_selected_index.set(new_index);
                     }
                     KeyCode::Enter => {
                         // Execute the selected item's action
-                        if let Some(item) = self.items.get(selected_index.get()) {
+                        if let Some(item) = self.items.get(selected_index) {
                             match &item.action {
                                 MenuAction::CloseMenu => {
                                     set_is_open.set(false);
@@ -281,7 +278,7 @@ impl Component for DropdownMenu {
         }
 
         // Render the menu title (always visible) - more compact
-        let title_style = if is_open.get() {
+        let title_style = if is_open {
             Style::default()
                 .fg(self.theme.accent)
                 .add_modifier(Modifier::BOLD)
@@ -298,7 +295,7 @@ impl Component for DropdownMenu {
         title_widget.render(area, buffer);
 
         // If the menu is open, set it as the active menu
-        if is_open.get() {
+        if is_open {
             set_active_submenu(Some(self.title.clone()));
         }
     }
