@@ -1,5 +1,5 @@
-use reratui_fiber::prelude::*;
-use reratui_fiber::ratatui::widgets::BorderType;
+use reratui::prelude::*;
+use reratui::ratatui::widgets::BorderType;
 use std::sync::{Arc, LazyLock, Mutex};
 
 use crate::theme::Theme;

@@ -5,8 +5,8 @@
 
 use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
-use reratui_fiber::element::Element;
-use reratui_fiber::prelude::*;
+use reratui::element::Element;
+use reratui::prelude::*;
 use std::sync::Arc;
 
 /// A simple counter component for testing - no Clone needed!
@@ -28,8 +28,8 @@ impl ComponentV2 for CounterComponent {
 /// Test that ComponentV2 can be rendered within a fiber context
 #[test]
 fn test_component_v2_within_fiber_context() {
-    use reratui_fiber::context_stack::clear_context_stack;
-    use reratui_fiber::fiber_tree::{clear_fiber_tree, set_fiber_tree};
+    use reratui::context_stack::clear_context_stack;
+    use reratui::fiber_tree::{clear_fiber_tree, set_fiber_tree};
 
     // Setup fiber tree
     let mut tree = FiberTree::new();
@@ -60,8 +60,8 @@ fn test_component_v2_within_fiber_context() {
 /// Test that hooks work correctly within ComponentV2
 #[test]
 fn test_component_v2_hooks_work() {
-    use reratui_fiber::context_stack::clear_context_stack;
-    use reratui_fiber::fiber_tree::{clear_fiber_tree, set_fiber_tree};
+    use reratui::context_stack::clear_context_stack;
+    use reratui::fiber_tree::{clear_fiber_tree, set_fiber_tree};
 
     // Setup fiber tree
     let mut tree = FiberTree::new();
@@ -101,8 +101,8 @@ fn test_component_v2_hooks_work() {
 /// Test that fiber isolation works between different ComponentV2 instances
 #[test]
 fn test_component_v2_fiber_isolation() {
-    use reratui_fiber::context_stack::clear_context_stack;
-    use reratui_fiber::fiber_tree::{clear_fiber_tree, set_fiber_tree};
+    use reratui::context_stack::clear_context_stack;
+    use reratui::fiber_tree::{clear_fiber_tree, set_fiber_tree};
 
     // Setup fiber tree
     let mut tree = FiberTree::new();
@@ -155,8 +155,8 @@ fn test_component_v2_fiber_isolation() {
 /// Test nested ComponentV2 components
 #[test]
 fn test_nested_component_v2() {
-    use reratui_fiber::context_stack::clear_context_stack;
-    use reratui_fiber::fiber_tree::{clear_fiber_tree, set_fiber_tree};
+    use reratui::context_stack::clear_context_stack;
+    use reratui::fiber_tree::{clear_fiber_tree, set_fiber_tree};
 
     // Setup fiber tree
     let mut tree = FiberTree::new();
@@ -221,8 +221,8 @@ fn test_nested_component_v2() {
 /// Test ComponentArea context is correctly provided
 #[test]
 fn test_component_area_context() {
-    use reratui_fiber::context_stack::clear_context_stack;
-    use reratui_fiber::fiber_tree::{clear_fiber_tree, set_fiber_tree};
+    use reratui::context_stack::clear_context_stack;
+    use reratui::fiber_tree::{clear_fiber_tree, set_fiber_tree};
 
     // Setup fiber tree
     let mut tree = FiberTree::new();

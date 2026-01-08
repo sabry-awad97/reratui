@@ -1,4 +1,4 @@
-use reratui_fiber::prelude::Color;
+use reratui::prelude::Color;
 
 /// Interpolate between two colors based on a factor (0.0 to 1.0)
 pub fn interpolate_color(color1: Color, color2: Color, factor: f32) -> Color {

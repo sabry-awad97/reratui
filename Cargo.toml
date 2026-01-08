@@ -18,7 +18,6 @@ rust-version = "1.85.0"
 [workspace.dependencies]
 # Internal dependencies
 reratui = { path = "crates/reratui" }
-reratui-fiber = { path = "crates/reratui-fiber" }
 
 # External dependencies
 anyhow = "1.0.100"

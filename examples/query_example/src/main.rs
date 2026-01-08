@@ -10,9 +10,9 @@
 
 use std::time::Duration;
 
-use reratui_fiber::prelude::*;
-use reratui_fiber::hooks::{QueryOptions, QueryResultV2, QueryStatus, use_keyboard_press_v2, use_query_v2};
-use reratui_fiber::ratatui::widgets::BorderType;
+use reratui::prelude::*;
+use reratui::hooks::{QueryOptions, QueryResultV2, QueryStatus, use_keyboard_press_v2, use_query_v2};
+use reratui::ratatui::widgets::BorderType;
 use serde::Deserialize;
 
 #[derive(Debug, Clone, PartialEq, Deserialize)]

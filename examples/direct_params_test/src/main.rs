@@ -2,7 +2,7 @@
 //!
 //! Demonstrates using ComponentV2 trait with direct widget rendering.
 
-use reratui_fiber::prelude::*;
+use reratui::prelude::*;
 
 struct DirectParamsDemo {
     title: String,

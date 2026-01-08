@@ -1,4 +1,4 @@
-use reratui_fiber::prelude::*;
+use reratui::prelude::*;
 
 /// Modern theme system with carefully crafted color palettes
 #[derive(Clone, Debug, PartialEq)]

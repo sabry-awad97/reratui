@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
-use reratui_fiber::hooks::StateSetterV2;
-use reratui_fiber::prelude::use_state_v2;
+use reratui::hooks::StateSetterV2;
+use reratui::prelude::use_state_v2;
 use std::collections::HashMap;
 
 /// A command that can be executed

@@ -1,6 +1,6 @@
-use reratui_fiber::prelude::*;
-use reratui_fiber::hooks::{use_interval_v2, use_keyboard_press_v2};
-use reratui_fiber::ratatui::widgets::BorderType;
+use reratui::prelude::*;
+use reratui::hooks::{use_interval_v2, use_keyboard_press_v2};
+use reratui::ratatui::widgets::BorderType;
 
 /// A React-like Counter component that mimics the Ink example
 ///

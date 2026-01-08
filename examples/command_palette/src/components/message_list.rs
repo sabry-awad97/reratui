@@ -1,5 +1,5 @@
-use reratui_fiber::prelude::*;
-use reratui_fiber::ratatui::widgets::BorderType;
+use reratui::prelude::*;
+use reratui::ratatui::widgets::BorderType;
 
 use crate::models::Message;
 use crate::theme::Theme;

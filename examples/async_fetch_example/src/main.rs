@@ -2,8 +2,8 @@
 //!
 //! A modern demonstration of `use_future_v2` hook without RSX/VNode
 
-use reratui_fiber::hooks::{FutureState, use_future_v2};
-use reratui_fiber::prelude::*;
+use reratui::hooks::{FutureState, use_future_v2};
+use reratui::prelude::*;
 use serde::Deserialize;
 
 #[derive(Debug, Default, Deserialize, Clone, PartialEq)]

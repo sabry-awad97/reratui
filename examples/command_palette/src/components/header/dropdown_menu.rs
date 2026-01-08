@@ -1,5 +1,5 @@
 use crate::theme::Theme;
-use reratui_fiber::{
+use reratui::{
     prelude::*,
     ratatui::widgets::{BorderType, Clear, List, ListItem},
 };

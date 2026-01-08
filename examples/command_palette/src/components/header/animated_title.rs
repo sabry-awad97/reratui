@@ -1,4 +1,4 @@
-use reratui_fiber::{prelude::*, ratatui::widgets::BorderType};
+use reratui::{prelude::*, ratatui::widgets::BorderType};
 
 use super::utils::interpolate_color;
 use crate::theme::Theme;

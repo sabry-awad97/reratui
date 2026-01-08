@@ -8,7 +8,7 @@
 //!
 //! Press 'j' to increment, 'k' to decrement, 'r' to reset, 'q' to quit.
 
-use reratui_fiber::prelude::*;
+use reratui::prelude::*;
 
 /// The main counter component - just implement render()!
 struct Counter;

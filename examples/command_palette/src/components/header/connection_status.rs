@@ -1,5 +1,5 @@
 use crate::theme::Theme;
-use reratui_fiber::prelude::*;
+use reratui::prelude::*;
 
 /// Connection status for the status icon
 #[derive(Clone, Copy, PartialEq, Debug)]

@@ -10,13 +10,13 @@
 use std::sync::Arc;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
-use reratui_fiber::fiber_tree::{FiberTree, clear_fiber_tree, set_fiber_tree, with_fiber_tree_mut};
-use reratui_fiber::hooks::{
+use reratui::fiber_tree::{FiberTree, clear_fiber_tree, set_fiber_tree, with_fiber_tree_mut};
+use reratui::hooks::{
     use_context_provider_v2, use_context_v2, use_effect_once, use_effect_v2, use_state_v2,
 };
-use reratui_fiber::scheduler::batch::{begin_batch, clear_state_batch, end_batch_with_tree};
-use reratui_fiber::scheduler::effect_queue::{clear_effect_queue, flush_effects_with_tree};
-use reratui_fiber::{FiberId, context_stack::clear_context_stack};
+use reratui::scheduler::batch::{begin_batch, clear_state_batch, end_batch_with_tree};
+use reratui::scheduler::effect_queue::{clear_effect_queue, flush_effects_with_tree};
+use reratui::{FiberId, context_stack::clear_context_stack};
 
 /// Helper to set up a test fiber tree with a single fiber
 fn setup_single_fiber() -> FiberId {
@@ -395,7 +395,7 @@ fn test_context_cleanup_on_unmount() {
 
     // Verify inner is visible
     assert_eq!(
-        reratui_fiber::context_stack::get_context::<String>(),
+        reratui::context_stack::get_context::<String>(),
         Some("inner".to_string())
     );
 
@@ -407,7 +407,7 @@ fn test_context_cleanup_on_unmount() {
 
     // After unmount, should see outer context again
     assert_eq!(
-        reratui_fiber::context_stack::get_context::<String>(),
+        reratui::context_stack::get_context::<String>(),
         Some("outer".to_string()),
         "After child unmount, parent context should be visible"
     );
@@ -456,7 +456,7 @@ fn test_unmount_cleanup_order() {
 
     // Context should be fully cleaned up
     assert_eq!(
-        reratui_fiber::context_stack::get_context::<i32>(),
+        reratui::context_stack::get_context::<i32>(),
         None,
         "All context should be cleaned up after unmount"
     );

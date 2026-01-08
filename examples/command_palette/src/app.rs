@@ -1,7 +1,7 @@
 use std::time::SystemTime;
 
 use chrono::Local;
-use reratui_fiber::prelude::*;
+use reratui::prelude::*;
 
 use crate::components::header::{AppMode, ConnectionStatus, NotificationLevel};
 use crate::components::{

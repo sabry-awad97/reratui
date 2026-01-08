@@ -1,4 +1,4 @@
-use reratui_fiber::prelude::*;
+use reratui::prelude::*;
 
 /// Renders a centered rectangle with the given percentage of the screen
 pub fn centered_rect(percent_x: u16, percent_y: u16, r: Rect) -> Rect {

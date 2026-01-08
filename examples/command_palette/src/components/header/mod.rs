@@ -17,7 +17,7 @@ pub use system_info::SystemInfoComponent;
 
 use crate::theme::Theme;
 
-use reratui_fiber::{prelude::*, ratatui::widgets::BorderType};
+use reratui::{prelude::*, ratatui::widgets::BorderType};
 
 pub struct Header {
     pub title: String,

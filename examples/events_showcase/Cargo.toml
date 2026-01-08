@@ -5,6 +5,6 @@ edition = "2024"
 publish = false
 
 [dependencies]
-reratui-fiber = { workspace = true }
+reratui = { workspace = true }
 tokio = { workspace = true }
 crossterm = { workspace = true }

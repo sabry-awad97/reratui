@@ -7,7 +7,7 @@
 //!
 //! Press 'j' to increment, 'k' to decrement, 'q' to quit.
 
-use reratui_fiber::prelude::*;
+use reratui::prelude::*;
 
 struct EffectDemo;
 

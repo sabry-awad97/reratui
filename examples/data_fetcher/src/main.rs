@@ -11,8 +11,8 @@
 //! - Press '1-4' to refresh individual sources
 //! - Press 'q' to exit
 
-use reratui_fiber::hooks::{FutureState, use_future_v2};
-use reratui_fiber::prelude::*;
+use reratui::hooks::{FutureState, use_future_v2};
+use reratui::prelude::*;
 use std::time::Duration;
 use tokio::time::sleep;
 
@@ -140,7 +140,7 @@ fn render_data_card(
     buffer: &mut Buffer,
     area: Rect,
     title: &str,
-    handle: &reratui_fiber::hooks::FutureHandleV2<String, String>,
+    handle: &reratui::hooks::FutureHandleV2<String, String>,
 ) {
     let (border_color, content) = match handle.state() {
         FutureState::Idle => (Color::Gray, "⏸️  Not started".to_string()),

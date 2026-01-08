@@ -1,6 +1,6 @@
 use crate::theme::Theme;
 use rand::Rng;
-use reratui_fiber::prelude::*;
+use reratui::prelude::*;
 
 pub struct SystemInfoComponent {
     theme: Theme,

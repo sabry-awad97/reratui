@@ -11,11 +11,11 @@
 //! - 📦 Reducer pattern for form state management
 
 use parking_lot::Mutex;
-use reratui_fiber::prelude::*;
-use reratui_fiber::hooks::{
+use reratui::prelude::*;
+use reratui::hooks::{
     MutationHandleV2, MutationOptions, MutationStatus, use_keyboard_press_v2, use_mutation_v2,
 };
-use reratui_fiber::ratatui::widgets::BorderType;
+use reratui::ratatui::widgets::BorderType;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use std::time::Duration;

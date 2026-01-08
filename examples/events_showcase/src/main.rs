@@ -8,7 +8,7 @@
 //! Press 'q' or Esc to exit
 
 use crossterm::event::{MouseButton, MouseEventKind};
-use reratui_fiber::prelude::*;
+use reratui::prelude::*;
 
 struct EventsShowcase;
 
