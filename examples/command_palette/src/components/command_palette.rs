@@ -12,7 +12,7 @@ pub struct CommandPaletteComponent {
 
 impl ComponentV2 for CommandPaletteComponent {
     fn render(&self, area: Rect, buffer: &mut Buffer) {
-        let (frame_count, set_frame_count) = use_state_v2(|| 0usize);
+        let (_frame_count, set_frame_count) = use_state_v2(|| 0usize);
         let (cursor_visible, set_cursor_visible) = use_state_v2(|| true);
 
         use_interval_v2(

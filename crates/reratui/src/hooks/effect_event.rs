@@ -42,13 +42,16 @@ use std::sync::{Arc, RwLock};
 use crate::fiber::FiberId;
 use crate::fiber_tree::with_current_fiber;
 
+/// Type alias for effect event handler
+type EffectEventHandler<IN, OUT> = Arc<RwLock<Box<dyn Fn(IN) -> OUT + Send + Sync>>>;
+
 /// Internal storage for the effect event handler.
 ///
 /// This stores the latest handler in an Arc<RwLock<...>> so it can be
 /// updated each render while the wrapper function remains stable.
 pub(crate) struct EffectEventStorage<IN, OUT> {
     /// The latest handler function, updated each render
-    pub(crate) handler: Arc<RwLock<Box<dyn Fn(IN) -> OUT + Send + Sync>>>,
+    pub(crate) handler: EffectEventHandler<IN, OUT>,
 }
 
 impl<IN, OUT> Clone for EffectEventStorage<IN, OUT> {
@@ -72,7 +75,7 @@ impl<IN, OUT> Clone for EffectEventStorage<IN, OUT> {
 pub struct EffectEventV2<IN, OUT> {
     pub(crate) fiber_id: FiberId,
     pub(crate) hook_index: usize,
-    pub(crate) handler: Arc<RwLock<Box<dyn Fn(IN) -> OUT + Send + Sync>>>,
+    pub(crate) handler: EffectEventHandler<IN, OUT>,
     pub(crate) _marker: PhantomData<(IN, OUT)>,
 }
 
@@ -734,7 +737,7 @@ mod property_tests {
                 });
 
                 // Re-create effect events with different handlers
-                for i in 0..num_events {
+                for (i, handler_ptr) in handler_ptrs.iter().enumerate().take(num_events) {
                     let multiplier = (render_num + 1) as i32;
                     let offset = i as i32;
                     let effect_event = use_effect_event_v2(move |x: i32| x * multiplier + offset);
@@ -742,7 +745,7 @@ mod property_tests {
                     // Property: Arc pointer should be stable
                     prop_assert_eq!(
                         Arc::as_ptr(&effect_event.handler),
-                        handler_ptrs[i],
+                        *handler_ptr,
                         "Render {}: Effect event {} Arc pointer should be stable",
                         render_num,
                         i

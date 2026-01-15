@@ -5,7 +5,8 @@ use std::sync::{Arc, LazyLock, Mutex};
 use crate::theme::Theme;
 
 // Global debug log storage
-static DEBUG_LOGS: LazyLock<Arc<Mutex<Vec<String>>>> = LazyLock::new(|| Arc::new(Mutex::new(Vec::new())));
+static DEBUG_LOGS: LazyLock<Arc<Mutex<Vec<String>>>> =
+    LazyLock::new(|| Arc::new(Mutex::new(Vec::new())));
 
 /// Add a debug log message
 pub fn debug_log(msg: impl Into<String>) {
@@ -25,13 +26,6 @@ pub fn get_debug_logs() -> Vec<String> {
         .lock()
         .map(|logs| logs.clone())
         .unwrap_or_default()
-}
-
-/// Clear debug logs
-pub fn clear_debug_logs() {
-    if let Ok(mut logs) = DEBUG_LOGS.lock() {
-        logs.clear();
-    }
 }
 
 pub struct DebugPanel {

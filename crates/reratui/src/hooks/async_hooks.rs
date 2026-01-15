@@ -25,9 +25,10 @@ use crate::scheduler::batch::{StateUpdate, StateUpdateKind, queue_update};
 // ============================================================================
 
 /// Represents the current state of a future operation
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Default)]
 pub enum FutureState<T, E = String> {
     /// The future has not been started yet
+    #[default]
     Idle,
     /// The future is currently pending (actively running)
     Pending,
@@ -35,12 +36,6 @@ pub enum FutureState<T, E = String> {
     Resolved(T),
     /// The future has failed with an error
     Error(E),
-}
-
-impl<T, E> Default for FutureState<T, E> {
-    fn default() -> Self {
-        FutureState::Idle
-    }
 }
 
 impl<T, E> FutureState<T, E> {
@@ -387,9 +382,10 @@ where
 // ============================================================================
 
 /// Status of a query operation
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum QueryStatus {
     /// The query has not started yet
+    #[default]
     Idle,
     /// The query is loading (no cached data)
     Loading,
@@ -399,12 +395,6 @@ pub enum QueryStatus {
     Success,
     /// The query failed
     Error,
-}
-
-impl Default for QueryStatus {
-    fn default() -> Self {
-        QueryStatus::Idle
-    }
 }
 
 /// Configuration options for a query
@@ -513,10 +503,13 @@ struct QueryCacheEntry<T> {
     fetched_at: Instant,
 }
 
+/// Type alias for the query cache map
+type QueryCacheMap =
+    Arc<Mutex<std::collections::HashMap<String, Box<dyn std::any::Any + Send + Sync>>>>;
+
 /// Global query cache
-static QUERY_CACHE: once_cell::sync::Lazy<
-    Arc<Mutex<std::collections::HashMap<String, Box<dyn std::any::Any + Send + Sync>>>>,
-> = once_cell::sync::Lazy::new(|| Arc::new(Mutex::new(std::collections::HashMap::new())));
+static QUERY_CACHE: once_cell::sync::Lazy<QueryCacheMap> =
+    once_cell::sync::Lazy::new(|| Arc::new(Mutex::new(std::collections::HashMap::new())));
 
 /// Internal state for query hook
 struct QueryHookState<T, E>
@@ -840,9 +833,10 @@ pub fn clear_query_cache() {
 // ============================================================================
 
 /// Status of a mutation operation
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum MutationStatus {
     /// Mutation has not been triggered yet
+    #[default]
     Idle,
     /// Mutation is currently executing
     Pending,
@@ -851,13 +845,6 @@ pub enum MutationStatus {
     /// Mutation failed with an error
     Error,
 }
-
-impl Default for MutationStatus {
-    fn default() -> Self {
-        MutationStatus::Idle
-    }
-}
-
 /// Configuration options for a mutation
 #[derive(Clone)]
 pub struct MutationOptions {
@@ -944,6 +931,11 @@ where
     }
 }
 
+/// Type alias for mutation function
+type MutationFn<TData, TError, TVariables> = Arc<
+    dyn Fn(TVariables) -> Pin<Box<dyn Future<Output = Result<TData, TError>> + Send>> + Send + Sync,
+>;
+
 /// Handle for triggering and managing mutations
 pub struct MutationHandleV2<TData, TError, TVariables>
 where
@@ -954,11 +946,7 @@ where
     /// Shared state
     state: Arc<RwLock<MutationState<TData, TError>>>,
     /// Mutation function
-    mutation_fn: Arc<
-        dyn Fn(TVariables) -> Pin<Box<dyn Future<Output = Result<TData, TError>> + Send>>
-            + Send
-            + Sync,
-    >,
+    mutation_fn: MutationFn<TData, TError, TVariables>,
     /// Options
     options: Arc<MutationOptions>,
     /// Current task handle
@@ -1332,11 +1320,7 @@ where
     .expect("use_mutation_v2 must be called within a component render context");
 
     // Wrap mutation function
-    let boxed_fn: Arc<
-        dyn Fn(TVariables) -> Pin<Box<dyn Future<Output = Result<TData, TError>> + Send>>
-            + Send
-            + Sync,
-    > = Arc::new(move |variables: TVariables| {
+    let boxed_fn: MutationFn<TData, TError, TVariables> = Arc::new(move |variables: TVariables| {
         Box::pin(mutation_fn(variables))
             as Pin<Box<dyn Future<Output = Result<TData, TError>> + Send>>
     });

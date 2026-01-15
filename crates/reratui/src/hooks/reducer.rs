@@ -46,6 +46,9 @@ use crate::fiber::FiberId;
 use crate::fiber_tree::with_current_fiber;
 use crate::scheduler::batch::{StateUpdate, StateUpdateKind, queue_update};
 
+/// Type alias for reducer function
+type ReducerFn<S, A> = Arc<dyn Fn(&S, A) -> S + Send + Sync>;
+
 /// Internal storage for reducer function.
 ///
 /// This struct stores the reducer function in an Arc so it can be shared
@@ -68,7 +71,7 @@ impl<S> Clone for ReducerStorage<S> {
 }
 
 /// Wrapper type for the reducer function to enable downcasting
-struct ReducerFn<S, A>(Arc<dyn Fn(&S, A) -> S + Send + Sync>);
+struct ReducerFnWrapper<S, A>(ReducerFn<S, A>);
 
 /// Dispatch function for sending actions to the reducer.
 ///
@@ -82,7 +85,7 @@ struct ReducerFn<S, A>(Arc<dyn Fn(&S, A) -> S + Send + Sync>);
 pub struct DispatchV2<S, A> {
     pub(crate) fiber_id: FiberId,
     pub(crate) hook_index: usize,
-    pub(crate) reducer: Arc<dyn Fn(&S, A) -> S + Send + Sync>,
+    pub(crate) reducer: ReducerFn<S, A>,
     pub(crate) _marker: PhantomData<(S, A)>,
 }
 
@@ -215,9 +218,9 @@ where
         let hook_index = fiber.next_hook_index();
 
         // Get or initialize the reducer storage (stores the reducer function wrapped in Arc)
-        let reducer_arc: Arc<dyn Fn(&S, A) -> S + Send + Sync> = Arc::new(reducer);
+        let reducer_arc: ReducerFn<S, A> = Arc::new(reducer);
         let storage = fiber.get_or_init_hook(hook_index, || ReducerStorage {
-            reducer: Arc::new(ReducerFn(reducer_arc.clone()))
+            reducer: Arc::new(ReducerFnWrapper(reducer_arc.clone()))
                 as Arc<dyn std::any::Any + Send + Sync>,
             _marker: PhantomData::<S>,
         });
@@ -225,7 +228,7 @@ where
         // Extract the reducer from storage
         let reducer_fn = storage
             .reducer
-            .downcast_ref::<ReducerFn<S, A>>()
+            .downcast_ref::<ReducerFnWrapper<S, A>>()
             .expect("Reducer type mismatch")
             .0
             .clone();
@@ -267,16 +270,12 @@ mod tests {
     #[derive(Clone, Debug, PartialEq)]
     enum TestAction {
         Increment,
-        Decrement,
-        SetValue(i32),
         Add(i32),
     }
 
     fn test_reducer(state: &i32, action: TestAction) -> i32 {
         match action {
             TestAction::Increment => state + 1,
-            TestAction::Decrement => state - 1,
-            TestAction::SetValue(v) => v,
             TestAction::Add(n) => state + n,
         }
     }
@@ -474,8 +473,6 @@ mod tests {
         #[derive(Clone)]
         enum TodoAction {
             Add(String),
-            Remove(usize),
-            Clear,
         }
 
         fn todo_reducer(state: &TodoState, action: TodoAction) -> TodoState {
@@ -488,20 +485,6 @@ mod tests {
                         count: state.count + 1,
                     }
                 }
-                TodoAction::Remove(index) => {
-                    let mut todos = state.todos.clone();
-                    if index < todos.len() {
-                        todos.remove(index);
-                    }
-                    TodoState {
-                        todos,
-                        count: state.count,
-                    }
-                }
-                TodoAction::Clear => TodoState {
-                    todos: vec![],
-                    count: state.count,
-                },
             }
         }
 

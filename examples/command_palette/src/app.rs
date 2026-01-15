@@ -53,7 +53,7 @@ impl ComponentV2 for CommandPaletteApp {
         let (app_mode, set_app_mode) = use_state_v2(|| AppMode::Normal);
 
         // Debug: track render count
-        let (render_count, set_render_count) = use_state_v2(|| 0usize);
+        let (_render_count, set_render_count) = use_state_v2(|| 0usize);
 
         use_interval_v2(
             {

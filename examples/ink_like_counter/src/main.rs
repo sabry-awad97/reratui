@@ -1,5 +1,5 @@
-use reratui::prelude::*;
 use reratui::hooks::{use_interval_v2, use_keyboard_press_v2};
+use reratui::prelude::*;
 use reratui::ratatui::widgets::BorderType;
 
 /// A React-like Counter component that mimics the Ink example
@@ -29,7 +29,11 @@ impl ComponentV2 for Counter {
 
         // Render - equivalent to: <Text color="green">{counter} tests passed</Text>
         let paragraph = Paragraph::new(format!("{} tests passed", counter_value))
-            .style(Style::default().fg(Color::Green).add_modifier(Modifier::BOLD))
+            .style(
+                Style::default()
+                    .fg(Color::Green)
+                    .add_modifier(Modifier::BOLD),
+            )
             .alignment(Alignment::Center);
 
         paragraph.render(area, buffer);
@@ -98,7 +102,11 @@ impl ComponentV2 for EnhancedCounter {
         passed_block.render(chunks[0], buffer);
 
         let passed_text = Paragraph::new(format!("{} tests passed", tests_passed_value))
-            .style(Style::default().fg(Color::Green).add_modifier(Modifier::BOLD))
+            .style(
+                Style::default()
+                    .fg(Color::Green)
+                    .add_modifier(Modifier::BOLD),
+            )
             .alignment(Alignment::Center);
         passed_text.render(passed_inner, buffer);
 
@@ -124,7 +132,11 @@ impl ComponentV2 for EnhancedCounter {
         uptime_block.render(chunks[2], buffer);
 
         let uptime_text = Paragraph::new(format!("{}s uptime", uptime_seconds_value))
-            .style(Style::default().fg(Color::Blue).add_modifier(Modifier::BOLD))
+            .style(
+                Style::default()
+                    .fg(Color::Blue)
+                    .add_modifier(Modifier::BOLD),
+            )
             .alignment(Alignment::Center);
         uptime_text.render(uptime_inner, buffer);
 
@@ -172,8 +184,8 @@ impl ComponentV2 for ReactLikeApp {
             .direction(Direction::Vertical)
             .margin(1)
             .constraints([
-                Constraint::Length(3),  // Header
-                Constraint::Min(0),     // Counter content
+                Constraint::Length(3), // Header
+                Constraint::Min(0),    // Counter content
             ])
             .split(area);
 
@@ -181,14 +193,22 @@ impl ComponentV2 for ReactLikeApp {
         let header_block = Block::default()
             .title("🚀 React-like Counter in Rust TUI")
             .borders(Borders::ALL)
-            .border_style(Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD))
+            .border_style(
+                Style::default()
+                    .fg(Color::Cyan)
+                    .add_modifier(Modifier::BOLD),
+            )
             .border_type(BorderType::Double);
         let header_inner = header_block.inner(chunks[0]);
         header_block.render(chunks[0], buffer);
 
         let header_text = Paragraph::new(self.title.clone())
             .alignment(Alignment::Center)
-            .style(Style::default().fg(Color::White).add_modifier(Modifier::BOLD));
+            .style(
+                Style::default()
+                    .fg(Color::White)
+                    .add_modifier(Modifier::BOLD),
+            );
         header_text.render(header_inner, buffer);
 
         // Counter Component
@@ -223,12 +243,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     } else {
         "⚡ Simple Counter (React/Ink Style)"
     };
-    
-    if let Err(err) = render_v2(move || {
-        ReactLikeApp::new(title, enhanced_mode)
-    })
-    .await
-    {
+
+    if let Err(err) = render_v2(move || ReactLikeApp::new(title, enhanced_mode)).await {
         eprintln!("❌ Application error: {:?}", err);
     } else {
         println!("✨ React-like counter demo completed successfully!");

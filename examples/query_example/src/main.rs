@@ -10,8 +10,10 @@
 
 use std::time::Duration;
 
+use reratui::hooks::{
+    QueryOptions, QueryResultV2, QueryStatus, use_keyboard_press_v2, use_query_v2,
+};
 use reratui::prelude::*;
-use reratui::hooks::{QueryOptions, QueryResultV2, QueryStatus, use_keyboard_press_v2, use_query_v2};
 use reratui::ratatui::widgets::BorderType;
 use serde::Deserialize;
 

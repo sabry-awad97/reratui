@@ -11,10 +11,10 @@
 //! - 📦 Reducer pattern for form state management
 
 use parking_lot::Mutex;
-use reratui::prelude::*;
 use reratui::hooks::{
     MutationHandleV2, MutationOptions, MutationStatus, use_keyboard_press_v2, use_mutation_v2,
 };
+use reratui::prelude::*;
 use reratui::ratatui::widgets::BorderType;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
@@ -138,9 +138,18 @@ fn form_reducer(state: &FormState, action: FormAction) -> FormState {
             ..state.clone()
         },
         FormAction::Reset => FormState::default(),
-        FormAction::SetName(name) => FormState { name, ..state.clone() },
-        FormAction::SetEmail(email) => FormState { email, ..state.clone() },
-        FormAction::SetRole(role) => FormState { role, ..state.clone() },
+        FormAction::SetName(name) => FormState {
+            name,
+            ..state.clone()
+        },
+        FormAction::SetEmail(email) => FormState {
+            email,
+            ..state.clone()
+        },
+        FormAction::SetRole(role) => FormState {
+            role,
+            ..state.clone()
+        },
         FormAction::Submit => FormState {
             is_open: false,
             name: String::new(),
@@ -218,13 +227,13 @@ impl ComponentV2 for App {
                         notification_type: NotificationType::Success,
                     });
                 }
-            } else if create_state.is_error {
-                if let Some(error) = create_state.error {
-                    *notif.lock() = Some(Notification {
-                        message: format!("❌ Failed to create user: {}", error),
-                        notification_type: NotificationType::Error,
-                    });
-                }
+            } else if create_state.is_error
+                && let Some(error) = create_state.error
+            {
+                *notif.lock() = Some(Notification {
+                    message: format!("❌ Failed to create user: {}", error),
+                    notification_type: NotificationType::Error,
+                });
             }
         }
 
@@ -240,13 +249,13 @@ impl ComponentV2 for App {
                         notification_type: NotificationType::Success,
                     });
                 }
-            } else if delete_state.is_error {
-                if let Some(error) = delete_state.error {
-                    *notif.lock() = Some(Notification {
-                        message: format!("❌ Delete failed: {}", error),
-                        notification_type: NotificationType::Error,
-                    });
-                }
+            } else if delete_state.is_error
+                && let Some(error) = delete_state.error
+            {
+                *notif.lock() = Some(Notification {
+                    message: format!("❌ Delete failed: {}", error),
+                    notification_type: NotificationType::Error,
+                });
             }
         }
 
@@ -292,7 +301,8 @@ impl ComponentV2 for App {
                     form_dispatch_clone.dispatch(FormAction::SetRole(new_role.to_string()));
                 }
                 KeyCode::Char(c)
-                    if form.is_open && (c.is_alphanumeric() || c == '@' || c == '.' || c == ' ') =>
+                    if form.is_open
+                        && (c.is_alphanumeric() || c == '@' || c == '.' || c == ' ') =>
                 {
                     // Simple text input - append to name field
                     let mut new_name = form.name.clone();
