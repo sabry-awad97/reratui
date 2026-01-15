@@ -39,6 +39,7 @@ use crate::event::set_current_event;
 use crate::fiber_tree::{FiberTree, clear_fiber_tree, set_fiber_tree};
 use crate::global_events::process_global_event;
 use crate::panic_handler::setup_panic_handler;
+use crate::render_context::{clear_render_context, init_render_context};
 
 /// Terminal type alias for convenience
 pub type FiberTerminal = Terminal<CrosstermBackend<std::io::Stdout>>;
@@ -242,6 +243,11 @@ where
     let fiber_tree = FiberTree::new();
     set_fiber_tree(fiber_tree);
 
+    // Initialize the consolidated RenderContext
+    // This provides a unified interface for all render-related state
+    // and enables gradual migration from legacy thread-locals
+    init_render_context();
+
     // Initialize main thread tracking for cross-thread state updates.
     // This allows background tasks (from use_interval_v2, use_timeout_v2) to
     // route their state updates to a global queue that we drain each frame.
@@ -380,6 +386,9 @@ where
 
     // Clean up the fiber tree
     clear_fiber_tree();
+
+    // Clean up the consolidated RenderContext
+    clear_render_context();
 
     // Restore terminal state
     restore_terminal_v2()?;

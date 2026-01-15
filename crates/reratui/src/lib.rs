@@ -107,6 +107,9 @@
 mod fiber;
 pub mod fiber_tree;
 
+// Consolidated render context
+pub mod render_context;
+
 // Element types (virtual DOM)
 pub mod element;
 
@@ -149,6 +152,10 @@ pub use fiber::{
 pub use fiber_tree::FiberTree;
 pub use global_events::{clear_global_handlers, on_global_event, process_global_event};
 pub use panic_handler::setup_panic_handler;
+pub use render_context::{
+    RenderContext, clear_render_context, init_render_context, is_render_context_initialized,
+    with_render_context, with_render_context_mut,
+};
 pub use runtime::{
     RenderOptions, is_in_render_phase, render_v2, render_v2_with_options, request_exit_v2,
     reset_exit_v2, should_exit_v2, warn_if_effect_during_render,
@@ -177,6 +184,10 @@ pub mod prelude {
     pub use crate::element::{Element, RenderableComponentV2};
     pub use crate::fiber::{Fiber, FiberId};
     pub use crate::fiber_tree::FiberTree;
+    pub use crate::render_context::{
+        RenderContext, clear_render_context, init_render_context, is_render_context_initialized,
+        with_render_context, with_render_context_mut,
+    };
     pub use crate::runtime::{
         RenderOptions, is_in_render_phase, render_v2, render_v2_with_options, request_exit_v2,
         should_exit_v2,
