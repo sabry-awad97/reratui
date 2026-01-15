@@ -291,6 +291,8 @@ where
         // Set the current event BEFORE render so use_event() can access it
         if let Some(ref event) = current_event {
             set_current_event(Some(std::sync::Arc::new(event.clone())));
+            // Reset event consumed flags for all fibers so they can consume the new event
+            crate::event::reset_all_fiber_event_flags();
         } else {
             set_current_event(None);
         }
@@ -1075,6 +1077,8 @@ mod tests {
             KeyEventKind::Press,
         ));
         set_current_event(Some(Arc::new(event_b)));
+        // Reset event consumed flags for all fibers so they can consume the new event
+        crate::event::reset_all_fiber_event_flags();
 
         set_render_phase(true);
         with_fiber_tree_mut(|tree| {

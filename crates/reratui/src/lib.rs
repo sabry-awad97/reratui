@@ -144,7 +144,9 @@ mod strict_mode;
 pub use component::{ComponentArea, ComponentV2, reset_component_position_counter};
 pub use context_stack::ContextStack;
 pub use element::{Element, RenderableComponentV2};
-pub use event::{clear_current_event, get_current_event, mark_event_processed, set_current_event};
+pub use event::{
+    clear_current_event, get_current_event, reset_all_fiber_event_flags, set_current_event,
+};
 pub use fiber::{
     AsyncCleanupFn, AsyncEffectFn, AsyncEffectFuture, AsyncPendingEffect, CleanupFn, Fiber,
     FiberId, PendingEffect,

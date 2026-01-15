@@ -73,6 +73,8 @@ pub struct Fiber {
     pub dirty: bool,
     /// Component key for reconciliation
     pub key: Option<String>,
+    /// Whether this fiber has consumed the current event
+    pub event_consumed: bool,
     /// Hook types from previous render (for development mode warnings)
     #[cfg(debug_assertions)]
     pub previous_hook_types: Vec<&'static str>,
@@ -97,6 +99,7 @@ impl Fiber {
             children: Vec::new(),
             dirty: true,
             key,
+            event_consumed: false,
             #[cfg(debug_assertions)]
             previous_hook_types: Vec::new(),
             #[cfg(debug_assertions)]
@@ -119,6 +122,11 @@ impl Fiber {
             // Move current hook types to previous for comparison
             self.previous_hook_types = std::mem::take(&mut self.current_hook_types);
         }
+    }
+
+    /// Reset event consumed flag for a new event
+    pub fn reset_event_consumed(&mut self) {
+        self.event_consumed = false;
     }
 
     /// Track a hook call during render (development mode only)

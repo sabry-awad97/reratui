@@ -21,17 +21,16 @@
 use crossterm::event::Event;
 
 use crate::event::get_current_event;
-use crate::fiber_tree::with_current_fiber;
 
 /// Hook that returns the current terminal event.
 ///
 /// This hook retrieves the current event from the event system and ensures
-/// each hook instance only processes an event once per render cycle.
+/// each fiber only consumes an event once per render cycle.
 ///
 /// # Returns
 ///
-/// * `Some(Event)` - The current event if available and not yet processed by this hook.
-/// * `None` - If no event is available or the hook has already processed it.
+/// * `Some(Event)` - The current event if available and not yet consumed by this fiber.
+/// * `None` - If no event is available or the fiber has already consumed it.
 ///
 /// # Example
 ///
@@ -54,19 +53,15 @@ use crate::fiber_tree::with_current_fiber;
 /// }
 /// ```
 pub fn use_event() -> Option<Event> {
-    // Get the hook index from the current fiber
-    // If no fiber is available (e.g., called outside of render), use 0 as fallback
-    let hook_index = with_current_fiber(|fiber| fiber.next_hook_index()).unwrap_or(0);
-
-    // Get the current event for this hook index
-    // The event module handles tracking which hooks have processed the event
-    get_current_event(hook_index).map(|arc_event| (*arc_event).clone())
+    // Get the current event for this fiber
+    // The event module handles tracking which fibers have consumed the event
+    get_current_event().map(|arc_event| (*arc_event).clone())
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::event::{clear_current_event, set_current_event};
+    use crate::event::{clear_current_event, reset_all_fiber_event_flags, set_current_event};
     use crate::fiber_tree::{FiberTree, clear_fiber_tree, set_fiber_tree, with_fiber_tree_mut};
     use crossterm::event::{KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
     use std::sync::{Arc, Mutex};
@@ -104,6 +99,7 @@ mod tests {
 
         let event = create_test_key_event('a');
         set_current_event(Some(Arc::new(event.clone())));
+        reset_all_fiber_event_flags();
 
         let result = use_event();
         assert!(result.is_some());
@@ -131,24 +127,22 @@ mod tests {
     }
 
     #[test]
-    fn test_use_event_processes_once_per_hook() {
+    fn test_use_event_consumed_once_per_fiber() {
         let _lock = TEST_MUTEX.lock().unwrap();
         clear_current_event();
         setup_test_fiber_tree();
 
         let event = create_test_key_event('b');
         set_current_event(Some(Arc::new(event)));
+        reset_all_fiber_event_flags();
 
         // First call should return the event
         let first = use_event();
         assert!(first.is_some());
 
-        // Second call with same hook index should return None
-        // Note: In a real component, each use_event call gets a new hook index
-        // But here we're testing the same hook index behavior
+        // Second call from same fiber should return None
         let second = use_event();
-        // This will get a new hook index, so it should also return the event
-        assert!(second.is_some());
+        assert!(second.is_none());
 
         teardown_test_fiber_tree();
         clear_current_event();
@@ -162,10 +156,11 @@ mod tests {
 
         let event = create_test_key_event('c');
         set_current_event(Some(Arc::new(event)));
+        // Don't call reset_all_fiber_event_flags() since there's no fiber tree
 
-        // Should still work with fallback hook index of 0
+        // Should return None when no fiber tree exists
         let result = use_event();
-        assert!(result.is_some());
+        assert!(result.is_none());
 
         clear_current_event();
     }
@@ -178,6 +173,7 @@ mod tests {
 
         let event = create_test_key_event('d');
         set_current_event(Some(Arc::new(event.clone())));
+        reset_all_fiber_event_flags();
 
         let result = use_event();
         assert!(result.is_some());

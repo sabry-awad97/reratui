@@ -93,13 +93,15 @@ impl RenderContext {
     /// Set the current event for this render pass
     pub fn set_event(&mut self, event: Option<Arc<Event>>) {
         self.event_state.event = event;
-        self.event_state.processed_by.clear();
+        // Reset event consumed flags for all fibers
+        for fiber in self.fiber_tree.fibers.values_mut() {
+            fiber.reset_event_consumed();
+        }
     }
 
     /// Clear the current event
     pub fn clear_event(&mut self) {
         self.event_state.event = None;
-        self.event_state.processed_by.clear();
     }
 
     /// Begin state batching
@@ -662,46 +664,49 @@ mod property_tests {
                 ctx.set_event(Some(Arc::new(event)));
             });
 
-            // Each hook should be able to process the event exactly once
-            for &hook_index in &hook_indices {
-                // Try to get event for this hook
-                let _first = with_render_context_mut(|ctx| {
-                    let event = ctx.event_state.event.clone()?;
-                    let already_processed = ctx
-                        .event_state
-                        .processed_by
-                        .get(&hook_index)
-                        .copied()
-                        .unwrap_or(false);
+            // Create fibers for testing
+            let fiber_ids: Vec<_> = with_render_context_mut(|ctx| {
+                hook_indices.iter().map(|_| {
+                    ctx.fiber_tree.mount(None, None)
+                }).collect()
+            }).unwrap_or_default();
 
-                    if already_processed {
+            // Each fiber should be able to consume the event exactly once
+            for (i, &fiber_id) in fiber_ids.iter().enumerate() {
+                // Try to get event for this fiber
+                let _first = with_render_context_mut(|ctx| {
+                    ctx.fiber_tree.begin_render(fiber_id);
+                    let event = ctx.event_state.event.clone()?;
+                    let fiber = ctx.fiber_tree.fibers.get_mut(&fiber_id)?;
+
+                    if fiber.event_consumed {
+                        ctx.fiber_tree.end_render();
                         return None;
                     }
 
-                    ctx.event_state.processed_by.insert(hook_index, true);
+                    fiber.event_consumed = true;
+                    ctx.fiber_tree.end_render();
                     Some(event)
                 });
 
                 // Second call should always fail
                 let second = with_render_context_mut(|ctx| {
+                    ctx.fiber_tree.begin_render(fiber_id);
                     let event = ctx.event_state.event.clone()?;
-                    let already_processed = ctx
-                        .event_state
-                        .processed_by
-                        .get(&hook_index)
-                        .copied()
-                        .unwrap_or(false);
+                    let fiber = ctx.fiber_tree.fibers.get_mut(&fiber_id)?;
 
-                    if already_processed {
+                    if fiber.event_consumed {
+                        ctx.fiber_tree.end_render();
                         return None;
                     }
 
-                    ctx.event_state.processed_by.insert(hook_index, true);
+                    fiber.event_consumed = true;
+                    ctx.fiber_tree.end_render();
                     Some(event)
                 });
 
                 prop_assert!(second.flatten().is_none(),
-                    "Hook {} should not process twice", hook_index);
+                    "Fiber {} should not consume event twice", i);
             }
 
             // Clean up
