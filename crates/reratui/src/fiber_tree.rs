@@ -136,6 +136,12 @@ impl FiberTree {
 
     /// Called when a component finishes rendering
     pub fn end_render(&mut self) {
+        if let Some(fiber_id) = self.render_stack.last().copied() {
+            #[cfg(debug_assertions)]
+            if let Some(fiber) = self.fibers.get(&fiber_id) {
+                fiber.check_hook_order();
+            }
+        }
         self.render_stack.pop();
     }
 

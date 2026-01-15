@@ -604,6 +604,19 @@ pub fn end_batch() -> HashSet<FiberId> {
 /// * `fiber_id` - The fiber to update
 /// * `update` - The state update to queue
 pub fn queue_update(fiber_id: FiberId, update: StateUpdate) {
+    // Warn if state update is queued during render phase (development mode only)
+    #[cfg(debug_assertions)]
+    {
+        if crate::runtime::is_in_render_phase() {
+            tracing::warn!(
+                fiber_id = ?fiber_id,
+                hook_index = update.hook_index,
+                "State update queued during render phase! State updates should be triggered by events or effects, not during render. \
+                This can lead to infinite render loops and performance issues."
+            );
+        }
+    }
+
     // First check if we're on the main thread
     if !is_main_thread() {
         // Definitely a background thread - use cross-thread queue
@@ -2183,9 +2196,9 @@ mod property_tests {
                         update: StateUpdateKind::Updater(Box::new(move |any| {
                             let n = any.downcast_ref::<i32>().unwrap();
                             if is_add {
-                                Box::new(n + value)
+                                Box::new(n.saturating_add(value))
                             } else {
-                                Box::new(n * value)
+                                Box::new(n.saturating_mul(value))
                             }
                         })),
                     },

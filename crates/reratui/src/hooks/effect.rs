@@ -55,6 +55,7 @@ where
     C: FnOnce() + Send + 'static,
 {
     with_current_fiber(|fiber| {
+        fiber.track_hook_call("use_effect_v2");
         let hook_index = fiber.next_hook_index();
 
         // Get previous deps from fiber's hook state
@@ -160,6 +161,7 @@ where
     CFut: Future<Output = ()> + Send + 'static,
 {
     with_current_fiber(|fiber| {
+        fiber.track_hook_call("use_async_effect_v2");
         let hook_index = fiber.next_hook_index();
 
         // Get previous deps from fiber's hook state

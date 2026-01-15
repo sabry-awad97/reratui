@@ -234,6 +234,7 @@ where
     F: FnOnce() -> T,
 {
     with_current_fiber(|fiber| {
+        fiber.track_hook_call("use_state_v2");
         let hook_index = fiber.next_hook_index();
 
         // Get or initialize state

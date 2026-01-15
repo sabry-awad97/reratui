@@ -461,6 +461,7 @@ mod property_tests {
 
             let handle = use_interval_v2(|| {}, 10000);
 
+            #[allow(unused_assignments)]
             let mut expected_paused = false;
             for op in ops {
                 if op {

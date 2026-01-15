@@ -252,6 +252,11 @@ impl Reconciler {
                         position: index,
                     });
                 }
+
+                // Check for missing keys in new tree (development mode only)
+                #[cfg(debug_assertions)]
+                self.check_missing_keys(&self.new_tree);
+
                 return patches;
             }
         };
@@ -299,6 +304,10 @@ impl Reconciler {
                 }
             }
         }
+
+        // Check for missing keys in new tree (development mode only)
+        #[cfg(debug_assertions)]
+        self.check_missing_keys(&self.new_tree);
 
         patches
     }
@@ -430,6 +439,53 @@ impl Reconciler {
             // For components and widgets, we assume they need updating
             // A more sophisticated implementation could compare props
             _ => false,
+        }
+    }
+
+    /// Check for missing keys in lists (development mode only).
+    ///
+    /// This method detects when multiple children of the same type lack keys,
+    /// which can lead to incorrect reconciliation and state loss when lists are reordered.
+    ///
+    /// # Arguments
+    ///
+    /// * `tree` - The element tree to check
+    #[cfg(debug_assertions)]
+    fn check_missing_keys(&self, tree: &ElementTree) {
+        use std::collections::HashMap;
+
+        // Count elements by type (discriminant)
+        let mut type_counts: HashMap<std::mem::Discriminant<Element>, usize> = HashMap::new();
+        let mut unkeyed_by_type: HashMap<std::mem::Discriminant<Element>, Vec<usize>> =
+            HashMap::new();
+
+        for (index, element) in tree.elements.iter().enumerate() {
+            let discriminant = std::mem::discriminant(element);
+            *type_counts.entry(discriminant).or_insert(0) += 1;
+
+            if element.key().is_none() {
+                unkeyed_by_type.entry(discriminant).or_default().push(index);
+            }
+        }
+
+        // Warn about types with multiple unkeyed elements
+        for (_discriminant, unkeyed_indices) in unkeyed_by_type {
+            if unkeyed_indices.len() > 1 {
+                let type_name = match tree.elements.get(unkeyed_indices[0]) {
+                    Some(Element::Text(_)) => "Text",
+                    Some(Element::Widget { .. }) => "Widget",
+                    Some(Element::ComponentV2 { .. }) => "ComponentV2",
+                    None => "Unknown",
+                };
+
+                tracing::warn!(
+                    element_type = type_name,
+                    count = unkeyed_indices.len(),
+                    indices = ?unkeyed_indices,
+                    "Multiple children of the same type lack keys. Consider adding unique keys to list items to preserve component state during reordering. \
+                    Example: element.with_key(\"unique-id\")"
+                );
+            }
         }
     }
 

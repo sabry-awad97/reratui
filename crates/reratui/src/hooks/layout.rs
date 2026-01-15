@@ -57,7 +57,7 @@ use super::state::use_state_v2;
 /// let height = area.height;
 /// let inner = area.inner(Margin::new(1, 1));  // Call Rect methods
 /// ```
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Default, Copy, Debug, PartialEq, Eq)]
 pub struct ComponentArea(pub Rect);
 
 impl Deref for ComponentArea {
@@ -65,12 +65,6 @@ impl Deref for ComponentArea {
 
     fn deref(&self) -> &Self::Target {
         &self.0
-    }
-}
-
-impl Default for ComponentArea {
-    fn default() -> Self {
-        Self(Rect::default())
     }
 }
 

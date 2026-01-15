@@ -73,6 +73,12 @@ pub struct Fiber {
     pub dirty: bool,
     /// Component key for reconciliation
     pub key: Option<String>,
+    /// Hook types from previous render (for development mode warnings)
+    #[cfg(debug_assertions)]
+    pub previous_hook_types: Vec<&'static str>,
+    /// Hook types from current render (for development mode warnings)
+    #[cfg(debug_assertions)]
+    pub current_hook_types: Vec<&'static str>,
 }
 
 impl Fiber {
@@ -91,6 +97,10 @@ impl Fiber {
             children: Vec::new(),
             dirty: true,
             key,
+            #[cfg(debug_assertions)]
+            previous_hook_types: Vec::new(),
+            #[cfg(debug_assertions)]
+            current_hook_types: Vec::new(),
         }
     }
 
@@ -104,6 +114,60 @@ impl Fiber {
     /// Reset hook index for a new render pass
     pub fn reset_hook_index(&mut self) {
         self.hook_index = 0;
+        #[cfg(debug_assertions)]
+        {
+            // Move current hook types to previous for comparison
+            self.previous_hook_types = std::mem::take(&mut self.current_hook_types);
+        }
+    }
+
+    /// Track a hook call during render (development mode only)
+    #[cfg(debug_assertions)]
+    pub fn track_hook_call(&mut self, hook_name: &'static str) {
+        self.current_hook_types.push(hook_name);
+    }
+
+    /// Track a hook call during render (no-op in release mode)
+    #[cfg(not(debug_assertions))]
+    #[inline(always)]
+    pub fn track_hook_call(&mut self, _hook_name: &'static str) {
+        // No-op in release mode
+    }
+
+    /// Check if hook order has changed and warn if so (development mode only)
+    #[cfg(debug_assertions)]
+    pub fn check_hook_order(&self) {
+        if self.previous_hook_types.is_empty() {
+            // First render, nothing to compare
+            return;
+        }
+
+        if self.current_hook_types.len() != self.previous_hook_types.len() {
+            tracing::warn!(
+                fiber_id = ?self.id,
+                previous_count = self.previous_hook_types.len(),
+                current_count = self.current_hook_types.len(),
+                "Hook count changed between renders. This may indicate conditional hook calls, which can lead to bugs."
+            );
+            return;
+        }
+
+        for (index, (current, previous)) in self
+            .current_hook_types
+            .iter()
+            .zip(self.previous_hook_types.iter())
+            .enumerate()
+        {
+            if current != previous {
+                tracing::warn!(
+                    fiber_id = ?self.id,
+                    hook_index = index,
+                    previous_hook = previous,
+                    current_hook = current,
+                    "Hook order changed between renders. Hooks must be called in the same order on every render."
+                );
+            }
+        }
     }
 
     /// Get a hook value at the given index
@@ -334,4 +398,79 @@ mod tests {
         cleanup.unwrap()().await;
         assert!(cleanup_ran.load(Ordering::SeqCst));
     }
+}
+
+#[test]
+#[cfg(debug_assertions)]
+fn test_hook_order_detection() {
+    let mut fiber = Fiber::new(FiberId(1), None, None);
+
+    // First render - establish hook order
+    fiber.track_hook_call("use_state_v2");
+    fiber.track_hook_call("use_effect_v2");
+    fiber.track_hook_call("use_state_v2");
+
+    // End first render
+    fiber.reset_hook_index();
+
+    // Second render - same order (should not warn)
+    fiber.track_hook_call("use_state_v2");
+    fiber.track_hook_call("use_effect_v2");
+    fiber.track_hook_call("use_state_v2");
+
+    // Check hook order - should not panic or warn
+    fiber.check_hook_order();
+
+    // Verify hook types were tracked
+    assert_eq!(fiber.current_hook_types.len(), 3);
+    assert_eq!(fiber.previous_hook_types.len(), 3);
+}
+
+#[test]
+#[cfg(debug_assertions)]
+fn test_hook_count_change_detection() {
+    let mut fiber = Fiber::new(FiberId(1), None, None);
+
+    // First render - 2 hooks
+    fiber.track_hook_call("use_state_v2");
+    fiber.track_hook_call("use_effect_v2");
+
+    // End first render
+    fiber.reset_hook_index();
+
+    // Second render - 3 hooks (different count)
+    fiber.track_hook_call("use_state_v2");
+    fiber.track_hook_call("use_effect_v2");
+    fiber.track_hook_call("use_state_v2");
+
+    // Check hook order - will log warning about count change
+    fiber.check_hook_order();
+
+    // Verify counts are different
+    assert_eq!(fiber.previous_hook_types.len(), 2);
+    assert_eq!(fiber.current_hook_types.len(), 3);
+}
+
+#[test]
+#[cfg(debug_assertions)]
+fn test_hook_order_change_detection() {
+    let mut fiber = Fiber::new(FiberId(1), None, None);
+
+    // First render
+    fiber.track_hook_call("use_state_v2");
+    fiber.track_hook_call("use_effect_v2");
+
+    // End first render
+    fiber.reset_hook_index();
+
+    // Second render - different order
+    fiber.track_hook_call("use_effect_v2");
+    fiber.track_hook_call("use_state_v2");
+
+    // Check hook order - will log warning about order change
+    fiber.check_hook_order();
+
+    // Verify order changed
+    assert_eq!(fiber.previous_hook_types[0], "use_state_v2");
+    assert_eq!(fiber.current_hook_types[0], "use_effect_v2");
 }
