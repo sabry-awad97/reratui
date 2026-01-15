@@ -1,629 +1,362 @@
-# Behavioral Differences: Old vs New APIs
+# Behavioral Differences: React vs Reratui
 
-This document details the specific behavioral differences between the deprecated APIs in `reratui-hooks` and `reratui-runtime` and the new React-like APIs in `reratui-fiber`.
+This document outlines the key differences between React and Reratui for developers familiar with React.
 
 ## Overview
 
-The new `reratui-fiber` crate implements React's Fiber architecture to provide proper component lifecycle management, effect timing, and state batching. This results in several important behavioral changes that developers need to understand when migrating.
+Reratui is inspired by React but adapted for terminal user interfaces in Rust. While the mental model is similar, there are important differences due to the different runtime environment and language.
 
-## Critical Behavioral Changes
+## Component Model
 
-### 1. Effect Execution Timing
+### React
 
-**The most important difference** - effects now run at the correct time.
+```jsx
+function Counter({ initialCount }) {
+  const [count, setCount] = useState(initialCount);
+  return <div>Count: {count}</div>;
+}
+```
 
-#### Old Behavior (`use_effect`)
+### Reratui
 
 ```rust
-use reratui::prelude::*;
-
-#[component]
-fn OldComponent() -> Element {
-    let (count, set_count) = use_state(|| 0);
-
-    // ❌ PROBLEM: Effect runs DURING render phase
-    use_effect(|| {
-        println!("Count: {}", count); // Prints BEFORE screen updates
-        // This blocks rendering and can cause performance issues
-        None
-    }, (count,));
-
-    rsx! { <Text text={count.to_string()} /> }
-}
-```
-
-**Issues:**
-
-- Effects run synchronously during component render
-- Screen hasn't been updated yet when effect runs
-- Can block rendering and cause performance problems
-- Side effects during render violate React's principles
-
-#### New Behavior (`use_effect_v2`)
-
-```rust
-use reratui_fiber::prelude::*;
-
-#[component]
-fn NewComponent() -> Element {
-    let (count, set_count) = use_state_v2(|| 0);
-
-    // ✅ CORRECT: Effect runs AFTER commit phase
-    use_effect_v2(|| {
-        println!("Count: {}", count); // Prints AFTER screen shows new count
-        // Screen has already been updated when this runs
-        None
-    }, (count,));
-
-    rsx! { <Text text={count.to_string()} /> }
-}
-```
-
-**Benefits:**
-
-- Effects run after the screen has been updated
-- Non-blocking - render phase is pure and fast
-- Matches React's behavior exactly
-- Better performance and user experience
-
-### 2. Hook Identity and State Isolation
-
-**Critical for conditional rendering and component reordering.**
-
-#### Old Behavior (Global Hook Index)
-
-```rust
-use reratui::prelude::*;
-
-#[component]
-fn OldConditional() -> Element {
-    let (show_details, set_show) = use_state(|| false); // Hook index 0
-
-    rsx! {
-        <Layout>
-            <Button on_click={move |_| set_show.update(|v| !v)} />
-
-            // ❌ PROBLEM: Conditional rendering corrupts hook indices
-            {if show_details {
-                rsx! { <Details /> }  // Details' hooks start at index 1
-            } else {
-                rsx! { <Summary /> }  // Summary's hooks also start at index 1
-            }}
-        </Layout>
-    }
+struct Counter {
+    initial_count: i32,
 }
 
-#[component]
-fn Details() -> Element {
-    let (expanded, set_expanded) = use_state(|| false); // Hook index 1
-    // When Details unmounts and Summary mounts, Summary gets Details' state!
-    rsx! { <Block /> }
-}
-
-#[component]
-fn Summary() -> Element {
-    let (count, set_count) = use_state(|| 0); // Also hook index 1 - COLLISION!
-    // Gets leftover state from Details component
-    rsx! { <Block /> }
-}
-```
-
-**Problems:**
-
-- Global hook index shared across all components
-- Conditional rendering causes hook index collisions
-- Component reordering corrupts state
-- State "bleeds" between different components
-
-#### New Behavior (Fiber-Scoped Hooks)
-
-```rust
-use reratui_fiber::prelude::*;
-
-#[component]
-fn NewConditional() -> Element {
-    let (show_details, set_show) = use_state_v2(|| false); // Fiber-scoped
-
-    rsx! {
-        <Layout>
-            <Button on_click={move |_| set_show.update(|v| !v)} />
-
-            // ✅ CORRECT: Each component has isolated hook state
-            {if show_details {
-                rsx! { <Details /> }  // Details has its own Fiber
-            } else {
-                rsx! { <Summary /> }  // Summary has its own Fiber
-            }}
-        </Layout>
-    }
-}
-
-#[component]
-fn Details() -> Element {
-    let (expanded, set_expanded) = use_state_v2(|| false); // Isolated to Details Fiber
-    rsx! { <Block /> }
-}
-
-#[component]
-fn Summary() -> Element {
-    let (count, set_count) = use_state_v2(|| 0); // Isolated to Summary Fiber
-    rsx! { <Block /> }
-}
-```
-
-**Benefits:**
-
-- Each component instance has its own Fiber with isolated hook state
-- Conditional rendering is safe - no hook collisions
-- Component reordering preserves individual state
-- Matches React's component isolation
-
-### 3. State Update Batching
-
-**Multiple state updates now batch into a single re-render.**
-
-#### Old Behavior (Immediate Updates)
-
-```rust
-use reratui::prelude::*;
-
-#[component]
-fn OldBatching() -> Element {
-    let (count, set_count) = use_state(|| 0);
-    let (name, set_name) = use_state(|| String::new());
-
-    let handle_click = {
-        let set_count = set_count.clone();
-        let set_name = set_name.clone();
-        move |_| {
-            // ❌ PROBLEM: Each update triggers immediate re-render
-            set_count.set(count + 1);    // Re-render #1
-            set_count.set(count + 2);    // Re-render #2
-            set_name.set("Updated".into()); // Re-render #3
-            // Total: 3 re-renders for one user action!
-        }
-    };
-
-    rsx! { <Button on_click={handle_click} /> }
-}
-```
-
-**Problems:**
-
-- Each `set_state` call triggers immediate re-render
-- Multiple updates in same event handler cause multiple re-renders
-- Poor performance and flickering UI
-- Intermediate states are visible to user
-
-#### New Behavior (Batched Updates)
-
-```rust
-use reratui_fiber::prelude::*;
-
-#[component]
-fn NewBatching() -> Element {
-    let (count, set_count) = use_state_v2(|| 0);
-    let (name, set_name) = use_state_v2(|| String::new());
-
-    let handle_click = {
-        let set_count = set_count.clone();
-        let set_name = set_name.clone();
-        move |_| {
-            // ✅ CORRECT: All updates batched into single re-render
-            set_count.set(count + 1);       // Queued
-            set_count.set(count + 2);       // Queued (overwrites previous)
-            set_name.set("Updated".into()); // Queued
-            // Total: 1 re-render for all updates!
-        }
-    };
-
-    rsx! { <Button on_click={handle_click} /> }
-}
-```
-
-**Benefits:**
-
-- Multiple state updates in same event handler are batched
-- Only one re-render per user action
-- Better performance and smoother UI
-- Matches React's batching behavior
-
-### 4. Functional State Updates
-
-**Functional updates now receive the latest state value.**
-
-#### Old Behavior (Stale Closures)
-
-```rust
-use reratui::prelude::*;
-
-#[component]
-fn OldFunctionalUpdate() -> Element {
-    let (count, set_count) = use_state(|| 0);
-
-    let increment_twice = {
-        let set_count = set_count.clone();
-        move |_| {
-            // ❌ PROBLEM: Both updates see the same stale value
-            set_count.update(|n| n + 1); // n = 0, sets to 1
-            set_count.update(|n| n + 1); // n = 0 again!, sets to 1
-            // Result: count = 1 (should be 2)
-        }
-    };
-
-    rsx! { <Button on_click={increment_twice} /> }
-}
-```
-
-**Problems:**
-
-- Functional updates see stale state from closure capture
-- Multiple functional updates don't chain properly
-- Final state is incorrect
-
-#### New Behavior (Latest State)
-
-```rust
-use reratui_fiber::prelude::*;
-
-#[component]
-fn NewFunctionalUpdate() -> Element {
-    let (count, set_count) = use_state_v2(|| 0);
-
-    let increment_twice = {
-        let set_count = set_count.clone();
-        move |_| {
-            // ✅ CORRECT: Each update receives latest state
-            set_count.update(|n| n + 1); // n = 0, queues update to 1
-            set_count.update(|n| n + 1); // n = 1, queues update to 2
-            // Result: count = 2 (correct!)
-        }
-    };
-
-    rsx! { <Button on_click={increment_twice} /> }
-}
-```
-
-**Benefits:**
-
-- Functional updates receive the latest state value
-- Multiple functional updates chain correctly
-- Predictable state transitions
-
-### 5. Context Provider Lifecycle
-
-**Context values are now properly scoped and cleaned up.**
-
-#### Old Behavior (Memory Leak)
-
-```rust
-use reratui::prelude::*;
-
-#[component]
-fn OldContextProvider() -> Element {
-    // ❌ PROBLEM: Context value never cleaned up
-    let _theme = use_context_provider(|| Theme::default());
-    // When component unmounts, theme stays in global context stack
-    // Memory leak and incorrect scoping for nested providers
-
-    rsx! { <Child /> }
-}
-```
-
-**Problems:**
-
-- Context values pushed to global stack but never popped
-- Memory leak as values accumulate
-- Nested providers don't shadow correctly
-- Context persists after provider unmounts
-
-#### New Behavior (Proper Lifecycle)
-
-```rust
-use reratui_fiber::prelude::*;
-
-#[component]
-fn NewContextProvider() -> Element {
-    // ✅ CORRECT: Context automatically cleaned up on unmount
-    let _theme = use_context_provider_v2(|| Theme::default());
-    // When component unmounts, theme is automatically removed from stack
-
-    rsx! { <Child /> }
-}
-```
-
-**Benefits:**
-
-- Context values automatically cleaned up when provider unmounts
-- No memory leaks
-- Proper scoping for nested providers
-- Matches React's context lifecycle
-
-### 6. Render Phase Purity
-
-**The render phase is now pure and side-effect free.**
-
-#### Old Behavior (Side Effects During Render)
-
-```rust
-use reratui::prelude::*;
-
-#[component]
-fn OldRenderPurity() -> Element {
-    let (count, set_count) = use_state(|| 0);
-
-    // ❌ PROBLEM: Side effects run during render
-    use_effect(|| {
-        // This runs during render phase, blocking screen updates
-        println!("Side effect during render!");
-        fetch_data(); // Network call blocks rendering!
-        None
-    }, ());
-
-    rsx! { <Text text={count.to_string()} /> }
-}
-```
-
-**Problems:**
-
-- Side effects run during render phase
-- Blocks screen updates
-- Can't be interrupted or aborted
-- Violates React's render purity principles
-
-#### New Behavior (Pure Render Phase)
-
-```rust
-use reratui_fiber::prelude::*;
-
-#[component]
-fn NewRenderPurity() -> Element {
-    let (count, set_count) = use_state_v2(|| 0);
-
-    // ✅ CORRECT: Effects queued during render, executed after commit
-    use_effect_v2(|| {
-        // This runs AFTER screen has been updated
-        println!("Side effect after commit!");
-        fetch_data(); // Doesn't block rendering
-        None
-    }, ());
-
-    rsx! { <Text text={count.to_string()} /> }
-}
-```
-
-**Benefits:**
-
-- Render phase is pure - only computes output
-- Screen updates are not blocked by side effects
-- Render can be interrupted or aborted if needed
-- Better performance and responsiveness
-
-## Render Pipeline Differences
-
-### Old Pipeline (Immediate)
-
-```
-┌─────────────────────────────────────────┐
-│           Old Render Pipeline           │
-├─────────────────────────────────────────┤
-│                                         │
-│  1. Process Events                      │
-│  2. Execute Components                  │
-│     ├─ Run effects immediately          │
-│     ├─ Update state immediately         │
-│     └─ Side effects block rendering     │
-│  3. Draw to terminal                    │
-│                                         │
-└─────────────────────────────────────────┘
-```
-
-### New Pipeline (React-like)
-
-```
-┌─────────────────────────────────────────┐
-│           New Render Pipeline           │
-├─────────────────────────────────────────┤
-│                                         │
-│  1. EVENT PHASE                         │
-│     ├─ begin_batch()                    │
-│     ├─ Process events                   │
-│     └─ end_batch() → dirty fibers       │
-│                                         │
-│  2. RENDER PHASE (Pure)                 │
-│     ├─ Execute components               │
-│     ├─ Queue effects (don't run)        │
-│     └─ Build VNode tree                 │
-│                                         │
-│  3. COMMIT PHASE                        │
-│     ├─ Apply changes to terminal        │
-│     ├─ Process unmounts                 │
-│     └─ terminal.draw()                  │
-│                                         │
-│  4. EFFECT PHASE                        │
-│     ├─ Run cleanup functions            │
-│     └─ Run queued effects               │
-│                                         │
-└─────────────────────────────────────────┘
-```
-
-## Hook Comparison Table
-
-| Feature              | Old API                      | New API                         | Key Difference               |
-| -------------------- | ---------------------------- | ------------------------------- | ---------------------------- |
-| **State**            | `use_state(init)`            | `use_state_v2(init)`            | Batching, functional updates |
-| **Effects**          | `use_effect(fn, deps)`       | `use_effect_v2(fn, deps)`       | Post-commit execution        |
-| **Async Effects**    | `use_async_effect(fn, deps)` | `use_async_effect_v2(fn, deps)` | Post-commit + async cleanup  |
-| **Context Provider** | `use_context_provider(fn)`   | `use_context_provider_v2(fn)`   | Automatic cleanup            |
-| **Context Consumer** | `use_context::<T>()`         | `use_context_v2::<T>()`         | Proper scoping               |
-| **Memo**             | `use_memo(fn, deps)`         | `use_memo_v2(fn, deps)`         | Fiber-scoped                 |
-| **Callback**         | `use_callback(fn, deps)`     | `use_callback_v2(fn, deps)`     | Fiber-scoped                 |
-| **Render**           | `render(component)`          | `render_v2(component)`          | 4-phase pipeline             |
-
-## Migration Checklist
-
-When migrating from old to new APIs:
-
-### ✅ Safe Migrations (No Behavior Change)
-
-- [ ] Replace `use_state` with `use_state_v2`
-- [ ] Replace `use_memo` with `use_memo_v2`
-- [ ] Replace `use_callback` with `use_callback_v2`
-- [ ] Replace `render` with `render_v2`
-
-### ⚠️ Behavior Changes (Review Required)
-
-- [ ] Replace `use_effect` with `use_effect_v2`
-  - **Review:** Effects now run after commit, not during render
-  - **Action:** Verify timing assumptions are still correct
-- [ ] Replace `use_async_effect` with `use_async_effect_v2`
-  - **Review:** Same timing change as effects
-  - **Action:** Check async effect dependencies
-- [ ] Replace `use_context_provider` with `use_context_provider_v2`
-  - **Review:** Context now cleaned up on unmount
-  - **Action:** Verify nested provider behavior
-- [ ] Replace `use_context` with `use_context_v2`
-  - **Review:** Proper scoping may change behavior
-  - **Action:** Test context consumption in nested components
-
-### 🔍 Test After Migration
-
-- [ ] **Effect timing:** Verify effects run at expected times
-- [ ] **State batching:** Check that multiple updates batch correctly
-- [ ] **Conditional rendering:** Test components that render conditionally
-- [ ] **Context scoping:** Verify nested providers work correctly
-- [ ] **Component reordering:** Test dynamic component lists
-
-## Common Migration Issues
-
-### Issue 1: Effect Timing Assumptions
-
-```rust
-// ❌ Old code that assumes effect runs during render
-use_effect(|| {
-    // This used to run before screen update
-    assert_eq!(get_screen_content(), old_content); // May fail now
-    None
-}, (state,));
-
-// ✅ Updated code that works with post-commit timing
-use_effect_v2(|| {
-    // This runs after screen update
-    assert_eq!(get_screen_content(), new_content); // Correct
-    None
-}, (state,));
-```
-
-### Issue 2: State Update Expectations
-
-```rust
-// ❌ Old code expecting immediate state updates
-let handle_click = move |_| {
-    set_count.set(5);
-    println!("Count: {}", count); // Still old value
-};
-
-// ✅ Updated code that works with batching
-let handle_click = move |_| {
-    set_count.set(5);
-    // State update is queued, will be applied before next render
-    // Use effect to observe new value:
-};
-
-use_effect_v2(|| {
-    println!("Count: {}", count); // New value
-    None
-}, (count,));
-```
-
-### Issue 3: Context Scoping Changes
-
-```rust
-// ❌ Old code that relied on context leaking
-#[component]
-fn Parent() -> Element {
-    let _theme = use_context_provider(|| Theme::dark());
-    rsx! { <Child /> }
-}
-
-#[component]
-fn Child() -> Element {
-    // This component unmounts but context stays
-    rsx! { <GrandChild /> }
-}
-
-#[component]
-fn GrandChild() -> Element {
-    let theme = use_context::<Theme>(); // Used to work even after Child unmounted
-    rsx! { <Block /> }
-}
-
-// ✅ Updated code with proper scoping
-// Move context provider to appropriate level
-#[component]
-fn App() -> Element {
-    let _theme = use_context_provider_v2(|| Theme::dark());
-    rsx! {
-        <Parent />
-        <GrandChild /> // Now properly scoped
+impl ComponentV2 for Counter {
+    fn render(&self, area: Rect, buffer: &mut Buffer) {
+        let (count, set_count) = use_state_v2(|| self.initial_count);
+        Paragraph::new(format!("Count: {}", count))
+            .render(area, buffer);
     }
 }
 ```
 
-## Performance Implications
+**Key Differences:**
 
-### Old API Performance Issues
+- Components are structs implementing `ComponentV2` trait
+- Props are struct fields
+- Render receives `area` and `buffer` instead of returning JSX
+- Direct rendering to buffer instead of virtual DOM
 
-- Effects run during render → blocking
-- No state batching → excessive re-renders
-- Global hook index → cache misses
-- Context leaks → memory growth
+## State Management
 
-### New API Performance Benefits
+### State Updates
 
-- Effects run after commit → non-blocking
-- State batching → fewer re-renders
-- Fiber-scoped hooks → better cache locality
-- Proper cleanup → stable memory usage
+| React                        | Reratui                           |
+| ---------------------------- | --------------------------------- |
+| `setState(value)`            | `set_state.set(value)`            |
+| `setState(prev => prev + 1)` | `set_state.update(\|c\| c + 1)`   |
+| Automatic batching           | Explicit batching in render cycle |
 
-## Debugging Differences
-
-### Old API Debugging
-
-```rust
-// Limited debugging - effects run immediately
-use_effect(|| {
-    println!("Effect ran"); // Prints during render
-    None
-}, ());
-```
-
-### New API Debugging
+### Reratui-Specific Methods
 
 ```rust
-// Better debugging with strict mode
-#[cfg(debug_assertions)]
-set_strict_mode_enabled(true);
-
-use_effect_v2(|| {
-    println!("Effect ran"); // Prints after commit
-    None
-}, ());
-
-// Strict mode will:
-// - Double-render components to catch impure renders
-// - Run effects twice on mount to catch missing cleanup
-// - Warn about render inconsistencies
+// Only update if value changed (avoids unnecessary re-renders)
+set_count.set_if_changed(new_value);
+set_count.update_if_changed(|c| c + 1);
 ```
 
-## Conclusion
+### State Type Requirements
 
-The new `reratui-fiber` APIs provide significant behavioral improvements that align with React's proven patterns:
+React: Any JavaScript value
+Reratui: `T: Clone + Send + Sync + PartialEq + 'static`
 
-1. **Correct effect timing** prevents render blocking
-2. **Fiber-scoped hooks** eliminate state corruption
-3. **State batching** improves performance
-4. **Proper context lifecycle** prevents memory leaks
-5. **Pure render phase** enables future optimizations
+## Effects
 
-While migration requires careful review of timing assumptions, the new APIs provide a more robust and performant foundation for building TUI applications.
+### React
+
+```jsx
+useEffect(() => {
+  console.log("Effect ran");
+  return () => console.log("Cleanup");
+}, [dep]);
+```
+
+### Reratui
+
+```rust
+use_effect_v2(
+    move || {
+        println!("Effect ran");
+        Some(Box::new(|| println!("Cleanup")))
+    },
+    dep,
+);
+```
+
+**Key Differences:**
+
+- Cleanup is `Option<Box<dyn FnOnce()>>` instead of optional return
+- Dependencies are a single value (use tuples for multiple)
+- No dependency array - single dependency or tuple
+
+### Dependency Comparison
+
+| React                  | Reratui                            |
+| ---------------------- | ---------------------------------- |
+| `[]` (empty array)     | `use_effect_once`                  |
+| `[dep]`                | `use_effect_v2(..., dep)`          |
+| `[dep1, dep2]`         | `use_effect_v2(..., (dep1, dep2))` |
+| No deps (every render) | Not directly supported             |
+
+## Context
+
+### React
+
+```jsx
+// Provider
+<ThemeContext.Provider value={theme}>
+  <App />
+</ThemeContext.Provider>;
+
+// Consumer
+const theme = useContext(ThemeContext);
+```
+
+### Reratui
+
+```rust
+// Provider (inside component)
+use_context_provider_v2(|| theme.clone());
+
+// Consumer
+let theme = use_context_v2::<Theme>();
+```
+
+**Key Differences:**
+
+- No separate Context object creation
+- Provider is a hook, not a component wrapper
+- Type-based lookup instead of context object
+- `try_use_context_v2` for optional context
+
+## Refs
+
+### React
+
+```jsx
+const ref = useRef(initialValue);
+ref.current = newValue;
+console.log(ref.current);
+```
+
+### Reratui
+
+```rust
+let ref_handle = use_ref_v2(|| initial_value);
+ref_handle.set(new_value);
+let value = ref_handle.get();
+```
+
+**Key Differences:**
+
+- Methods instead of `.current` property
+- `get()` returns cloned value
+- `update(fn)` for functional updates
+
+## Memoization
+
+### React
+
+```jsx
+const memoized = useMemo(() => expensive(), [dep]);
+const callback = useCallback(() => doSomething(), [dep]);
+```
+
+### Reratui
+
+```rust
+let memoized = use_memo_v2(|| expensive(), dep);
+let callback = use_callback_v2(|| do_something(), dep);
+```
+
+**Key Differences:**
+
+- Single dependency value (use tuples for multiple)
+- Callback returns `CallbackV2<F>` wrapper
+
+## Event Handling
+
+### React
+
+```jsx
+<button onClick={(e) => handleClick(e)}>Click</button>
+```
+
+### Reratui
+
+```rust
+use_keyboard_press_v2(move |key| {
+    if key.code == KeyCode::Enter {
+        handle_click();
+    }
+});
+
+use_mouse_click_v2(move |button, x, y| {
+    if button == MouseButton::Left {
+        handle_click();
+    }
+});
+```
+
+**Key Differences:**
+
+- No JSX event props
+- Hooks for event handling
+- Separate hooks for keyboard and mouse
+- Terminal events instead of DOM events
+
+## Async Data Fetching
+
+### React (with React Query)
+
+```jsx
+const { data, isLoading, error, refetch } = useQuery({
+  queryKey: ["users"],
+  queryFn: fetchUsers,
+  staleTime: 30000,
+});
+```
+
+### Reratui
+
+```rust
+let query = use_query_v2(
+    "users",
+    || async { fetch_users().await },
+    Some(QueryOptions {
+        stale_time: Duration::from_secs(30),
+        ..Default::default()
+    }),
+);
+
+// Access: query.data, query.status, query.error, query.refetch()
+```
+
+**Key Differences:**
+
+- Built-in (no separate library)
+- `QueryStatus` enum instead of boolean flags
+- Duration types instead of milliseconds
+
+## Rendering
+
+### React
+
+- Virtual DOM diffing
+- Reconciliation algorithm
+- Automatic re-renders on state change
+
+### Reratui
+
+- Direct buffer rendering
+- Fiber-based architecture
+- 5-phase render pipeline:
+  1. Poll (wait for events)
+  2. Render (execute components)
+  3. Commit (apply state updates)
+  4. Event (process terminal events)
+  5. Effect (run effects)
+
+## Lifecycle
+
+### React Lifecycle
+
+```
+Mount → Update → Unmount
+```
+
+### Reratui Lifecycle
+
+```
+Mount → Render Loop → Unmount
+         ↓
+    Poll → Render → Commit → Event → Effect
+         ↑___________________________|
+```
+
+## No Direct Equivalents
+
+### React Features Not in Reratui
+
+| React               | Reratui Alternative                        |
+| ------------------- | ------------------------------------------ |
+| JSX                 | Direct widget rendering                    |
+| Suspense            | Manual loading states                      |
+| Error Boundaries    | Manual error handling                      |
+| Portals             | Not applicable (single buffer)             |
+| Fragments           | Not needed                                 |
+| forwardRef          | Not applicable                             |
+| useImperativeHandle | Not applicable                             |
+| useLayoutEffect     | `use_effect_v2` (all effects are "layout") |
+| useDeferredValue    | Not available                              |
+| useTransition       | Not available                              |
+| Server Components   | Not applicable                             |
+
+### Reratui-Specific Features
+
+| Feature              | Description               |
+| -------------------- | ------------------------- |
+| `use_keyboard_v2`    | Terminal keyboard events  |
+| `use_mouse_v2`       | Terminal mouse events     |
+| `use_area_v2`        | Component render area     |
+| `use_frame_v2`       | Frame timing info         |
+| `use_resize_v2`      | Terminal resize events    |
+| `use_media_query_v2` | Terminal size breakpoints |
+| `use_history_v2`     | Undo/redo state           |
+| `use_form_v2`        | Form validation           |
+| `use_timeout_v2`     | Timeout with handle       |
+| `use_interval_v2`    | Interval with handle      |
+
+## Threading Model
+
+### React
+
+- Single-threaded (main thread)
+- Concurrent features for interruptible rendering
+
+### Reratui
+
+- Async runtime (Tokio)
+- State must be `Send + Sync`
+- Effects can spawn async tasks
+
+## Type Safety
+
+### React
+
+- Runtime prop validation (PropTypes) or TypeScript
+- Hooks can return any type
+
+### Reratui
+
+- Compile-time type checking
+- Strict type requirements on hooks
+- Generic constraints enforced
+
+## Performance Considerations
+
+### React
+
+- Virtual DOM overhead
+- Reconciliation cost
+- Memoization for optimization
+
+### Reratui
+
+- Direct buffer rendering (no VDOM)
+- Fiber-based dirty tracking
+- State batching
+- `set_if_changed` / `update_if_changed` for optimization
+
+## Migration Tips
+
+1. **Think in traits** - Components are trait implementations, not functions
+2. **Embrace ownership** - Clone when needed, use `Arc` for shared state
+3. **Single dependency** - Use tuples for multiple effect dependencies
+4. **Direct rendering** - No JSX, render directly to buffer
+5. **Terminal events** - Use keyboard/mouse hooks instead of event props
+6. **Type constraints** - Ensure state types meet trait bounds
+7. **Async runtime** - Tokio is required for async features

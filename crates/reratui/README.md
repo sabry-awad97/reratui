@@ -1,267 +1,257 @@
-# reratui-fiber
+# Reratui
 
-React-like fiber architecture for Reratui with proper effect timing, state batching, and component lifecycle management.
+A React-inspired fiber-based TUI framework for Rust, built on top of [ratatui](https://github.com/ratatui-org/ratatui).
 
-[![Crates.io](https://img.shields.io/crates/v/reratui-fiber.svg)](https://crates.io/crates/reratui-fiber)
-[![Documentation](https://docs.rs/reratui-fiber/badge.svg)](https://docs.rs/reratui-fiber)
+[![Crates.io](https://img.shields.io/crates/v/reratui.svg)](https://crates.io/crates/reratui)
+[![Documentation](https://docs.rs/reratui/badge.svg)](https://docs.rs/reratui)
+[![License](https://img.shields.io/badge/license-MIT%2FApache--2.0-blue.svg)](#license)
 
 ## Overview
 
-`reratui-fiber` implements React's Fiber architecture for Reratui, providing:
+Reratui brings React's component model and hooks system to terminal user interfaces. It features a fiber-based architecture that enables efficient rendering, proper state management, and a familiar development experience for those coming from React.
 
-- **Fiber-based component instances** - Each component has isolated hook state (no global index collisions)
-- **Post-commit effect execution** - Effects run after the screen updates, not during render
-- **State update batching** - Multiple state updates in event handlers trigger a single re-render
-- **Proper context lifecycle** - Context providers are automatically cleaned up on unmount
-- **Strict mode** - Double-renders in development to catch impure components
+### Key Features
 
-## Why reratui-fiber?
-
-The original Reratui hooks had several issues that didn't match React's semantics:
-
-| Issue           | Old Behavior                       | New Behavior (v2)              |
-| --------------- | ---------------------------------- | ------------------------------ |
-| Effect timing   | Effects run during render          | Effects run after commit       |
-| Hook identity   | Global index (corrupts on reorder) | Fiber-scoped (stable identity) |
-| State batching  | Each `set_state` re-renders        | Batched within event handlers  |
-| Context cleanup | Never cleaned up (memory leak)     | Cleaned up on unmount          |
-
-## Installation
-
-Add to your `Cargo.toml`:
-
-```toml
-[dependencies]
-reratui-fiber = "0.2.1"
-```
+- **React-like Component Model** - Define components using the `ComponentV2` trait
+- **Fiber Architecture** - Efficient reconciliation and rendering pipeline
+- **Comprehensive Hooks System** - State, effects, context, refs, memoization, and more
+- **Async Support** - First-class async effects, queries, and mutations
+- **Event Handling** - Keyboard, mouse, and terminal resize events
+- **Built on ratatui** - Full access to ratatui's powerful widget system
 
 ## Quick Start
 
+Add reratui to your `Cargo.toml`:
+
+```toml
+[dependencies]
+reratui = "0.2"
+tokio = { version = "1", features = ["full"] }
+```
+
+### Hello World
+
 ```rust
-use reratui_fiber::prelude::*;
+use reratui::prelude::*;
 
-#[component]
-fn Counter() -> Element {
-    // Fiber-scoped state - stable identity across renders
-    let (count, set_count) = use_state_v2(|| 0);
+struct App;
 
-    // Effect runs AFTER commit (screen already updated)
-    use_effect_v2(|| {
-        println!("Count is now: {}", count);
-        None // No cleanup needed
-    }, (count,));
+impl ComponentV2 for App {
+    fn render(&self, area: Rect, buffer: &mut Buffer) {
+        let (count, set_count) = use_state_v2(|| 0);
 
-    // Multiple updates are BATCHED - only ONE re-render
-    let increment_by_3 = {
-        let set_count = set_count.clone();
-        move |_| {
-            set_count.update(|n| n + 1); // Queued
-            set_count.update(|n| n + 1); // Queued
-            set_count.update(|n| n + 1); // Queued
-            // All 3 updates batched into single re-render!
-        }
-    };
+        // Handle keyboard events
+        use_keyboard_press_v2(move |key| {
+            match key.code {
+                KeyCode::Char(' ') => set_count.update(|c| c + 1),
+                KeyCode::Char('q') => request_exit_v2(),
+                _ => {}
+            }
+        });
 
-    rsx! {
-        <Block title="Counter">
-            <Paragraph>{format!("Count: {}", count)}</Paragraph>
-        </Block>
+        // Render UI
+        let text = format!("Count: {} (Space to increment, Q to quit)", count);
+        Paragraph::new(text)
+            .alignment(Alignment::Center)
+            .render(area, buffer);
     }
 }
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    render_v2(|| rsx! { <Counter /> }).await
+    render_v2(|| App).await?;
+    Ok(())
 }
 ```
 
-## Hooks API
+## Architecture
 
-### use_state_v2
+Reratui uses a 5-phase render pipeline inspired by React's fiber architecture:
 
-State management with batching support:
+1. **Poll** - Wait for terminal events or scheduled updates
+2. **Render** - Execute component render functions, collecting state changes
+3. **Commit** - Apply batched state updates to the fiber tree
+4. **Event** - Process terminal events (keyboard, mouse, resize)
+5. **Effect** - Run effects and cleanup functions
+
+### Fiber System
+
+Each component instance is represented by a `Fiber` node that maintains:
+
+- Hook state (useState, useEffect, etc.)
+- Pending effects and cleanup functions
+- Context values
+- Parent/child relationships
+- Dirty flags for re-rendering
+
+## Hooks Reference
+
+### State Management
+
+| Hook             | Description                                |
+| ---------------- | ------------------------------------------ |
+| `use_state_v2`   | Local component state with batched updates |
+| `use_reducer_v2` | Complex state with reducer pattern         |
+| `use_ref_v2`     | Mutable reference without re-renders       |
+| `use_history_v2` | State with undo/redo support               |
+
+### Effects
+
+| Hook                    | Description                           |
+| ----------------------- | ------------------------------------- |
+| `use_effect_v2`         | Side effects with dependency tracking |
+| `use_effect_once`       | Effect that runs only on mount        |
+| `use_async_effect_v2`   | Async effects with cleanup            |
+| `use_async_effect_once` | Async effect that runs only on mount  |
+
+### Context
+
+| Hook                      | Description                  |
+| ------------------------- | ---------------------------- |
+| `use_context_v2`          | Consume context from parent  |
+| `use_context_provider_v2` | Provide context to children  |
+| `try_use_context_v2`      | Optional context consumption |
+
+### Memoization
+
+| Hook              | Description                    |
+| ----------------- | ------------------------------ |
+| `use_memo_v2`     | Memoize expensive computations |
+| `use_callback_v2` | Memoize callback functions     |
+
+### Async Data
+
+| Hook              | Description                |
+| ----------------- | -------------------------- |
+| `use_future_v2`   | Track async task state     |
+| `use_query_v2`    | Data fetching with caching |
+| `use_mutation_v2` | Mutation state tracking    |
+
+### Events
+
+| Hook                       | Description                      |
+| -------------------------- | -------------------------------- |
+| `use_event`                | Access current terminal event    |
+| `use_keyboard_v2`          | Handle all keyboard events       |
+| `use_keyboard_press_v2`    | Handle key press events only     |
+| `use_keyboard_shortcut_v2` | Handle specific key combinations |
+| `use_mouse_v2`             | Handle all mouse events          |
+| `use_mouse_click_v2`       | Handle mouse clicks              |
+| `use_mouse_hover_v2`       | Track hover state over area      |
+| `use_mouse_drag_v2`        | Track drag operations            |
+
+### Timing
+
+| Hook              | Description                  |
+| ----------------- | ---------------------------- |
+| `use_timeout_v2`  | Execute callback after delay |
+| `use_interval_v2` | Execute callback repeatedly  |
+
+### Layout
+
+| Hook                 | Description                 |
+| -------------------- | --------------------------- |
+| `use_area_v2`        | Get component's render area |
+| `use_frame_v2`       | Access frame context        |
+| `use_resize_v2`      | Track terminal dimensions   |
+| `use_media_query_v2` | Responsive breakpoints      |
+
+### Forms
+
+| Hook                  | Description               |
+| --------------------- | ------------------------- |
+| `use_form_v2`         | Form state and validation |
+| `use_form_context_v2` | Access form from children |
+| `use_watch_v2`        | Watch form field changes  |
+
+## State Setter API
+
+The `StateSetterV2` returned by `use_state_v2` provides several methods:
 
 ```rust
-let (value, setter) = use_state_v2(|| initial_value);
+let (count, set_count) = use_state_v2(|| 0);
 
-// Set directly
-setter.set(new_value);
+// Direct set
+set_count.set(5);
 
-// Update based on previous value (receives latest state)
-setter.update(|prev| prev + 1);
+// Update with function
+set_count.update(|c| c + 1);
+
+// Conditional updates (only trigger re-render if value changes)
+set_count.set_if_changed(5);
+set_count.update_if_changed(|c| c + 1);
 ```
 
-### use_effect_v2
+## Examples
 
-Side effects that run after commit:
+The repository includes several examples demonstrating various features:
+
+- **counter_v2** - Basic counter with state
+- **effect_timing_v2** - Effect lifecycle demonstration
+- **async_fetch_example** - Async data fetching
+- **query_example** - Data queries with caching
+- **mutation_example** - Mutations with reducer pattern
+- **events_showcase** - Keyboard and mouse events
+- **command_palette** - Complex UI with multiple components
+- **data_fetcher** - Multiple async data sources
+
+Run an example:
+
+```bash
+cargo run --example counter_v2
+```
+
+## Runtime Functions
 
 ```rust
-// Run when dependencies change
-use_effect_v2(|| {
-    println!("Count changed!");
-    Some(|| println!("Cleanup")) // Optional cleanup
-}, (count,));
+// Start the application
+render_v2(|| App).await?;
 
-// Run once on mount (empty deps)
-use_effect_once(|| {
-    println!("Mounted!");
-    Some(|| println!("Unmounting"))
-});
+// With options
+render_v2_with_options(|| App, RenderOptions {
+    frame_interval_ms: 16,  // ~60 FPS
+    strict_mode: false,
+}).await?;
 
-// Run every render (None deps)
-use_effect_v2(|| {
-    println!("Rendered!");
-    None
-}, None::<()>);
-```
-
-### use_async_effect_v2
-
-Async effects with async cleanup:
-
-```rust
-use_async_effect_v2(|| {
-    async move {
-        let data = fetch_data().await;
-        set_data.set(data);
-
-        Some(|| async move {
-            println!("Async cleanup");
-        })
-    }
-}, (user_id,));
-```
-
-### use_context_v2 / use_context_provider_v2
-
-Context with proper lifecycle:
-
-```rust
-// Provide context (automatically cleaned up on unmount)
-let theme = use_context_provider_v2(|| Theme::default());
-
-// Consume context (panics if no provider)
-let theme = use_context_v2::<Theme>();
-
-// Try to consume (returns None if no provider)
-let maybe_theme = try_use_context_v2::<Theme>();
-```
-
-### use_memo_v2 / use_callback_v2
-
-Memoization hooks:
-
-```rust
-// Memoize expensive computation
-let expensive = use_memo_v2(|| compute_expensive(input), (input,));
-
-// Memoize callback
-let on_click = use_callback_v2(|_| {
-    println!("Clicked!");
-}, ());
-```
-
-## Render Pipeline
-
-The v2 render loop follows React's 4-phase pipeline:
-
-```
-┌─────────────────────────────────────────────────┐
-│              Render Pipeline (v2)               │
-├─────────────────────────────────────────────────┤
-│                                                 │
-│  1. EVENT PHASE                                 │
-│     ├─ begin_batch() - start batching           │
-│     ├─ Process events through handlers          │
-│     └─ end_batch() - collect dirty fibers       │
-│                                                 │
-│  2. RENDER PHASE (Pure, no side effects)        │
-│     ├─ Execute component functions              │
-│     ├─ Queue effects (don't execute)            │
-│     └─ Build VNode tree                         │
-│                                                 │
-│  3. COMMIT PHASE                                │
-│     ├─ Apply changes to terminal buffer         │
-│     ├─ Process pending unmounts                 │
-│     └─ terminal.draw() - flush to screen        │
-│                                                 │
-│  4. EFFECT PHASE (After commit)                 │
-│     ├─ Run cleanup functions                    │
-│     └─ Run new effects                          │
-│                                                 │
-└─────────────────────────────────────────────────┘
+// Exit control
+request_exit_v2();      // Request graceful exit
+should_exit_v2();       // Check if exit requested
+reset_exit_v2();        // Cancel exit request
 ```
 
 ## Strict Mode
 
-Enable strict mode to catch impure renders during development:
+Enable strict mode for development to catch common issues:
 
 ```rust
-use reratui_fiber::prelude::*;
-
-// Enable strict mode (only active in debug builds)
-set_strict_mode_enabled(true);
-
-// Or use render options
-render_v2_with_options(
-    || rsx! { <App /> },
-    RenderOptions {
-        strict_mode: true,
-        ..Default::default()
-    }
-).await?;
+render_v2_with_options(|| App, RenderOptions {
+    strict_mode: true,
+    ..Default::default()
+}).await?;
 ```
 
-Strict mode will:
+Strict mode helps detect:
 
-- Double-render each component
-- Run effects, cleanup, and effects again on mount
-- Warn if renders produce different results
+- Conditional hook calls
+- Hook order changes between renders
+- Missing effect dependencies
 
-## Migration from Old API
+See [STRICT_MODE.md](STRICT_MODE.md) for details.
 
-```rust
-// ❌ OLD (deprecated)
-use reratui::prelude::*;
+## Requirements
 
-let (count, set_count) = use_state(|| 0);      // Global index
-use_effect(|| { println!("rendered"); None }, ()); // Runs during render
-
-render(|| rsx! { <Counter /> }).await?;
-
-// ✅ NEW (recommended)
-use reratui_fiber::prelude::*;
-
-let (count, set_count) = use_state_v2(|| 0);      // Fiber-scoped
-use_effect_v2(|| { println!("rendered"); None }, ()); // Runs after commit
-
-render_v2(|| rsx! { <Counter /> }).await?;
-```
-
-## Key Types
-
-| Type               | Description                                 |
-| ------------------ | ------------------------------------------- |
-| `FiberId`          | Unique identifier for a component instance  |
-| `Fiber`            | A mounted component with its own hook state |
-| `FiberTree`        | Global tree tracking all mounted components |
-| `StateSetterV2<T>` | State setter with batching support          |
-| `RenderOptions`    | Configuration for the render loop           |
-
-## Examples
-
-See the examples in the main repository:
-
-- `counter-v2` - Basic counter with v2 APIs
-- `effect-timing-v2` - Demonstrates effect execution timing
-- `state-batching-v2` - Shows state update batching
-
-```bash
-cargo run -p counter-v2
-cargo run -p effect-timing-v2
-cargo run -p state-batching-v2
-```
+- Rust 1.85.0 or later (edition 2024)
+- Tokio runtime for async support
 
 ## License
 
-Dual-licensed under Apache 2.0 or MIT at your option.
+Licensed under either of:
+
+- Apache License, Version 2.0 ([LICENSE-APACHE](../../LICENSE-APACHE))
+- MIT license ([LICENSE-MIT](../../LICENSE-MIT))
+
+at your option.
+
+## Contributing
+
+See [CONTRIBUTING.md](../../CONTRIBUTING.md) for guidelines.

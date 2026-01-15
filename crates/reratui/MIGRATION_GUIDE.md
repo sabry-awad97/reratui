@@ -1,657 +1,426 @@
-# Migration Guide: From Old APIs to reratui-fiber
+# Migration Guide
 
-This guide walks you through migrating your Reratui application from the deprecated APIs in `reratui-hooks` and `reratui-runtime` to the new React-like APIs in `reratui-fiber`.
+This guide helps you migrate from older versions of Reratui to the current v2 API.
 
-## Table of Contents
+## Migrating to v0.2.x (Fiber Architecture)
 
-1. [Overview](#overview)
-2. [Quick Start](#quick-start)
-3. [Step-by-Step Migration](#step-by-step-migration)
-4. [API Reference](#api-reference)
-5. [Common Patterns](#common-patterns)
-6. [Troubleshooting](#troubleshooting)
-7. [FAQ](#faq)
+Version 0.2.x introduced the fiber-based architecture with the `ComponentV2` trait and `_v2` hooks. This is a significant change from the previous API.
 
----
+### Component Changes
 
-## Overview
+#### Before (v0.1.x)
 
-### Why Migrate?
+```rust
+// Old component pattern
+fn my_component(frame: &mut Frame, area: Rect) {
+    let count = use_state(|| 0);
+    // ...
+}
+```
 
-The new `reratui-fiber` crate provides significant improvements:
+#### After (v0.2.x)
 
-| Feature            | Old API                            | New API (v2)                |
-| ------------------ | ---------------------------------- | --------------------------- |
-| Effect timing      | During render (blocking)           | After commit (non-blocking) |
-| Hook identity      | Global index (corrupts on reorder) | Fiber-scoped (stable)       |
-| State batching     | None (each update re-renders)      | Automatic batching          |
-| Context cleanup    | Never (memory leak)                | Automatic on unmount        |
-| Functional updates | Stale closures                     | Latest state value          |
+```rust
+use reratui::prelude::*;
 
-### Migration Strategy
+struct MyComponent;
 
-You can migrate incrementally - old and new APIs can coexist:
+impl ComponentV2 for MyComponent {
+    fn render(&self, area: Rect, buffer: &mut Buffer) {
+        let (count, set_count) = use_state_v2(|| 0);
+        // ...
+    }
+}
+```
 
-1. Update your `Cargo.toml` to include `reratui-fiber`
-2. Migrate one component at a time
-3. Test each component after migration
-4. Eventually remove deprecated API usage
+### Hook Changes
 
----
+All hooks have been renamed with the `_v2` suffix and updated signatures:
 
-## Quick Start
+| Old Hook       | New Hook          |
+| -------------- | ----------------- |
+| `use_state`    | `use_state_v2`    |
+| `use_effect`   | `use_effect_v2`   |
+| `use_context`  | `use_context_v2`  |
+| `use_ref`      | `use_ref_v2`      |
+| `use_memo`     | `use_memo_v2`     |
+| `use_callback` | `use_callback_v2` |
+| `use_reducer`  | `use_reducer_v2`  |
 
-### 1. Add Dependency
+### State Hook Changes
+
+#### Before
+
+```rust
+let count = use_state(|| 0);
+count.set(5);
+count.update(|c| *c + 1);
+```
+
+#### After
+
+```rust
+let (count, set_count) = use_state_v2(|| 0);
+set_count.set(5);
+set_count.update(|c| c + 1);
+
+// New methods
+set_count.set_if_changed(5);
+set_count.update_if_changed(|c| c + 1);
+```
+
+**Key Changes:**
+
+- Returns tuple `(value, setter)` instead of handle
+- Setter is separate from value
+- New conditional update methods
+
+### Effect Hook Changes
+
+#### Before
+
+```rust
+use_effect(|| {
+    println!("Effect ran");
+    || println!("Cleanup")
+}, &[dep]);
+```
+
+#### After
+
+```rust
+use_effect_v2(
+    move || {
+        println!("Effect ran");
+        Some(Box::new(|| println!("Cleanup")))
+    },
+    dep,
+);
+
+// Or for mount-only effects
+use_effect_once(|| {
+    println!("Mounted");
+    Some(Box::new(|| println!("Unmounting")))
+});
+```
+
+**Key Changes:**
+
+- Cleanup is `Option<Box<dyn FnOnce()>>`
+- Single dependency value (use tuples for multiple)
+- `use_effect_once` for mount-only effects
+
+### Context Hook Changes
+
+#### Before
+
+```rust
+// Provider
+provide_context(theme);
+
+// Consumer
+let theme = use_context::<Theme>();
+```
+
+#### After
+
+```rust
+// Provider
+use_context_provider_v2(|| theme.clone());
+
+// Consumer
+let theme = use_context_v2::<Theme>();
+
+// Optional consumer
+let theme = try_use_context_v2::<Theme>();
+```
+
+### Ref Hook Changes
+
+#### Before
+
+```rust
+let my_ref = use_ref(|| initial_value);
+my_ref.set(new_value);
+let value = my_ref.get();
+```
+
+#### After
+
+```rust
+let my_ref = use_ref_v2(|| initial_value);
+my_ref.set(new_value);
+let value = my_ref.get();
+my_ref.update(|v| *v + 1);
+```
+
+**Key Changes:**
+
+- Added `update` method for functional updates
+
+### Async Hook Changes
+
+#### Before
+
+```rust
+let data = use_async(|| async { fetch_data().await });
+```
+
+#### After
+
+```rust
+// Simple async
+let handle = use_future_v2(
+    || async { fetch_data().await },
+    Some(deps),
+);
+
+// With caching
+let query = use_query_v2(
+    "cache-key",
+    || async { fetch_data().await },
+    Some(QueryOptions::default()),
+);
+
+// For mutations
+let mutation = use_mutation_v2(
+    |args| async move { mutate_data(args).await },
+    None,
+);
+```
+
+### Event Handling Changes
+
+#### Before
+
+```rust
+if let Some(Event::Key(key)) = get_event() {
+    // Handle key
+}
+```
+
+#### After
+
+```rust
+// Raw event access
+if let Some(Event::Key(key)) = use_event() {
+    // Handle key
+}
+
+// Or use specialized hooks
+use_keyboard_press_v2(move |key| {
+    match key.code {
+        KeyCode::Char('q') => request_exit_v2(),
+        _ => {}
+    }
+});
+
+use_keyboard_shortcut_v2(
+    KeyCode::Char('s'),
+    KeyModifiers::CONTROL,
+    || save(),
+);
+
+use_mouse_click_v2(move |button, x, y| {
+    // Handle click
+});
+```
+
+### Runtime Changes
+
+#### Before
+
+```rust
+fn main() {
+    run(my_app);
+}
+```
+
+#### After
+
+```rust
+#[tokio::main]
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    render_v2(|| App).await?;
+    Ok(())
+}
+
+// With options
+render_v2_with_options(|| App, RenderOptions {
+    frame_interval_ms: 16,
+    strict_mode: true,
+}).await?;
+```
+
+**Key Changes:**
+
+- Async runtime required (Tokio)
+- `render_v2` instead of `run`
+- Returns `Result`
+- Optional `RenderOptions`
+
+### Exit Handling Changes
+
+#### Before
+
+```rust
+exit();
+```
+
+#### After
+
+```rust
+request_exit_v2();
+
+// Check exit status
+if should_exit_v2() {
+    // ...
+}
+
+// Cancel exit
+reset_exit_v2();
+```
+
+## New Features in v0.2.x
+
+### Timing Hooks
+
+```rust
+// Timeout
+let timeout = use_timeout_v2(|| println!("Fired!"), 5000);
+timeout.cancel();
+timeout.reset();
+
+// Interval
+let interval = use_interval_v2(|| println!("Tick!"), 1000);
+interval.pause();
+interval.resume();
+```
+
+### History Hook
+
+```rust
+let history = use_history_v2(|| String::new());
+history.set("Hello".to_string());
+history.undo();
+history.redo();
+```
+
+### Form Hook
+
+```rust
+let form = use_form_v2(
+    FormConfigV2::builder()
+        .field("email", "")
+        .validator("email", ValidatorV2::required("Required"))
+        .validator("email", ValidatorV2::email("Invalid"))
+        .on_submit(|values| println!("{:?}", values))
+        .build()
+);
+```
+
+### Layout Hooks
+
+```rust
+let area = use_area_v2();
+let frame = use_frame_v2();
+let (width, height) = use_resize_v2();
+let is_narrow = use_media_query_v2(|(w, _)| w < 80);
+```
+
+### Mouse Hooks
+
+```rust
+let is_hovering = use_mouse_hover_v2(button_area);
+let (drag_info, reset_drag) = use_mouse_drag_v2();
+let (x, y) = use_mouse_position_v2();
+use_double_click_v2(Duration::from_millis(500), |btn, x, y| {});
+```
+
+## Checklist for Migration
+
+- [ ] Update `Cargo.toml` to latest version
+- [ ] Add `tokio` dependency with `full` features
+- [ ] Convert function components to `ComponentV2` structs
+- [ ] Update all hook calls to `_v2` versions
+- [ ] Update state hook usage to tuple pattern
+- [ ] Update effect cleanup to `Option<Box<...>>`
+- [ ] Convert dependency arrays to single values/tuples
+- [ ] Update event handling to use new hooks
+- [ ] Update main function to async with `render_v2`
+- [ ] Replace `exit()` with `request_exit_v2()`
+- [ ] Test thoroughly with strict mode enabled
+
+## Common Migration Issues
+
+### Issue: State type doesn't implement required traits
+
+```
+error: the trait bound `MyType: Send` is not satisfied
+```
+
+**Solution:** Ensure your state types implement `Clone + Send + Sync + PartialEq + 'static`:
+
+```rust
+#[derive(Clone, PartialEq)]
+struct MyType {
+    // fields
+}
+```
+
+### Issue: Effect cleanup type mismatch
+
+```
+error: expected `Option<Box<dyn FnOnce() + Send>>`
+```
+
+**Solution:** Wrap cleanup in `Some(Box::new(...))`:
+
+```rust
+use_effect_v2(
+    || {
+        // effect
+        Some(Box::new(|| {
+            // cleanup
+        }))
+    },
+    deps,
+);
+```
+
+### Issue: Multiple dependencies
+
+```
+error: expected single value, found array
+```
+
+**Solution:** Use a tuple:
+
+```rust
+// Before
+use_effect(..., &[dep1, dep2]);
+
+// After
+use_effect_v2(..., (dep1, dep2));
+```
+
+### Issue: Missing async runtime
+
+```
+error: there is no reactor running
+```
+
+**Solution:** Use `#[tokio::main]` and add tokio dependency:
 
 ```toml
 [dependencies]
-reratui-fiber = "0.2.1"
+tokio = { version = "1", features = ["full"] }
 ```
 
-### 2. Update Imports
-
 ```rust
-// ❌ OLD
-use reratui::prelude::*;
-
-// ✅ NEW
-use reratui::prelude::*;
-use reratui_fiber::prelude::*;  // Add this for v2 hooks
-```
-
-### 3. Update Render Function
-
-```rust
-// ❌ OLD
-render(|| rsx! { <App /> }).await?;
-
-// ✅ NEW
-render_v2(|| rsx! { <App /> }).await?;
-```
-
-### 4. Update Hooks
-
-```rust
-// ❌ OLD
-let (count, set_count) = use_state(|| 0);
-use_effect(|| { println!("rendered"); None }, ());
-
-// ✅ NEW
-let (count, set_count) = use_state_v2(|| 0);
-use_effect_v2(|| { println!("rendered"); None }, ());
-```
-
----
-
-## Step-by-Step Migration
-
-### Step 1: Migrate the Render Function
-
-The render function is the entry point. Start here.
-
-```rust
-// Before
-use reratui::prelude::*;
-
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    render(|| rsx! { <App /> }).await?;
-    Ok(())
-}
-
-// After
-use reratui::prelude::*;
-use reratui_fiber::prelude::*;
-
-#[tokio::main]
-async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    render_v2(|| rsx! { <App /> }).await?;
+    render_v2(|| App).await?;
     Ok(())
 }
 ```
-
-**Note:** `render_v2` uses the 4-phase pipeline (event → render → commit → effect).
-
-### Step 2: Migrate State Hooks
-
-Replace `use_state` with `use_state_v2`:
-
-```rust
-// Before
-#[component]
-fn Counter() -> Element {
-    let (count, set_count) = use_state(|| 0);
-
-    let increment = {
-        let set_count = set_count.clone();
-        move |_| set_count.update(|n| n + 1)
-    };
-
-    rsx! { <Text text={count.get().to_string()} /> }
-}
-
-// After
-#[component]
-fn Counter() -> Element {
-    let (count, set_count) = use_state_v2(|| 0);
-
-    let increment = {
-        let set_count = set_count.clone();
-        move |_| set_count.update(|n| n + 1)
-    };
-
-    // Note: count is now the value directly, not a handle
-    rsx! { <Text text={count.to_string()} /> }
-}
-```
-
-**Key differences:**
-
-- `use_state_v2` returns `(T, StateSetterV2<T>)` instead of `(StateHandle<T>, StateSetter<T>)`
-- No need to call `.get()` on the value - it's the value directly
-- Multiple updates in the same event handler are batched automatically
-
-### Step 3: Migrate Effect Hooks
-
-Replace `use_effect` with `use_effect_v2`:
-
-```rust
-// Before
-#[component]
-fn Logger() -> Element {
-    let (count, _) = use_state(|| 0);
-
-    // ❌ This runs DURING render (blocks screen update)
-    use_effect(|| {
-        println!("Count changed to: {}", count.get());
-        None
-    }, (count.get(),));
-
-    rsx! { <Text text="Logger" /> }
-}
-
-// After
-#[component]
-fn Logger() -> Element {
-    let (count, _) = use_state_v2(|| 0);
-
-    // ✅ This runs AFTER commit (screen already updated)
-    use_effect_v2(|| {
-        println!("Count changed to: {}", count);
-        None
-    }, (count,));
-
-    rsx! { <Text text="Logger" /> }
-}
-```
-
-**Key differences:**
-
-- Effects run after the screen is updated, not during render
-- Cleanup functions run before new effects, not during render
-- Use `use_effect_once` for mount-only effects (empty deps)
-
-### Step 4: Migrate Context Hooks
-
-Replace context hooks with v2 versions:
-
-```rust
-// Before
-#[derive(Clone)]
-struct Theme { primary: Color }
-
-#[component]
-fn ThemeProvider() -> Element {
-    // ❌ Context never cleaned up (memory leak)
-    let theme = use_context_provider(|| Theme { primary: Color::Cyan });
-    rsx! { <Child /> }
-}
-
-#[component]
-fn Child() -> Element {
-    let theme = use_context::<Theme>();
-    rsx! { <Block style={Style::default().fg(theme.primary)} /> }
-}
-
-// After
-#[component]
-fn ThemeProvider() -> Element {
-    // ✅ Context automatically cleaned up on unmount
-    let theme = use_context_provider_v2(|| Theme { primary: Color::Cyan });
-    rsx! { <Child /> }
-}
-
-#[component]
-fn Child() -> Element {
-    let theme = use_context_v2::<Theme>();
-    rsx! { <Block style={Style::default().fg(theme.primary)} /> }
-}
-```
-
-**Key differences:**
-
-- Context is automatically cleaned up when provider unmounts
-- Nested providers properly shadow parent values
-- Use `try_use_context_v2` for optional context (returns `Option<T>`)
-
-### Step 5: Migrate Exit Requests
-
-Replace `request_exit` with `request_exit_v2`:
-
-```rust
-// Before
-if let Some(Event::Key(key)) = use_event() && key.code == KeyCode::Char('q') {
-    request_exit();
-}
-
-// After
-if let Some(Event::Key(key)) = use_event() && key.code == KeyCode::Char('q') {
-    request_exit_v2();
-}
-```
-
----
-
-## API Reference
-
-### State Management
-
-| Old API             | New API              | Notes                              |
-| ------------------- | -------------------- | ---------------------------------- |
-| `use_state(init)`   | `use_state_v2(init)` | Returns value directly, not handle |
-| `state.get()`       | `value`              | No getter needed                   |
-| `setter.set(val)`   | `setter.set(val)`    | Same API                           |
-| `setter.update(fn)` | `setter.update(fn)`  | Now receives latest state          |
-
-### Effects
-
-| Old API                      | New API                         | Notes                      |
-| ---------------------------- | ------------------------------- | -------------------------- |
-| `use_effect(fn, deps)`       | `use_effect_v2(fn, deps)`       | Runs after commit          |
-| `use_effect(fn, ())`         | `use_effect_once(fn)`           | Convenience for mount-only |
-| `use_async_effect(fn, deps)` | `use_async_effect_v2(fn, deps)` | Async cleanup support      |
-
-### Context
-
-| Old API                    | New API                       | Notes               |
-| -------------------------- | ----------------------------- | ------------------- |
-| `use_context_provider(fn)` | `use_context_provider_v2(fn)` | Auto cleanup        |
-| `use_context::<T>()`       | `use_context_v2::<T>()`       | Proper scoping      |
-| N/A                        | `try_use_context_v2::<T>()`   | Returns `Option<T>` |
-
-### Memoization
-
-| Old API                  | New API                     | Notes        |
-| ------------------------ | --------------------------- | ------------ |
-| `use_memo(fn, deps)`     | `use_memo_v2(fn, deps)`     | Fiber-scoped |
-| `use_callback(fn, deps)` | `use_callback_v2(fn, deps)` | Fiber-scoped |
-
-### Runtime
-
-| Old API             | New API                | Notes                |
-| ------------------- | ---------------------- | -------------------- |
-| `render(component)` | `render_v2(component)` | 4-phase pipeline     |
-| `request_exit()`    | `request_exit_v2()`    | Works with render_v2 |
-
----
-
-## Common Patterns
-
-### Pattern 1: Batched State Updates
-
-```rust
-// Multiple updates in one handler = one re-render
-let handle_submit = {
-    let set_name = set_name.clone();
-    let set_email = set_email.clone();
-    let set_submitted = set_submitted.clone();
-    move |_| {
-        set_name.set(String::new());      // Queued
-        set_email.set(String::new());     // Queued
-        set_submitted.set(true);          // Queued
-        // All three updates batched into ONE re-render
-    }
-};
-```
-
-### Pattern 2: Functional Updates Chain
-
-```rust
-// Each update receives the result of the previous
-let increment_by_5 = {
-    let set_count = set_count.clone();
-    move |_| {
-        set_count.update(|n| n + 1);  // 0 → 1
-        set_count.update(|n| n + 1);  // 1 → 2
-        set_count.update(|n| n + 1);  // 2 → 3
-        set_count.update(|n| n + 1);  // 3 → 4
-        set_count.update(|n| n + 1);  // 4 → 5
-        // Result: 5 (correct!)
-    }
-};
-```
-
-### Pattern 3: Effect with Cleanup
-
-```rust
-use_effect_v2(|| {
-    // Setup: runs after commit
-    let subscription = subscribe_to_updates();
-
-    // Cleanup: runs before next effect or on unmount
-    Some(move || {
-        unsubscribe(subscription);
-    })
-}, (dependency,));
-```
-
-### Pattern 4: Async Data Fetching
-
-```rust
-use_async_effect_v2(|| {
-    let set_data = set_data.clone();
-    let set_loading = set_loading.clone();
-
-    async move {
-        set_loading.set(true);
-
-        match fetch_data(user_id).await {
-            Ok(data) => set_data.set(Some(data)),
-            Err(e) => set_error.set(Some(e.to_string())),
-        }
-
-        set_loading.set(false);
-
-        // Optional async cleanup
-        Some(|| async move {
-            cancel_pending_requests();
-        })
-    }
-}, (user_id,));
-```
-
-### Pattern 5: Nested Context Providers
-
-```rust
-#[component]
-fn App() -> Element {
-    let _theme = use_context_provider_v2(|| Theme::light());
-
-    rsx! {
-        <Layout>
-            <Header />  // Gets light theme
-            <DarkSection />  // Gets dark theme (shadowed)
-        </Layout>
-    }
-}
-
-#[component]
-fn DarkSection() -> Element {
-    // Shadow parent's theme for this subtree
-    let _theme = use_context_provider_v2(|| Theme::dark());
-
-    rsx! {
-        <Content />  // Gets dark theme
-    }
-}
-```
-
----
-
-## Troubleshooting
-
-### Issue: "Effect runs at wrong time"
-
-**Symptom:** Effect seems to run before screen updates.
-
-**Cause:** You're still using `use_effect` instead of `use_effect_v2`.
-
-**Solution:**
-
-```rust
-// ❌ Wrong
-use_effect(|| { /* runs during render */ None }, deps);
-
-// ✅ Correct
-use_effect_v2(|| { /* runs after commit */ None }, deps);
-```
-
-### Issue: "State updates don't batch"
-
-**Symptom:** Multiple state updates cause multiple re-renders.
-
-**Cause:** You're using `render` instead of `render_v2`.
-
-**Solution:**
-
-```rust
-// ❌ Wrong - no batching
-render(|| rsx! { <App /> }).await?;
-
-// ✅ Correct - batching enabled
-render_v2(|| rsx! { <App /> }).await?;
-```
-
-### Issue: "Functional update receives stale value"
-
-**Symptom:** `set_count.update(|n| n + 1)` called twice only increments by 1.
-
-**Cause:** You're using `use_state` instead of `use_state_v2`.
-
-**Solution:**
-
-```rust
-// ❌ Wrong - stale closures
-let (count, set_count) = use_state(|| 0);
-
-// ✅ Correct - latest state
-let (count, set_count) = use_state_v2(|| 0);
-```
-
-### Issue: "Context not found after provider unmounts"
-
-**Symptom:** `use_context_v2` panics after parent unmounts.
-
-**Cause:** This is correct behavior! Context is properly scoped now.
-
-**Solution:** Move the provider to a component that stays mounted, or use `try_use_context_v2`:
-
-```rust
-// Safe - returns None if no provider
-let maybe_theme = try_use_context_v2::<Theme>();
-```
-
-### Issue: "Deprecation warnings everywhere"
-
-**Symptom:** Compiler shows deprecation warnings for old APIs.
-
-**Cause:** You're using deprecated APIs.
-
-**Solution:** This is intentional! Follow this guide to migrate. You can temporarily suppress warnings:
-
-```rust
-#[allow(deprecated)]
-fn legacy_component() { /* ... */ }
-```
-
----
-
-## FAQ
-
-### Q: Can I mix old and new APIs?
-
-**A:** Yes, but with caveats:
-
-- Use `render_v2` for the main loop (required for batching)
-- Old hooks work but don't get batching benefits
-- Migrate incrementally, one component at a time
-
-### Q: Do I need to migrate all at once?
-
-**A:** No! The migration can be gradual:
-
-1. Start with `render_v2`
-2. Migrate leaf components first
-3. Work your way up to parent components
-4. Old APIs continue to work (with deprecation warnings)
-
-### Q: What about performance?
-
-**A:** The new APIs are generally faster:
-
-- State batching reduces re-renders
-- Post-commit effects don't block rendering
-- Fiber-scoped hooks have better cache locality
-
-### Q: Will the old APIs be removed?
-
-**A:** Eventually, yes. The deprecation timeline:
-
-- v0.2.x: Deprecated with warnings
-- v0.3.x: Deprecated with stronger warnings
-- v1.0.0: Old APIs removed
-
-### Q: How do I enable strict mode?
-
-**A:** Strict mode helps catch bugs during development:
-
-```rust
-use reratui_fiber::prelude::*;
-
-// Enable globally
-set_strict_mode_enabled(true);
-
-// Or per-render
-render_v2_with_options(
-    || rsx! { <App /> },
-    RenderOptions { strict_mode: true, ..Default::default() }
-).await?;
-```
-
-### Q: What does strict mode do?
-
-**A:** In debug builds, strict mode:
-
-- Double-renders each component (catches impure renders)
-- Runs effects twice on mount (catches missing cleanup)
-- Warns if renders produce different results
-
----
-
-## Complete Migration Example
-
-### Before (Old APIs)
-
-```rust
-use reratui::prelude::*;
-
-#[derive(Clone)]
-struct AppState {
-    user: Option<User>,
-}
-
-#[component]
-fn App() -> Element {
-    let _state = use_context_provider(|| AppState { user: None });
-
-    rsx! {
-        <Layout direction={Direction::Vertical}>
-            <Header />
-            <Content />
-        </Layout>
-    }
-}
-
-#[component]
-fn Header() -> Element {
-    let state = use_context::<AppState>();
-    let (count, set_count) = use_state(|| 0);
-
-    use_effect(|| {
-        println!("Header rendered with count: {}", count.get());
-        None
-    }, (count.get(),));
-
-    if let Some(Event::Key(key)) = use_event() && key.code == KeyCode::Char('q') {
-        request_exit();
-    }
-
-    rsx! {
-        <Block title="Header">
-            <Paragraph>{format!("Count: {}", count.get())}</Paragraph>
-        </Block>
-    }
-}
-
-#[tokio::main]
-async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    render(|| rsx! { <App /> }).await?;
-    Ok(())
-}
-```
-
-### After (New APIs)
-
-```rust
-use reratui::prelude::*;
-use reratui_fiber::prelude::*;
-
-#[derive(Clone)]
-struct AppState {
-    user: Option<User>,
-}
-
-#[component]
-fn App() -> Element {
-    // ✅ Context automatically cleaned up on unmount
-    let _state = use_context_provider_v2(|| AppState { user: None });
-
-    rsx! {
-        <Layout direction={Direction::Vertical}>
-            <Header />
-            <Content />
-        </Layout>
-    }
-}
-
-#[component]
-fn Header() -> Element {
-    let state = use_context_v2::<AppState>();
-    // ✅ Returns value directly, batching enabled
-    let (count, set_count) = use_state_v2(|| 0);
-
-    // ✅ Runs after commit, not during render
-    use_effect_v2(|| {
-        println!("Header rendered with count: {}", count);
-        None
-    }, (count,));
-
-    if let Some(Event::Key(key)) = use_event() && key.code == KeyCode::Char('q') {
-        request_exit_v2();  // ✅ Works with render_v2
-    }
-
-    rsx! {
-        <Block title="Header">
-            <Paragraph>{format!("Count: {}", count)}</Paragraph>
-        </Block>
-    }
-}
-
-#[tokio::main]
-async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    // ✅ 4-phase pipeline with batching
-    render_v2(|| rsx! { <App /> }).await?;
-    Ok(())
-}
-```
-
----
-
-## Need Help?
-
-- Check the [BEHAVIORAL_DIFFERENCES.md](./BEHAVIORAL_DIFFERENCES.md) for detailed behavior changes
-- See the [README.md](./README.md) for API documentation
-- Look at the examples: `counter_v2`, `effect_timing_v2`, `state_batching_v2`
-- File an issue on GitHub if you encounter problems
-
-Happy migrating! 🚀
