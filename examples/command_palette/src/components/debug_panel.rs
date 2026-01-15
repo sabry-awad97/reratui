@@ -32,16 +32,16 @@ pub struct DebugPanel {
     pub theme: Theme,
 }
 
-impl ComponentV2 for DebugPanel {
+impl Component for DebugPanel {
     fn render(&self, area: Rect, buffer: &mut Buffer) {
         // Force refresh by tracking render count
-        let (render_count, set_render_count) = use_state_v2(|| 0usize);
+        let (render_count, set_render_count) = use_state(|| 0usize);
 
         // Log each render
         debug_log(format!("DebugPanel render #{}", render_count));
 
         // Set up interval to force re-render and check for new logs
-        use_interval_v2(
+        use_interval(
             move || {
                 debug_log("Interval tick!");
                 set_render_count.update(|c| *c + 1);

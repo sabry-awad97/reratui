@@ -6,11 +6,11 @@
 //! # Example
 //!
 //! ```rust,ignore
-//! use reratui_fiber::hooks::use_id_v2;
+//! use reratui_fiber::hooks::use_id;
 //!
 //! #[component]
 //! fn AccessibleInput(label: String) -> Element {
-//!     let id = use_id_v2();
+//!     let id = use_id();
 //!     
 //!     rsx! {
 //!         <label for={id.clone()}>{label}</label>
@@ -47,11 +47,11 @@ struct IdStorage {
 /// # Example
 ///
 /// ```rust,ignore
-/// use reratui_fiber::hooks::use_id_v2;
+/// use reratui_fiber::hooks::use_id;
 ///
 /// #[component]
 /// fn FormField(label: String) -> Element {
-///     let id = use_id_v2();
+///     let id = use_id();
 ///     let error_id = format!("{}-error", id);
 ///     
 ///     rsx! {
@@ -65,7 +65,7 @@ struct IdStorage {
 /// # Panics
 ///
 /// Panics if called outside of a component render context (no current fiber).
-pub fn use_id_v2() -> String {
+pub fn use_id() -> String {
     with_current_fiber(|fiber| {
         let hook_index = fiber.next_hook_index();
         let fiber_id = fiber.id;
@@ -88,7 +88,7 @@ pub fn use_id_v2() -> String {
             id
         }
     })
-    .expect("use_id_v2 must be called within a component render context")
+    .expect("use_id must be called within a component render context")
 }
 
 #[cfg(test)]
@@ -110,10 +110,10 @@ mod tests {
     }
 
     #[test]
-    fn test_use_id_v2_basic() {
+    fn test_use_id_basic() {
         let _fiber_id = setup_test_fiber();
 
-        let id = use_id_v2();
+        let id = use_id();
 
         // ID should be non-empty and follow the format
         assert!(!id.is_empty());
@@ -124,11 +124,11 @@ mod tests {
     }
 
     #[test]
-    fn test_use_id_v2_stable_across_renders() {
+    fn test_use_id_stable_across_renders() {
         let fiber_id = setup_test_fiber();
 
         // First render
-        let id1 = use_id_v2();
+        let id1 = use_id();
 
         // Simulate re-render
         crate::fiber_tree::with_fiber_tree_mut(|tree| {
@@ -137,7 +137,7 @@ mod tests {
         });
 
         // Second render
-        let id2 = use_id_v2();
+        let id2 = use_id();
 
         // Should be the same ID
         assert_eq!(id1, id2, "ID should be stable across renders");
@@ -146,13 +146,13 @@ mod tests {
     }
 
     #[test]
-    fn test_use_id_v2_unique_per_hook() {
+    fn test_use_id_unique_per_hook() {
         let _fiber_id = setup_test_fiber();
 
         // Multiple IDs in same component
-        let id1 = use_id_v2();
-        let id2 = use_id_v2();
-        let id3 = use_id_v2();
+        let id1 = use_id();
+        let id2 = use_id();
+        let id3 = use_id();
 
         // All should be different
         assert_ne!(id1, id2, "Different hooks should have different IDs");
@@ -163,14 +163,14 @@ mod tests {
     }
 
     #[test]
-    fn test_use_id_v2_unique_per_fiber() {
+    fn test_use_id_unique_per_fiber() {
         // Create first fiber
         let mut tree = FiberTree::new();
         let fiber_id1 = tree.mount(None, None);
         tree.begin_render(fiber_id1);
         set_fiber_tree(tree);
 
-        let id1 = use_id_v2();
+        let id1 = use_id();
 
         // End first fiber render and create second fiber
         crate::fiber_tree::with_fiber_tree_mut(|tree| {
@@ -179,7 +179,7 @@ mod tests {
             tree.begin_render(fiber_id2);
         });
 
-        let id2 = use_id_v2();
+        let id2 = use_id();
 
         // IDs from different fibers should be different
         assert_ne!(id1, id2, "Different fibers should have different IDs");
@@ -188,10 +188,10 @@ mod tests {
     }
 
     #[test]
-    fn test_use_id_v2_format() {
+    fn test_use_id_format() {
         let fiber_id = setup_test_fiber();
 
-        let id = use_id_v2();
+        let id = use_id();
 
         // Should contain fiber_id and hook_index
         let expected_prefix = format!(":r{}h", fiber_id.0);
@@ -204,10 +204,10 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(expected = "use_id_v2 must be called within a component render context")]
-    fn test_use_id_v2_panics_outside_render() {
+    #[should_panic(expected = "use_id must be called within a component render context")]
+    fn test_use_id_panics_outside_render() {
         clear_fiber_tree();
-        let _ = use_id_v2();
+        let _ = use_id();
     }
 }
 
@@ -233,7 +233,7 @@ mod property_tests {
 
     // Property 14: ID stability and uniqueness
     //
-    // For any component using use_id_v2, the returned ID SHALL be identical
+    // For any component using use_id, the returned ID SHALL be identical
     // across all renders of that component instance, AND different from IDs
     // of other component instances.
     //
@@ -246,7 +246,7 @@ mod property_tests {
             let fiber_id = setup_test_fiber();
 
             // Get ID on first render
-            let first_id = use_id_v2();
+            let first_id = use_id();
 
             // Verify ID is stable across multiple re-renders
             for render_num in 1..num_renders {
@@ -256,7 +256,7 @@ mod property_tests {
                     tree.begin_render(fiber_id);
                 });
 
-                let current_id = use_id_v2();
+                let current_id = use_id();
                 prop_assert_eq!(
                     &first_id, &current_id,
                     "ID should be stable across renders (render {})", render_num
@@ -273,7 +273,7 @@ mod property_tests {
             // Generate multiple IDs in the same component
             let mut ids = HashSet::new();
             for _ in 0..num_hooks {
-                let id = use_id_v2();
+                let id = use_id();
                 prop_assert!(
                     ids.insert(id.clone()),
                     "Each hook should generate a unique ID"
@@ -307,7 +307,7 @@ mod property_tests {
                     tree.begin_render(fiber_id);
                 });
 
-                let id = use_id_v2();
+                let id = use_id();
                 prop_assert!(
                     all_ids.insert(id.clone()),
                     "Fiber {} should have unique ID", fiber_num
@@ -331,7 +331,7 @@ mod property_tests {
             // Get IDs on first render
             let mut first_render_ids = Vec::new();
             for _ in 0..num_hooks {
-                first_render_ids.push(use_id_v2());
+                first_render_ids.push(use_id());
             }
 
             // Verify all IDs are stable across multiple re-renders
@@ -344,7 +344,7 @@ mod property_tests {
 
                 // Get IDs again
                 for (hook_idx, first_id) in first_render_ids.iter().enumerate() {
-                    let current_id = use_id_v2();
+                    let current_id = use_id();
                     prop_assert_eq!(
                         first_id, &current_id,
                         "Hook {} ID should be stable across renders (render {})",
@@ -361,7 +361,7 @@ mod property_tests {
             let _fiber_id = setup_test_fiber();
 
             for _ in 0..num_hooks {
-                let id = use_id_v2();
+                let id = use_id();
 
                 // Verify format: :r{fiber_id}h{hook_index}:
                 prop_assert!(id.starts_with(":r"), "ID should start with :r");

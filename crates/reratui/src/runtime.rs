@@ -1,6 +1,6 @@
 //! New render loop with React-like semantics.
 //!
-//! This module provides the `render_v2` function which implements a proper
+//! This module provides the `render` function which implements a proper
 //! 5-phase render pipeline:
 //!
 //! 1. **Poll Phase**: Poll for events (store for later processing)
@@ -16,15 +16,15 @@
 //!
 //! struct Counter;
 //!
-//! impl ComponentV2 for Counter {
+//! impl Component for Counter {
 //!     fn render(&self, area: Rect, buffer: &mut Buffer) {
-//!         let (count, set_count) = use_state_v2(|| 0);
+//!         let (count, set_count) = use_state(|| 0);
 //!         // render logic...
 //!     }
 //! }
 //!
 //! // Simple: just pass your component!
-//! render_v2(Counter).await?;
+//! render(Counter).await?;
 //! ```
 
 use std::time::{Duration, Instant};
@@ -34,7 +34,7 @@ use crossterm::event::{Event, EventStream};
 use ratatui::{Terminal, backend::CrosstermBackend};
 use tokio_stream::StreamExt;
 
-use crate::ComponentV2;
+use crate::Component;
 use crate::event::set_current_event;
 use crate::fiber_tree::{FiberTree, clear_fiber_tree, set_fiber_tree};
 use crate::global_events::process_global_event;
@@ -70,17 +70,17 @@ static EXIT_REQUESTED: std::sync::atomic::AtomicBool = std::sync::atomic::Atomic
 static IN_RENDER_PHASE: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
 
 /// Request the render loop to exit
-pub fn request_exit_v2() {
+pub fn request_exit() {
     EXIT_REQUESTED.store(true, std::sync::atomic::Ordering::SeqCst);
 }
 
 /// Check if exit has been requested
-pub fn should_exit_v2() -> bool {
+pub fn should_exit() -> bool {
     EXIT_REQUESTED.load(std::sync::atomic::Ordering::SeqCst)
 }
 
 /// Reset the exit flag (useful for tests)
-pub fn reset_exit_v2() {
+pub fn reset_exit() {
     EXIT_REQUESTED.store(false, std::sync::atomic::Ordering::SeqCst);
 }
 
@@ -119,7 +119,7 @@ pub fn warn_if_effect_during_render(effect_name: &str) {
 pub fn warn_if_effect_during_render(_effect_name: &str) {}
 
 /// Set up the terminal for TUI rendering
-fn setup_terminal_v2() -> Result<FiberTerminal> {
+fn setup_terminal() -> Result<FiberTerminal> {
     use crossterm::{
         execute,
         terminal::{EnterAlternateScreen, enable_raw_mode},
@@ -136,7 +136,7 @@ fn setup_terminal_v2() -> Result<FiberTerminal> {
 }
 
 /// Restore the terminal to its original state
-fn restore_terminal_v2() -> Result<()> {
+fn restore_terminal() -> Result<()> {
     use crossterm::{
         execute,
         terminal::{LeaveAlternateScreen, disable_raw_mode},
@@ -166,7 +166,7 @@ fn restore_terminal_v2() -> Result<()> {
 ///
 /// # Arguments
 ///
-/// * `initializer` - A closure that returns the root ComponentV2 to render
+/// * `initializer` - A closure that returns the root Component to render
 ///
 /// # Example
 ///
@@ -175,31 +175,31 @@ fn restore_terminal_v2() -> Result<()> {
 ///
 /// struct Counter;
 ///
-/// impl ComponentV2 for Counter {
+/// impl Component for Counter {
 ///     fn render(&self, area: Rect, buffer: &mut Buffer) {
-///         let (count, set_count) = use_state_v2(|| 0);
+///         let (count, set_count) = use_state(|| 0);
 ///         // render logic...
 ///     }
 /// }
 ///
 /// // Simple: just pass a closure that returns your component!
-/// render_v2(|| Counter).await?;
+/// render(|| Counter).await?;
 /// ```
-pub async fn render_v2<C, F>(initializer: F) -> Result<()>
+pub async fn render<C, F>(initializer: F) -> Result<()>
 where
-    C: ComponentV2,
+    C: Component,
     F: Fn() -> C + 'static,
 {
-    render_v2_with_options(initializer, RenderOptions::default()).await
+    render_with_options(initializer, RenderOptions::default()).await
 }
 
 /// Render with custom options
 ///
-/// This is the full-featured version of `render_v2` that accepts configuration options.
+/// This is the full-featured version of `render` that accepts configuration options.
 ///
 /// # Arguments
 ///
-/// * `initializer` - A closure that returns the root ComponentV2 to render
+/// * `initializer` - A closure that returns the root Component to render
 /// * `options` - Configuration options for the render loop
 ///
 /// # Example
@@ -209,13 +209,13 @@ where
 ///
 /// struct App;
 ///
-/// impl ComponentV2 for App {
+/// impl Component for App {
 ///     fn render(&self, area: Rect, buffer: &mut Buffer) {
 ///         // render logic...
 ///     }
 /// }
 ///
-/// render_v2_with_options(
+/// render_with_options(
 ///     || App,
 ///     RenderOptions {
 ///         strict_mode: true,  // Enable double-render in debug builds
@@ -223,19 +223,19 @@ where
 ///     }
 /// ).await?;
 /// ```
-pub async fn render_v2_with_options<C, F>(initializer: F, options: RenderOptions) -> Result<()>
+pub async fn render_with_options<C, F>(initializer: F, options: RenderOptions) -> Result<()>
 where
-    C: ComponentV2,
+    C: Component,
     F: Fn() -> C + 'static,
 {
     // Initialize panic handler
     setup_panic_handler();
 
     // Reset exit flag
-    reset_exit_v2();
+    reset_exit();
 
     // Initialize terminal backend
-    let mut terminal = setup_terminal_v2()?;
+    let mut terminal = setup_terminal()?;
 
     // ═══════════════════════════════════════════════════════════════════
     // Initialize FiberTree (replaces HookContext)
@@ -249,7 +249,7 @@ where
     init_render_context();
 
     // Initialize main thread tracking for cross-thread state updates.
-    // This allows background tasks (from use_interval_v2, use_timeout_v2) to
+    // This allows background tasks (from use_interval, use_timeout) to
     // route their state updates to a global queue that we drain each frame.
     crate::scheduler::batch::init_main_thread();
 
@@ -323,7 +323,7 @@ where
         // Exit render phase
         set_render_phase(false);
 
-        // Mark unseen ComponentV2 fibers for unmount
+        // Mark unseen Component fibers for unmount
         // This schedules cleanup for components that weren't rendered this frame
         crate::fiber_tree::with_fiber_tree_mut(|tree| {
             tree.mark_unseen_for_unmount();
@@ -335,7 +335,7 @@ where
         terminal.draw(|frame| {
             let area = frame.area();
             // Wrap the component and render with fiber management
-            let wrapper = crate::component::ComponentV2Wrapper::new(component);
+            let wrapper = crate::component::ComponentWrapper::new(component);
             wrapper.render_with_fiber(area, frame.buffer_mut());
         })?;
 
@@ -358,7 +358,7 @@ where
             process_global_event(key_event);
         }
 
-        // Drain cross-thread updates from background tasks (use_interval_v2, use_timeout_v2)
+        // Drain cross-thread updates from background tasks (use_interval, use_timeout)
         // into the thread-local batch before ending the batch.
         crate::scheduler::batch::drain_cross_thread_updates();
 
@@ -369,7 +369,7 @@ where
         set_current_event(None);
 
         // Check for exit
-        if should_exit_v2() {
+        if should_exit() {
             break;
         }
 
@@ -393,7 +393,7 @@ where
     clear_render_context();
 
     // Restore terminal state
-    restore_terminal_v2()?;
+    restore_terminal()?;
 
     Ok(())
 }
@@ -632,16 +632,16 @@ mod tests {
     #[test]
     fn test_exit_flag_operations() {
         // Reset to known state
-        reset_exit_v2();
-        assert!(!should_exit_v2());
+        reset_exit();
+        assert!(!should_exit());
 
         // Request exit
-        request_exit_v2();
-        assert!(should_exit_v2());
+        request_exit();
+        assert!(should_exit());
 
         // Reset again
-        reset_exit_v2();
-        assert!(!should_exit_v2());
+        reset_exit();
+        assert!(!should_exit());
     }
 
     #[test]
@@ -1229,7 +1229,7 @@ mod tests {
 
     /// Test that updates from a spawned background thread are applied after drain.
     ///
-    /// This simulates the real-world scenario where `use_interval_v2` spawns a tokio
+    /// This simulates the real-world scenario where `use_interval` spawns a tokio
     /// task that updates state. The update goes to the cross-thread queue and is
     /// drained into the thread-local batch before `end_batch()`.
     #[test]
@@ -1255,7 +1255,7 @@ mod tests {
         init_main_thread();
 
         // Spawn a background thread that queues an update
-        // This simulates what use_interval_v2 does
+        // This simulates what use_interval does
         let handle = std::thread::spawn(move || {
             queue_update(
                 fiber_id,
@@ -1378,7 +1378,7 @@ mod tests {
     /// Test that the runtime correctly integrates cross-thread updates in the render loop.
     ///
     /// This test simulates a complete render frame where:
-    /// 1. A background thread queues an update (like use_interval_v2 callback)
+    /// 1. A background thread queues an update (like use_interval callback)
     /// 2. The runtime drains cross-thread updates before end_batch
     /// 3. The update is applied to the fiber tree
     #[test]
@@ -1403,9 +1403,9 @@ mod tests {
         // Initialize main thread (runtime does this after fiber tree setup)
         init_main_thread();
 
-        // Simulate a background task updating state (like use_interval_v2)
+        // Simulate a background task updating state (like use_interval)
         let handle = std::thread::spawn(move || {
-            // This is what happens inside a use_interval_v2 callback
+            // This is what happens inside a use_interval callback
             queue_update(
                 fiber_id,
                 StateUpdate {
@@ -1420,7 +1420,7 @@ mod tests {
         handle.join().unwrap();
 
         // === Simulate runtime's event phase ===
-        // This is what render_v2_with_options does:
+        // This is what render_with_options does:
         // 1. begin_batch()
         // 2. process events
         // 3. drain_cross_thread_updates()

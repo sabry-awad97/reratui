@@ -7,7 +7,7 @@ pub struct HelpBar {
     pub theme: Theme,
 }
 
-impl ComponentV2 for HelpBar {
+impl Component for HelpBar {
     fn render(&self, area: Rect, buffer: &mut Buffer) {
         // Use the theme passed from the parent component
         let theme = &self.theme;

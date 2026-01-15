@@ -10,12 +10,12 @@ pub struct CommandPaletteComponent {
     pub theme: Theme,
 }
 
-impl ComponentV2 for CommandPaletteComponent {
+impl Component for CommandPaletteComponent {
     fn render(&self, area: Rect, buffer: &mut Buffer) {
-        let (_frame_count, set_frame_count) = use_state_v2(|| 0usize);
-        let (cursor_visible, set_cursor_visible) = use_state_v2(|| true);
+        let (_frame_count, set_frame_count) = use_state(|| 0usize);
+        let (cursor_visible, set_cursor_visible) = use_state(|| true);
 
-        use_interval_v2(
+        use_interval(
             move || {
                 set_frame_count.update(|count| *count + 1);
                 // Toggle cursor visibility every 10 frames

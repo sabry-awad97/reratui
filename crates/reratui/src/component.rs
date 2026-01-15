@@ -1,6 +1,6 @@
-//! ComponentV2 trait for fiber-based component architecture.
+//! Component trait for fiber-based component architecture.
 //!
-//! This module provides the `ComponentV2` trait that integrates with the fiber system,
+//! This module provides the `Component` trait that integrates with the fiber system,
 //! enabling components to have isolated hook state and proper lifecycle management.
 
 use ratatui::buffer::Buffer;
@@ -46,8 +46,8 @@ fn generate_stable_component_id<C: 'static>() -> u64 {
 
 /// Context value providing the render area to child components.
 ///
-/// This is automatically provided when a `ComponentV2` renders, allowing
-/// child components to access their render area via `use_context_v2`.
+/// This is automatically provided when a `Component` renders, allowing
+/// child components to access their render area via `use_context`.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct ComponentArea(pub Rect);
 
@@ -65,14 +65,14 @@ impl ComponentArea {
 /// # Example
 ///
 /// ```rust,ignore
-/// use reratui_fiber::{ComponentV2, Element};
+/// use reratui_fiber::{Component, Element};
 /// use ratatui::{buffer::Buffer, layout::Rect};
 ///
 /// struct Counter;
 ///
-/// impl ComponentV2 for Counter {
+/// impl Component for Counter {
 ///     fn render(&self, area: Rect, buffer: &mut Buffer) {
-///         let (count, set_count) = use_state_v2(|| 0);
+///         let (count, set_count) = use_state(|| 0);
 ///         // render logic...
 ///     }
 /// }
@@ -80,13 +80,13 @@ impl ComponentArea {
 /// // Both patterns work - state persists across renders!
 ///
 /// // Option 1: Create inside closure (like React)
-/// render_v2(|| Element::component(Counter)).await?;
+/// render(|| Element::component(Counter)).await?;
 ///
 /// // Option 2: Create outside and clone (also works)
 /// let app = Element::component(Counter);
-/// render_v2(move || app.clone()).await?;
+/// render(move || app.clone()).await?;
 /// ```
-pub trait ComponentV2: 'static {
+pub trait Component: 'static {
     /// Renders the component to the given buffer within the specified area.
     ///
     /// This method is called during the render phase. Hooks can be used within
@@ -94,7 +94,7 @@ pub trait ComponentV2: 'static {
     fn render(&self, area: Rect, buffer: &mut Buffer);
 }
 
-/// Internal wrapper that handles fiber management when rendering a ComponentV2.
+/// Internal wrapper that handles fiber management when rendering a Component.
 ///
 /// This wrapper is responsible for:
 /// - Getting or creating a fiber for the component based on its stable ID
@@ -114,19 +114,19 @@ pub trait ComponentV2: 'static {
 /// // BOTH work correctly - state persists across renders!
 ///
 /// // Option 1: Create inside closure (like React)
-/// render_v2(|| Element::component(Counter)).await?;
+/// render(|| Element::component(Counter)).await?;
 ///
 /// // Option 2: Create outside and clone (also works)
 /// let app = Element::component(Counter);
-/// render_v2(move || app.clone()).await?;
+/// render(move || app.clone()).await?;
 /// ```
 #[doc(hidden)]
-pub struct ComponentV2Wrapper<C: ComponentV2> {
+pub struct ComponentWrapper<C: Component> {
     component: Rc<C>,
 }
 
-impl<C: ComponentV2> ComponentV2Wrapper<C> {
-    /// Create a new wrapper for a ComponentV2.
+impl<C: Component> ComponentWrapper<C> {
+    /// Create a new wrapper for a Component.
     pub fn new(component: C) -> Self {
         Self {
             component: Rc::new(component),
@@ -144,7 +144,7 @@ impl<C: ComponentV2> ComponentV2Wrapper<C> {
         // Get or create fiber for this component
         let fiber_id =
             with_fiber_tree_mut(|tree| tree.get_or_create_fiber_by_component_id(stable_id))
-                .expect("render_with_fiber must be called within a render_v2 context");
+                .expect("render_with_fiber must be called within a render context");
 
         // Begin render for this fiber
         with_fiber_tree_mut(|tree| {
@@ -164,7 +164,7 @@ impl<C: ComponentV2> ComponentV2Wrapper<C> {
     }
 }
 
-impl<C: ComponentV2> Clone for ComponentV2Wrapper<C> {
+impl<C: Component> Clone for ComponentWrapper<C> {
     fn clone(&self) -> Self {
         Self {
             component: Rc::clone(&self.component),
@@ -172,18 +172,18 @@ impl<C: ComponentV2> Clone for ComponentV2Wrapper<C> {
     }
 }
 
-// Implement RenderableComponentV2 trait from internal element module
-impl<C: ComponentV2> crate::element::RenderableComponentV2 for ComponentV2Wrapper<C> {
+// Implement RenderableComponent trait from internal element module
+impl<C: Component> crate::element::RenderableComponent for ComponentWrapper<C> {
     fn render_with_fiber(&self, area: Rect, buffer: &mut Buffer) {
-        ComponentV2Wrapper::render_with_fiber(self, area, buffer)
+        ComponentWrapper::render_with_fiber(self, area, buffer)
     }
 
-    fn clone_box(&self) -> Box<dyn crate::element::RenderableComponentV2> {
+    fn clone_box(&self) -> Box<dyn crate::element::RenderableComponent> {
         Box::new(self.clone())
     }
 
     fn debug_fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("ComponentV2Wrapper")
+        f.debug_struct("ComponentWrapper")
             .field("component_type", &std::any::type_name::<C>())
             .finish()
     }
@@ -195,13 +195,13 @@ mod tests {
 
     struct TestComponent;
 
-    impl ComponentV2 for TestComponent {
+    impl Component for TestComponent {
         fn render(&self, _area: Rect, _buffer: &mut Buffer) {}
     }
 
     struct AnotherComponent;
 
-    impl ComponentV2 for AnotherComponent {
+    impl Component for AnotherComponent {
         fn render(&self, _area: Rect, _buffer: &mut Buffer) {}
     }
 
@@ -289,7 +289,7 @@ mod tests {
 
     #[test]
     fn test_wrapper_clone() {
-        let wrapper1 = ComponentV2Wrapper::new(TestComponent);
+        let wrapper1 = ComponentWrapper::new(TestComponent);
         let wrapper2 = wrapper1.clone();
 
         // Both should share the same Rc

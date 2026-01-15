@@ -1,4 +1,4 @@
-//! Effect Timing Example with v2 APIs
+//! Effect Timing Example
 //!
 //! This example demonstrates the React-like effect timing behavior:
 //! - Effects run AFTER the commit phase (not during render)
@@ -11,13 +11,13 @@ use reratui::prelude::*;
 
 struct EffectDemo;
 
-impl ComponentV2 for EffectDemo {
+impl Component for EffectDemo {
     fn render(&self, area: Rect, buffer: &mut Buffer) {
-        let (count, set_count) = use_state_v2(|| 0i32);
-        let (effect_log, set_effect_log) = use_state_v2(Vec::<String>::new);
+        let (count, set_count) = use_state(|| 0i32);
+        let (effect_log, set_effect_log) = use_state(Vec::<String>::new);
 
         // Effect that runs when count changes
-        use_effect_v2(
+        use_effect(
             {
                 move || {
                     set_effect_log.update(move |log| {
@@ -52,7 +52,7 @@ impl ComponentV2 for EffectDemo {
                         set_count.update(|n| n - 1);
                     }
                 }
-                KeyCode::Char('q') => request_exit_v2(),
+                KeyCode::Char('q') => request_exit(),
                 _ => {}
             }
         }
@@ -69,7 +69,7 @@ impl ComponentV2 for EffectDemo {
 
         // Header
         let header_block = Block::default()
-            .title("Effect Timing Demo (v2 APIs)")
+            .title("Effect Timing Demo")
             .borders(Borders::ALL)
             .border_style(Style::default().fg(Color::Cyan));
         let header = Paragraph::new("Effects run AFTER commit, not during render")
@@ -113,6 +113,6 @@ impl ComponentV2 for EffectDemo {
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    render_v2(|| EffectDemo).await?;
+    render(|| EffectDemo).await?;
     Ok(())
 }

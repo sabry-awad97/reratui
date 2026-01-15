@@ -28,13 +28,13 @@ impl CommandPaletteApp {
     }
 }
 
-impl ComponentV2 for CommandPaletteApp {
+impl Component for CommandPaletteApp {
     fn render(&self, area: Rect, buffer: &mut Buffer) {
         // Log each render
         debug_log("App render");
 
         // Set up themes
-        let (theme_index, set_theme_index) = use_state_v2(|| 0usize);
+        let (theme_index, set_theme_index) = use_state(|| 0usize);
         let themes = [
             Theme::github_dark(),
             Theme::github_light(),
@@ -47,15 +47,14 @@ impl ComponentV2 for CommandPaletteApp {
         let palette = use_command_palette();
 
         // Set up status states
-        let (connection_status, set_connection_status) =
-            use_state_v2(|| ConnectionStatus::Connected);
-        let (notification_level, set_notification_level) = use_state_v2(|| NotificationLevel::None);
-        let (app_mode, set_app_mode) = use_state_v2(|| AppMode::Normal);
+        let (connection_status, set_connection_status) = use_state(|| ConnectionStatus::Connected);
+        let (notification_level, set_notification_level) = use_state(|| NotificationLevel::None);
+        let (app_mode, set_app_mode) = use_state(|| AppMode::Normal);
 
         // Debug: track render count
-        let (_render_count, set_render_count) = use_state_v2(|| 0usize);
+        let (_render_count, set_render_count) = use_state(|| 0usize);
 
-        use_interval_v2(
+        use_interval(
             {
                 // Simulate connection status changes
                 move || {
@@ -111,7 +110,7 @@ impl ComponentV2 for CommandPaletteApp {
         }
 
         // Set up messages state
-        let (messages, set_messages) = use_state_v2(Vec::<Message>::new);
+        let (messages, set_messages) = use_state(Vec::<Message>::new);
 
         // Register message commands
         {
@@ -210,7 +209,7 @@ impl ComponentV2 for CommandPaletteApp {
         {
             match (key.code, key.modifiers) {
                 (KeyCode::Char('c'), KeyModifiers::CONTROL) => {
-                    request_exit_v2();
+                    request_exit();
                 }
                 (KeyCode::Char('p'), KeyModifiers::CONTROL) => {
                     palette.show_palette();

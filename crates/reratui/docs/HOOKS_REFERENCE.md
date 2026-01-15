@@ -5,63 +5,63 @@ Complete API reference for all hooks in Reratui.
 ## Table of Contents
 
 - [State Hooks](#state-hooks)
-  - [use_state_v2](#use_state_v2)
-  - [use_reducer_v2](#use_reducer_v2)
-  - [use_ref_v2](#use_ref_v2)
-  - [use_history_v2](#use_history_v2)
+  - [use_state](#use_state)
+  - [use_reducer](#use_reducer)
+  - [use_ref](#use_ref)
+  - [use_history](#use_history)
 - [Effect Hooks](#effect-hooks)
-  - [use_effect_v2](#use_effect_v2)
+  - [use_effect](#use_effect)
   - [use_effect_once](#use_effect_once)
-  - [use_async_effect_v2](#use_async_effect_v2)
+  - [use_async_effect](#use_async_effect)
   - [use_async_effect_once](#use_async_effect_once)
 - [Context Hooks](#context-hooks)
-  - [use_context_v2](#use_context_v2)
-  - [use_context_provider_v2](#use_context_provider_v2)
-  - [try_use_context_v2](#try_use_context_v2)
+  - [use_context](#use_context)
+  - [use_context_provider](#use_context_provider)
+  - [try_use_context](#try_use_context)
 - [Memoization Hooks](#memoization-hooks)
-  - [use_memo_v2](#use_memo_v2)
-  - [use_callback_v2](#use_callback_v2)
+  - [use_memo](#use_memo)
+  - [use_callback](#use_callback)
 - [Async Hooks](#async-hooks)
-  - [use_future_v2](#use_future_v2)
+  - [use_future](#use_future)
   - [use_future_once](#use_future_once)
-  - [use_query_v2](#use_query_v2)
-  - [use_mutation_v2](#use_mutation_v2)
+  - [use_query](#use_query)
+  - [use_mutation](#use_mutation)
 - [Event Hooks](#event-hooks)
   - [use_event](#use_event)
-  - [use_keyboard_v2](#use_keyboard_v2)
-  - [use_keyboard_press_v2](#use_keyboard_press_v2)
-  - [use_keyboard_shortcut_v2](#use_keyboard_shortcut_v2)
-  - [use_mouse_v2](#use_mouse_v2)
-  - [use_mouse_click_v2](#use_mouse_click_v2)
-  - [use_mouse_hover_v2](#use_mouse_hover_v2)
-  - [use_mouse_drag_v2](#use_mouse_drag_v2)
-  - [use_mouse_position_v2](#use_mouse_position_v2)
-  - [use_double_click_v2](#use_double_click_v2)
+  - [use_keyboard](#use_keyboard)
+  - [use_keyboard_press](#use_keyboard_press)
+  - [use_keyboard_shortcut](#use_keyboard_shortcut)
+  - [use_mouse](#use_mouse)
+  - [use_mouse_click](#use_mouse_click)
+  - [use_mouse_hover](#use_mouse_hover)
+  - [use_mouse_drag](#use_mouse_drag)
+  - [use_mouse_position](#use_mouse_position)
+  - [use_double_click](#use_double_click)
 - [Timing Hooks](#timing-hooks)
-  - [use_timeout_v2](#use_timeout_v2)
-  - [use_interval_v2](#use_interval_v2)
+  - [use_timeout](#use_timeout)
+  - [use_interval](#use_interval)
 - [Layout Hooks](#layout-hooks)
-  - [use_area_v2](#use_area_v2)
-  - [use_frame_v2](#use_frame_v2)
-  - [use_resize_v2](#use_resize_v2)
-  - [use_media_query_v2](#use_media_query_v2)
+  - [use_area](#use_area)
+  - [use_frame](#use_frame)
+  - [use_resize](#use_resize)
+  - [use_media_query](#use_media_query)
 - [Form Hooks](#form-hooks)
-  - [use_form_v2](#use_form_v2)
-  - [use_form_context_v2](#use_form_context_v2)
-  - [use_watch_v2](#use_watch_v2)
+  - [use_form](#use_form)
+  - [use_form_context](#use_form_context)
+  - [use_watch](#use_watch)
 - [Utility Hooks](#utility-hooks)
-  - [use_id_v2](#use_id_v2)
+  - [use_id](#use_id)
 
 ---
 
 ## State Hooks
 
-### use_state_v2
+### use_state
 
 Manages local component state with batched updates.
 
 ```rust
-fn use_state_v2<T, F>(initializer: F) -> (T, StateSetterV2<T>)
+fn use_state<T, F>(initializer: F) -> (T, StateSetter<T>)
 where
     T: Clone + Send + Sync + PartialEq + 'static,
     F: FnOnce() -> T;
@@ -69,7 +69,7 @@ where
 
 **Returns:** A tuple of `(current_value, setter)`
 
-**StateSetterV2 Methods:**
+**StateSetter Methods:**
 
 | Method                  | Description                   |
 | ----------------------- | ----------------------------- |
@@ -81,7 +81,7 @@ where
 **Example:**
 
 ```rust
-let (count, set_count) = use_state_v2(|| 0);
+let (count, set_count) = use_state(|| 0);
 
 // Direct set
 set_count.set(5);
@@ -95,12 +95,12 @@ set_count.set_if_changed(count);
 
 ---
 
-### use_reducer_v2
+### use_reducer
 
 Manages complex state with a reducer function, similar to React's useReducer.
 
 ```rust
-fn use_reducer_v2<S, A, R>(reducer: R, initial_state: S) -> (S, DispatchV2<A>)
+fn use_reducer<S, A, R>(reducer: R, initial_state: S) -> (S, Dispatch<A>)
 where
     S: Clone + Send + Sync + 'static,
     A: Clone + Send + Sync + 'static,
@@ -125,25 +125,25 @@ fn reducer(state: &i32, action: Action) -> i32 {
     }
 }
 
-let (count, dispatch) = use_reducer_v2(reducer, 0);
+let (count, dispatch) = use_reducer(reducer, 0);
 
 dispatch.dispatch(Action::Increment);
 ```
 
 ---
 
-### use_ref_v2
+### use_ref
 
 Creates a mutable reference that persists across renders without causing re-renders.
 
 ```rust
-fn use_ref_v2<T, F>(initializer: F) -> RefV2<T>
+fn use_ref<T, F>(initializer: F) -> Ref<T>
 where
     T: Clone + Send + Sync + 'static,
     F: FnOnce() -> T;
 ```
 
-**RefV2 Methods:**
+**Ref Methods:**
 
 | Method       | Description                         |
 | ------------ | ----------------------------------- |
@@ -154,21 +154,21 @@ where
 **Example:**
 
 ```rust
-let render_count = use_ref_v2(|| 0);
+let render_count = use_ref(|| 0);
 render_count.update(|c| c + 1);
 
-let previous_value = use_ref_v2(|| None);
+let previous_value = use_ref(|| None);
 previous_value.set(Some(current_value.clone()));
 ```
 
 ---
 
-### use_history_v2
+### use_history
 
 Tracks value history with undo/redo support.
 
 ```rust
-fn use_history_v2<T, F>(initializer: F) -> HistoryHandle<T>
+fn use_history<T, F>(initializer: F) -> HistoryHandle<T>
 where
     T: Clone + Send + Sync + 'static,
     F: FnOnce() -> T;
@@ -193,7 +193,7 @@ where
 **Example:**
 
 ```rust
-let history = use_history_v2(|| String::new());
+let history = use_history(|| String::new());
 
 history.set("Hello".to_string());
 history.set("Hello World".to_string());
@@ -206,12 +206,12 @@ history.redo(); // Forward to "Hello World"
 
 ## Effect Hooks
 
-### use_effect_v2
+### use_effect
 
 Runs side effects after render with dependency tracking.
 
 ```rust
-fn use_effect_v2<D, F>(effect: F, deps: D)
+fn use_effect<D, F>(effect: F, deps: D)
 where
     D: PartialEq + Clone + Send + Sync + 'static,
     F: FnOnce() -> Option<Box<dyn FnOnce() + Send>> + Send + 'static;
@@ -220,10 +220,10 @@ where
 **Example:**
 
 ```rust
-let (count, _) = use_state_v2(|| 0);
+let (count, _) = use_state(|| 0);
 
 // Effect runs when count changes
-use_effect_v2(
+use_effect(
     move || {
         println!("Count changed to: {}", count);
 
@@ -262,12 +262,12 @@ use_effect_once(|| {
 
 ---
 
-### use_async_effect_v2
+### use_async_effect
 
 Runs async side effects with dependency tracking.
 
 ```rust
-fn use_async_effect_v2<D, F, Fut>(effect: F, deps: D)
+fn use_async_effect<D, F, Fut>(effect: F, deps: D)
 where
     D: PartialEq + Clone + Send + Sync + 'static,
     F: FnOnce() -> Fut + Send + 'static,
@@ -277,9 +277,9 @@ where
 **Example:**
 
 ```rust
-let (user_id, _) = use_state_v2(|| 1);
+let (user_id, _) = use_state(|| 1);
 
-use_async_effect_v2(
+use_async_effect(
     move || async move {
         let user = fetch_user(user_id).await;
         println!("Fetched user: {:?}", user);
@@ -310,12 +310,12 @@ where
 
 ## Context Hooks
 
-### use_context_v2
+### use_context
 
 Consumes a context value from a parent provider.
 
 ```rust
-fn use_context_v2<T>() -> T
+fn use_context<T>() -> T
 where
     T: Clone + Send + Sync + 'static;
 ```
@@ -324,12 +324,12 @@ where
 
 ---
 
-### use_context_provider_v2
+### use_context_provider
 
 Provides a context value to child components.
 
 ```rust
-fn use_context_provider_v2<T, F>(initializer: F)
+fn use_context_provider<T, F>(initializer: F)
 where
     T: Clone + Send + Sync + 'static,
     F: FnOnce() -> T;
@@ -345,23 +345,23 @@ struct Theme {
     secondary: Color,
 }
 
-use_context_provider_v2(|| Theme {
+use_context_provider(|| Theme {
     primary: Color::Blue,
     secondary: Color::Gray,
 });
 
 // In child component
-let theme = use_context_v2::<Theme>();
+let theme = use_context::<Theme>();
 ```
 
 ---
 
-### try_use_context_v2
+### try_use_context
 
 Attempts to consume a context value, returning `None` if not available.
 
 ```rust
-fn try_use_context_v2<T>() -> Option<T>
+fn try_use_context<T>() -> Option<T>
 where
     T: Clone + Send + Sync + 'static;
 ```
@@ -370,12 +370,12 @@ where
 
 ## Memoization Hooks
 
-### use_memo_v2
+### use_memo
 
 Memoizes an expensive computation.
 
 ```rust
-fn use_memo_v2<T, D, F>(compute: F, deps: D) -> T
+fn use_memo<T, D, F>(compute: F, deps: D) -> T
 where
     T: Clone + Send + Sync + 'static,
     D: PartialEq + Clone + Send + Sync + 'static,
@@ -385,9 +385,9 @@ where
 **Example:**
 
 ```rust
-let (items, _) = use_state_v2(|| vec![1, 2, 3, 4, 5]);
+let (items, _) = use_state(|| vec![1, 2, 3, 4, 5]);
 
-let sum = use_memo_v2(
+let sum = use_memo(
     || items.iter().sum::<i32>(),
     items.clone(),
 );
@@ -395,12 +395,12 @@ let sum = use_memo_v2(
 
 ---
 
-### use_callback_v2
+### use_callback
 
 Memoizes a callback function.
 
 ```rust
-fn use_callback_v2<F, D>(callback: F, deps: D) -> CallbackV2<F>
+fn use_callback<F, D>(callback: F, deps: D) -> Callback<F>
 where
     F: Clone + Send + Sync + 'static,
     D: PartialEq + Clone + Send + Sync + 'static;
@@ -410,15 +410,15 @@ where
 
 ## Async Hooks
 
-### use_future_v2
+### use_future
 
 Tracks the state of an async task.
 
 ```rust
-fn use_future_v2<T, E, F, Fut, D>(
+fn use_future<T, E, F, Fut, D>(
     future_fn: F,
     deps: Option<D>,
-) -> FutureHandleV2<T, E>
+) -> FutureHandle<T, E>
 where
     T: Clone + Send + Sync + 'static,
     E: Clone + Send + Sync + 'static,
@@ -438,7 +438,7 @@ enum FutureState<T, E> {
 }
 ```
 
-**FutureHandleV2 Methods:**
+**FutureHandle Methods:**
 
 | Method          | Description             |
 | --------------- | ----------------------- |
@@ -456,7 +456,7 @@ async fn fetch_data() -> Result<String, String> {
     Ok("Hello".to_string())
 }
 
-let handle = use_future_v2(fetch_data, Some(()));
+let handle = use_future(fetch_data, Some(()));
 
 match handle.state() {
     FutureState::Idle => println!("Not started"),
@@ -473,21 +473,21 @@ match handle.state() {
 Runs an async task only once on mount.
 
 ```rust
-fn use_future_once<T, E, F, Fut>(future_fn: F) -> FutureHandleV2<T, E>
+fn use_future_once<T, E, F, Fut>(future_fn: F) -> FutureHandle<T, E>
 ```
 
 ---
 
-### use_query_v2
+### use_query
 
 Data fetching with caching, stale-while-revalidate, and retry logic.
 
 ```rust
-fn use_query_v2<K, T, E, F, Fut>(
+fn use_query<K, T, E, F, Fut>(
     key: K,
     query_fn: F,
     options: Option<QueryOptions>,
-) -> QueryResultV2<T, E>
+) -> QueryResult<T, E>
 where
     K: Hash + Eq + Clone + Send + Sync + 'static,
     T: Clone + Send + Sync + 'static,
@@ -522,7 +522,7 @@ enum QueryStatus {
 }
 ```
 
-**QueryResultV2 Fields:**
+**QueryResult Fields:**
 
 | Field      | Type          | Description           |
 | ---------- | ------------- | --------------------- |
@@ -531,7 +531,7 @@ enum QueryStatus {
 | `error`    | `Option<E>`   | Error if failed       |
 | `is_stale` | `bool`        | Whether data is stale |
 
-**QueryResultV2 Methods:**
+**QueryResult Methods:**
 
 | Method         | Description             |
 | -------------- | ----------------------- |
@@ -541,7 +541,7 @@ enum QueryStatus {
 **Example:**
 
 ```rust
-let query = use_query_v2(
+let query = use_query(
     "users",
     || async { fetch_users().await },
     Some(QueryOptions {
@@ -563,15 +563,15 @@ match query.status {
 
 ---
 
-### use_mutation_v2
+### use_mutation
 
 Tracks mutation state for create/update/delete operations.
 
 ```rust
-fn use_mutation_v2<T, E, A, F, Fut>(
+fn use_mutation<T, E, A, F, Fut>(
     mutation_fn: F,
     options: Option<MutationOptions>,
-) -> MutationHandleV2<T, E, A>
+) -> MutationHandle<T, E, A>
 where
     T: Clone + Send + Sync + 'static,
     E: Clone + Send + Sync + 'static,
@@ -602,7 +602,7 @@ enum MutationStatus {
 }
 ```
 
-**MutationHandleV2 Methods:**
+**MutationHandle Methods:**
 
 | Method         | Description               |
 | -------------- | ------------------------- |
@@ -614,7 +614,7 @@ enum MutationStatus {
 **Example:**
 
 ```rust
-let create_user = use_mutation_v2(
+let create_user = use_mutation(
     |user: CreateUserRequest| async move {
         api::create_user(user).await
     },
@@ -655,31 +655,31 @@ fn use_event() -> Option<Event>
 ```rust
 if let Some(Event::Key(key)) = use_event() {
     if key.code == KeyCode::Char('q') {
-        request_exit_v2();
+        request_exit();
     }
 }
 ```
 
 ---
 
-### use_keyboard_v2
+### use_keyboard
 
 Handles all keyboard events.
 
 ```rust
-fn use_keyboard_v2<F>(handler: F)
+fn use_keyboard<F>(handler: F)
 where
     F: Fn(KeyEvent) + Send + Sync + 'static;
 ```
 
 ---
 
-### use_keyboard_press_v2
+### use_keyboard_press
 
 Handles only key press events (filters out release/repeat).
 
 ```rust
-fn use_keyboard_press_v2<F>(handler: F)
+fn use_keyboard_press<F>(handler: F)
 where
     F: Fn(KeyEvent) + Send + Sync + 'static;
 ```
@@ -687,12 +687,12 @@ where
 **Example:**
 
 ```rust
-use_keyboard_press_v2(move |key| {
+use_keyboard_press(move |key| {
     match key.code {
         KeyCode::Up => set_selected.update(|s| s.saturating_sub(1)),
         KeyCode::Down => set_selected.update(|s| s + 1),
         KeyCode::Enter => handle_select(),
-        KeyCode::Char('q') => request_exit_v2(),
+        KeyCode::Char('q') => request_exit(),
         _ => {}
     }
 });
@@ -700,12 +700,12 @@ use_keyboard_press_v2(move |key| {
 
 ---
 
-### use_keyboard_shortcut_v2
+### use_keyboard_shortcut
 
 Handles specific key combinations.
 
 ```rust
-fn use_keyboard_shortcut_v2<F>(
+fn use_keyboard_shortcut<F>(
     key_code: KeyCode,
     modifiers: KeyModifiers,
     handler: F,
@@ -718,14 +718,14 @@ where
 
 ```rust
 // Ctrl+S to save
-use_keyboard_shortcut_v2(
+use_keyboard_shortcut(
     KeyCode::Char('s'),
     KeyModifiers::CONTROL,
     || save_document(),
 );
 
 // Ctrl+Shift+P for command palette
-use_keyboard_shortcut_v2(
+use_keyboard_shortcut(
     KeyCode::Char('p'),
     KeyModifiers::CONTROL | KeyModifiers::SHIFT,
     || open_command_palette(),
@@ -734,24 +734,24 @@ use_keyboard_shortcut_v2(
 
 ---
 
-### use_mouse_v2
+### use_mouse
 
 Handles all mouse events.
 
 ```rust
-fn use_mouse_v2<F>(handler: F)
+fn use_mouse<F>(handler: F)
 where
     F: Fn(MouseEvent) + Send + Sync + 'static;
 ```
 
 ---
 
-### use_mouse_click_v2
+### use_mouse_click
 
 Handles mouse click events.
 
 ```rust
-fn use_mouse_click_v2<F>(handler: F)
+fn use_mouse_click<F>(handler: F)
 where
     F: Fn(MouseButton, u16, u16) + Send + Sync + 'static;
 ```
@@ -759,7 +759,7 @@ where
 **Example:**
 
 ```rust
-use_mouse_click_v2(move |button, x, y| {
+use_mouse_click(move |button, x, y| {
     if button == MouseButton::Left {
         handle_click(x, y);
     }
@@ -768,19 +768,19 @@ use_mouse_click_v2(move |button, x, y| {
 
 ---
 
-### use_mouse_hover_v2
+### use_mouse_hover
 
 Tracks hover state over a rectangular area.
 
 ```rust
-fn use_mouse_hover_v2(area: Rect) -> bool
+fn use_mouse_hover(area: Rect) -> bool
 ```
 
 **Example:**
 
 ```rust
 let button_area = Rect::new(10, 5, 20, 3);
-let is_hovering = use_mouse_hover_v2(button_area);
+let is_hovering = use_mouse_hover(button_area);
 
 let style = if is_hovering {
     Style::default().bg(Color::Blue)
@@ -791,12 +791,12 @@ let style = if is_hovering {
 
 ---
 
-### use_mouse_drag_v2
+### use_mouse_drag
 
 Tracks drag operations.
 
 ```rust
-fn use_mouse_drag_v2() -> (DragInfo, impl Fn() + Clone)
+fn use_mouse_drag() -> (DragInfo, impl Fn() + Clone)
 ```
 
 **DragInfo:**
@@ -814,22 +814,22 @@ struct DragInfo {
 
 ---
 
-### use_mouse_position_v2
+### use_mouse_position
 
 Returns current mouse position.
 
 ```rust
-fn use_mouse_position_v2() -> (u16, u16)
+fn use_mouse_position() -> (u16, u16)
 ```
 
 ---
 
-### use_double_click_v2
+### use_double_click
 
 Detects double-click events.
 
 ```rust
-fn use_double_click_v2<F>(max_delay: Duration, handler: F)
+fn use_double_click<F>(max_delay: Duration, handler: F)
 where
     F: Fn(MouseButton, u16, u16) + Send + Sync + 'static;
 ```
@@ -838,12 +838,12 @@ where
 
 ## Timing Hooks
 
-### use_timeout_v2
+### use_timeout
 
 Executes a callback after a delay.
 
 ```rust
-fn use_timeout_v2<F>(callback: F, delay_ms: u64) -> TimeoutHandle
+fn use_timeout<F>(callback: F, delay_ms: u64) -> TimeoutHandle
 where
     F: Fn() + Send + Sync + 'static;
 ```
@@ -859,7 +859,7 @@ where
 **Example:**
 
 ```rust
-let timeout = use_timeout_v2(
+let timeout = use_timeout(
     || println!("Timeout fired!"),
     5000, // 5 seconds
 );
@@ -870,12 +870,12 @@ timeout.cancel();
 
 ---
 
-### use_interval_v2
+### use_interval
 
 Executes a callback repeatedly at an interval.
 
 ```rust
-fn use_interval_v2<F>(callback: F, interval_ms: u64) -> IntervalHandle
+fn use_interval<F>(callback: F, interval_ms: u64) -> IntervalHandle
 where
     F: Fn() + Send + Sync + 'static;
 ```
@@ -891,7 +891,7 @@ where
 **Example:**
 
 ```rust
-let interval = use_interval_v2(
+let interval = use_interval(
     move || set_time.set(get_current_time()),
     1000, // Every second
 );
@@ -901,24 +901,24 @@ let interval = use_interval_v2(
 
 ## Layout Hooks
 
-### use_area_v2
+### use_area
 
 Returns the component's render area.
 
 ```rust
-fn use_area_v2() -> ComponentArea
+fn use_area() -> ComponentArea
 ```
 
 `ComponentArea` implements `Deref<Target = Rect>`.
 
 ---
 
-### use_frame_v2
+### use_frame
 
 Returns the current frame context.
 
 ```rust
-fn use_frame_v2() -> FrameContext
+fn use_frame() -> FrameContext
 ```
 
 **FrameContext Methods:**
@@ -932,22 +932,22 @@ fn use_frame_v2() -> FrameContext
 
 ---
 
-### use_resize_v2
+### use_resize
 
 Returns current terminal dimensions.
 
 ```rust
-fn use_resize_v2() -> (u16, u16)
+fn use_resize() -> (u16, u16)
 ```
 
 ---
 
-### use_media_query_v2
+### use_media_query
 
 Evaluates a predicate against terminal dimensions.
 
 ```rust
-fn use_media_query_v2<F>(predicate: F) -> bool
+fn use_media_query<F>(predicate: F) -> bool
 where
     F: Fn((u16, u16)) -> bool + Send + Sync + 'static;
 ```
@@ -955,33 +955,33 @@ where
 **Example:**
 
 ```rust
-let is_narrow = use_media_query_v2(|(w, _)| w < 80);
-let is_mobile = use_media_query_v2(|(w, _)| w < 60);
-let is_desktop = use_media_query_v2(|(w, _)| w >= 120);
+let is_narrow = use_media_query(|(w, _)| w < 80);
+let is_mobile = use_media_query(|(w, _)| w < 60);
+let is_desktop = use_media_query(|(w, _)| w >= 120);
 ```
 
 ---
 
 ## Form Hooks
 
-### use_form_v2
+### use_form
 
 Creates a form with validation.
 
 ```rust
-fn use_form_v2(config: FormConfigV2) -> FormHandleV2
+fn use_form(config: FormConfig) -> FormHandle
 ```
 
-**FormConfigV2 Builder:**
+**FormConfig Builder:**
 
 ```rust
-let form = use_form_v2(
-    FormConfigV2::builder()
+let form = use_form(
+    FormConfig::builder()
         .field("email", "")
         .field("password", "")
-        .validator("email", ValidatorV2::required("Email is required"))
-        .validator("email", ValidatorV2::email("Invalid email"))
-        .validator("password", ValidatorV2::min_length(8, "Min 8 characters"))
+        .validator("email", Validator::required("Email is required"))
+        .validator("email", Validator::email("Invalid email"))
+        .validator("password", Validator::min_length(8, "Min 8 characters"))
         .on_submit(|values| {
             println!("Submitted: {:?}", values);
         })
@@ -989,7 +989,7 @@ let form = use_form_v2(
 );
 ```
 
-**ValidatorV2 Methods:**
+**Validator Methods:**
 
 | Method                 | Description             |
 | ---------------------- | ----------------------- |
@@ -1008,7 +1008,7 @@ let form = use_form_v2(
 | `alpha(msg)`           | Letters only            |
 | `custom(fn)`           | Custom validation       |
 
-**FormHandleV2 Methods:**
+**FormHandle Methods:**
 
 | Method                        | Description                 |
 | ----------------------------- | --------------------------- |
@@ -1027,40 +1027,40 @@ let form = use_form_v2(
 
 ---
 
-### use_form_context_v2
+### use_form_context
 
 Accesses form from child components.
 
 ```rust
-fn use_form_context_v2() -> FormHandleV2
+fn use_form_context() -> FormHandle
 ```
 
 ---
 
-### use_watch_v2
+### use_watch
 
 Watches a form field value.
 
 ```rust
-fn use_watch_v2(form: &FormHandleV2, field_name: &str) -> String
+fn use_watch(form: &FormHandle, field_name: &str) -> String
 ```
 
 ---
 
 ## Utility Hooks
 
-### use_id_v2
+### use_id
 
 Generates a unique ID for the component instance.
 
 ```rust
-fn use_id_v2() -> String
+fn use_id() -> String
 ```
 
 **Example:**
 
 ```rust
-let id = use_id_v2();
+let id = use_id();
 // Returns something like "reratui-1-0"
 ```
 
@@ -1070,14 +1070,14 @@ let id = use_id_v2();
 
 1. **Call hooks at the top level** - Don't call hooks inside loops, conditions, or nested functions
 2. **Call hooks in the same order** - Hooks must be called in the same order on every render
-3. **Only call hooks from components** - Hooks can only be called within `ComponentV2::render()`
+3. **Only call hooks from components** - Hooks can only be called within `Component::render()`
 
 **Bad:**
 
 ```rust
 // DON'T DO THIS
 if some_condition {
-    let (state, _) = use_state_v2(|| 0); // Conditional hook call!
+    let (state, _) = use_state(|| 0); // Conditional hook call!
 }
 ```
 
@@ -1085,7 +1085,7 @@ if some_condition {
 
 ```rust
 // DO THIS
-let (state, set_state) = use_state_v2(|| 0);
+let (state, set_state) = use_state(|| 0);
 if some_condition {
     // Use state here
 }

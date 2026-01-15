@@ -1,23 +1,23 @@
-use reratui::hooks::{use_interval_v2, use_keyboard_press_v2};
+use reratui::hooks::{use_interval, use_keyboard_press};
 use reratui::prelude::*;
 use reratui::ratatui::widgets::BorderType;
 
 /// A React-like Counter component that mimics the Ink example
 ///
 /// This component demonstrates:
-/// - useState equivalent with use_state_v2
-/// - useEffect equivalent with use_interval_v2
-/// - Component composition with ComponentV2
+/// - useState equivalent with use_state
+/// - useEffect equivalent with use_interval
+/// - Component composition with Component
 /// - Automatic cleanup on unmount
 struct Counter;
 
-impl ComponentV2 for Counter {
+impl Component for Counter {
     fn render(&self, area: Rect, buffer: &mut Buffer) {
         // useState equivalent - initialize counter to 0
-        let (counter_value, set_counter) = use_state_v2(|| 0i32);
+        let (counter_value, set_counter) = use_state(|| 0i32);
 
         // useEffect equivalent - setInterval that increments counter every 100ms
-        use_interval_v2(
+        use_interval(
             {
                 move || {
                     // setCounter(previousCounter => previousCounter + 1)
@@ -43,15 +43,15 @@ impl ComponentV2 for Counter {
 /// A more elaborate version with multiple counters and styling
 struct EnhancedCounter;
 
-impl ComponentV2 for EnhancedCounter {
+impl Component for EnhancedCounter {
     fn render(&self, area: Rect, buffer: &mut Buffer) {
         // Multiple state hooks - like multiple useState calls
-        let (tests_passed_value, set_tests_passed) = use_state_v2(|| 0i32);
-        let (tests_failed_value, set_tests_failed) = use_state_v2(|| 0i32);
-        let (uptime_seconds_value, set_uptime_seconds) = use_state_v2(|| 0i32);
+        let (tests_passed_value, set_tests_passed) = use_state(|| 0i32);
+        let (tests_failed_value, set_tests_failed) = use_state(|| 0i32);
+        let (uptime_seconds_value, set_uptime_seconds) = use_state(|| 0i32);
 
         // Fast counter for tests passed (every 100ms like React example)
-        use_interval_v2(
+        use_interval(
             {
                 move || {
                     set_tests_passed.update(|tests_passed| tests_passed + 1);
@@ -61,7 +61,7 @@ impl ComponentV2 for EnhancedCounter {
         );
 
         // Slower counter for failed tests (every 500ms)
-        use_interval_v2(
+        use_interval(
             {
                 move || {
                     if tests_failed_value < 5 {
@@ -73,7 +73,7 @@ impl ComponentV2 for EnhancedCounter {
         );
 
         // Uptime counter (every second)
-        use_interval_v2(
+        use_interval(
             {
                 move || {
                     set_uptime_seconds.update(|uptime_seconds| uptime_seconds + 1);
@@ -170,12 +170,12 @@ impl ReactLikeApp {
     }
 }
 
-impl ComponentV2 for ReactLikeApp {
+impl Component for ReactLikeApp {
     fn render(&self, area: Rect, buffer: &mut Buffer) {
         // Handle events (like event listeners in React)
-        use_keyboard_press_v2(|key| {
+        use_keyboard_press(|key| {
             if key.code == KeyCode::Char('q') {
-                request_exit_v2();
+                request_exit();
             }
         });
 
@@ -244,11 +244,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         "⚡ Simple Counter (React/Ink Style)"
     };
 
-    if let Err(err) = render_v2(move || ReactLikeApp::new(title, enhanced_mode)).await {
+    if let Err(err) = render(move || ReactLikeApp::new(title, enhanced_mode)).await {
         eprintln!("❌ Application error: {:?}", err);
     } else {
         println!("✨ React-like counter demo completed successfully!");
-        println!("🎯 Demonstrated: useState → use_state_v2, useEffect → use_interval_v2");
+        println!("🎯 Demonstrated: useState → use_state, useEffect → use_interval");
     }
 
     Ok(())

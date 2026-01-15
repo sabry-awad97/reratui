@@ -1,6 +1,6 @@
 //! Events Showcase Demo
 //!
-//! Demonstrates event handling with ComponentV2:
+//! Demonstrates event handling with Component:
 //! - Keyboard events
 //! - Mouse events
 //! - Terminal resize handling
@@ -12,14 +12,14 @@ use reratui::prelude::*;
 
 struct EventsShowcase;
 
-impl ComponentV2 for EventsShowcase {
+impl Component for EventsShowcase {
     fn render(&self, area: Rect, buffer: &mut Buffer) {
         // State for tracking events
-        let (last_key, set_last_key) = use_state_v2(|| "None".to_string());
-        let (key_count, set_key_count) = use_state_v2(|| 0u32);
-        let (mouse_pos, set_mouse_pos) = use_state_v2(|| (0u16, 0u16));
-        let (mouse_event, set_mouse_event) = use_state_v2(|| "None".to_string());
-        let (click_count, set_click_count) = use_state_v2(|| 0u32);
+        let (last_key, set_last_key) = use_state(|| "None".to_string());
+        let (key_count, set_key_count) = use_state(|| 0u32);
+        let (mouse_pos, set_mouse_pos) = use_state(|| (0u16, 0u16));
+        let (mouse_event, set_mouse_event) = use_state(|| "None".to_string());
+        let (click_count, set_click_count) = use_state(|| 0u32);
 
         // Handle events
         if let Some(event) = use_event() {
@@ -32,7 +32,7 @@ impl ComponentV2 for EventsShowcase {
                 }) => {
                     // Exit on q or Esc
                     if matches!(code, KeyCode::Char('q') | KeyCode::Esc) {
-                        request_exit_v2();
+                        request_exit();
                     }
 
                     // Build key description
@@ -185,6 +185,6 @@ impl ComponentV2 for EventsShowcase {
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    render_v2(|| EventsShowcase).await?;
+    render(|| EventsShowcase).await?;
     Ok(())
 }

@@ -399,7 +399,7 @@ impl Reconciler {
     /// Check if two elements are of the same type.
     ///
     /// Elements are considered the same type if they are both:
-    /// - ComponentV2 elements
+    /// - Component elements
     /// - Widget elements
     /// - Text elements
     ///
@@ -414,7 +414,7 @@ impl Reconciler {
     fn same_type(&self, a: &Element, b: &Element) -> bool {
         matches!(
             (a, b),
-            (Element::ComponentV2 { .. }, Element::ComponentV2 { .. })
+            (Element::Component { .. }, Element::Component { .. })
                 | (Element::Widget { .. }, Element::Widget { .. })
                 | (Element::Text(_), Element::Text(_))
         )
@@ -474,7 +474,7 @@ impl Reconciler {
                 let type_name = match tree.elements.get(unkeyed_indices[0]) {
                     Some(Element::Text(_)) => "Text",
                     Some(Element::Widget { .. }) => "Widget",
-                    Some(Element::ComponentV2 { .. }) => "ComponentV2",
+                    Some(Element::Component { .. }) => "Component",
                     None => "Unknown",
                 };
 

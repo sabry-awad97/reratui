@@ -67,7 +67,7 @@ fn render_menu_title(menu: &DropdownMenu, area: Rect, buffer: &mut Buffer) {
     title_widget.render(area, buffer);
 }
 
-impl ComponentV2 for MenuBar {
+impl Component for MenuBar {
     fn render(&self, area: Rect, buffer: &mut Buffer) {
         // Clear any previously stored menus
         clear_active_menus();

@@ -14,11 +14,11 @@ impl SystemInfoComponent {
     /// Get the spans for the system info without rendering to a frame
     pub fn get_spans<'a>(&'a self, spans: &mut Vec<Span<'a>>) {
         // Simulated system information state
-        let (cpu_usage, set_cpu_usage) = use_state_v2(|| 30.0f32); // Start with reasonable values
-        let (memory_used, set_memory_used) = use_state_v2(|| 4.0f32); // GB
-        let (memory_total, _set_memory_total) = use_state_v2(|| 16.0f32); // GB
+        let (cpu_usage, set_cpu_usage) = use_state(|| 30.0f32); // Start with reasonable values
+        let (memory_used, set_memory_used) = use_state(|| 4.0f32); // GB
+        let (memory_total, _set_memory_total) = use_state(|| 16.0f32); // GB
 
-        use_interval_v2(
+        use_interval(
             {
                 // Set up system info update interval
                 move || {
@@ -48,7 +48,7 @@ impl SystemInfoComponent {
     }
 }
 
-impl ComponentV2 for SystemInfoComponent {
+impl Component for SystemInfoComponent {
     fn render(&self, area: Rect, buffer: &mut Buffer) {
         let mut spans = Vec::new();
         self.get_spans(&mut spans);

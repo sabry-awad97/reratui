@@ -1,6 +1,6 @@
 //! Effect hook with post-commit execution.
 //!
-//! This module provides `use_effect_v2`, a React-style effect hook that:
+//! This module provides `use_effect`, a React-style effect hook that:
 //! - Queues effects to run after the commit phase (not during render)
 //! - Properly handles cleanup functions
 //! - Supports dependency tracking for conditional execution
@@ -37,25 +37,25 @@ use crate::scheduler::effect_queue::{
 /// });
 ///
 /// // Run when count changes
-/// use_effect_v2(|| {
+/// use_effect(|| {
 ///     println!("Count changed to: {}", count);
 ///     Option::<fn()>::None
 /// }, Some((count,)));
 ///
 /// // Run after every render
-/// use_effect_v2(|| {
+/// use_effect(|| {
 ///     println!("Rendered!");
 ///     Option::<fn()>::None
 /// }, None::<()>);
 /// ```
-pub fn use_effect_v2<Deps, F, C>(effect: F, deps: Option<Deps>)
+pub fn use_effect<Deps, F, C>(effect: F, deps: Option<Deps>)
 where
     Deps: PartialEq + Clone + Send + 'static,
     F: FnOnce() -> Option<C> + 'static,
     C: FnOnce() + Send + 'static,
 {
     with_current_fiber(|fiber| {
-        fiber.track_hook_call("use_effect_v2");
+        fiber.track_hook_call("use_effect");
         let hook_index = fiber.next_hook_index();
 
         // Get previous deps from fiber's hook state
@@ -103,22 +103,22 @@ where
 
 /// Convenience function for effects that run only once on mount
 ///
-/// Equivalent to `use_effect_v2(effect, Some(()))`
+/// Equivalent to `use_effect(effect, Some(()))`
 pub fn use_effect_once<F, C>(effect: F)
 where
     F: FnOnce() -> Option<C> + 'static,
     C: FnOnce() + Send + 'static,
 {
-    use_effect_v2(effect, Some(()));
+    use_effect(effect, Some(()));
 }
 
 /// React-style useAsyncEffect with proper post-commit execution for async operations
 ///
-/// This hook is similar to `use_effect_v2` but supports async effect functions
+/// This hook is similar to `use_effect` but supports async effect functions
 /// and async cleanup functions. It's useful for effects that need to perform
 /// async operations like data fetching, subscriptions, or other I/O.
 ///
-/// # Differences from use_effect_v2
+/// # Differences from use_effect
 /// - Effect function returns a Future instead of executing synchronously
 /// - Cleanup function can also be async
 /// - Integrates with tokio for async execution
@@ -133,7 +133,7 @@ where
 /// # Example
 /// ```ignore
 /// // Async effect that fetches data
-/// use_async_effect_v2(|| {
+/// use_async_effect(|| {
 ///     let set_data = set_data.clone();
 ///     async move {
 ///         let data = fetch_data().await;
@@ -152,7 +152,7 @@ where
 ///     Some(|| async { println!("Unmounting!") })
 /// });
 /// ```
-pub fn use_async_effect_v2<Deps, F, Fut, C, CFut>(effect: F, deps: Option<Deps>)
+pub fn use_async_effect<Deps, F, Fut, C, CFut>(effect: F, deps: Option<Deps>)
 where
     Deps: PartialEq + Clone + Send + 'static,
     F: FnOnce() -> Fut + Send + 'static,
@@ -161,7 +161,7 @@ where
     CFut: Future<Output = ()> + Send + 'static,
 {
     with_current_fiber(|fiber| {
-        fiber.track_hook_call("use_async_effect_v2");
+        fiber.track_hook_call("use_async_effect");
         let hook_index = fiber.next_hook_index();
 
         // Get previous deps from fiber's hook state
@@ -214,7 +214,7 @@ where
 
 /// Convenience function for async effects that run only once on mount
 ///
-/// Equivalent to `use_async_effect_v2(effect, Some(()))`
+/// Equivalent to `use_async_effect(effect, Some(()))`
 pub fn use_async_effect_once<F, Fut, C, CFut>(effect: F)
 where
     F: FnOnce() -> Fut + Send + 'static,
@@ -222,7 +222,7 @@ where
     C: FnOnce() -> CFut + Send + 'static,
     CFut: Future<Output = ()> + Send + 'static,
 {
-    use_async_effect_v2(effect, Some(()));
+    use_async_effect(effect, Some(()));
 }
 
 #[cfg(test)]
@@ -256,7 +256,7 @@ mod tests {
         let executed = Arc::new(AtomicUsize::new(0));
         let executed_clone = executed.clone();
 
-        use_effect_v2(
+        use_effect(
             move || {
                 executed_clone.fetch_add(1, Ordering::SeqCst);
                 Option::<fn()>::None
@@ -278,7 +278,7 @@ mod tests {
         let executed = Arc::new(AtomicUsize::new(0));
         let executed_clone = executed.clone();
 
-        use_effect_v2(
+        use_effect(
             move || {
                 executed_clone.fetch_add(1, Ordering::SeqCst);
                 Option::<fn()>::None
@@ -307,7 +307,7 @@ mod tests {
         // First render
         {
             let executed_clone = executed.clone();
-            use_effect_v2(
+            use_effect(
                 move || {
                     executed_clone.fetch_add(1, Ordering::SeqCst);
                     Option::<fn()>::None
@@ -330,7 +330,7 @@ mod tests {
 
         {
             let executed_clone = executed.clone();
-            use_effect_v2(
+            use_effect(
                 move || {
                     executed_clone.fetch_add(1, Ordering::SeqCst);
                     Option::<fn()>::None
@@ -359,7 +359,7 @@ mod tests {
         // First render
         {
             let executed_clone = executed.clone();
-            use_effect_v2(
+            use_effect(
                 move || {
                     executed_clone.fetch_add(1, Ordering::SeqCst);
                     Option::<fn()>::None
@@ -382,7 +382,7 @@ mod tests {
 
         {
             let executed_clone = executed.clone();
-            use_effect_v2(
+            use_effect(
                 move || {
                     executed_clone.fetch_add(1, Ordering::SeqCst);
                     Option::<fn()>::None
@@ -411,7 +411,7 @@ mod tests {
         // First render with deps = (1,)
         {
             let executed_clone = executed.clone();
-            use_effect_v2(
+            use_effect(
                 move || {
                     executed_clone.fetch_add(1, Ordering::SeqCst);
                     Option::<fn()>::None
@@ -434,7 +434,7 @@ mod tests {
 
         {
             let executed_clone = executed.clone();
-            use_effect_v2(
+            use_effect(
                 move || {
                     executed_clone.fetch_add(1, Ordering::SeqCst);
                     Option::<fn()>::None
@@ -457,7 +457,7 @@ mod tests {
 
         {
             let executed_clone = executed.clone();
-            use_effect_v2(
+            use_effect(
                 move || {
                     executed_clone.fetch_add(1, Ordering::SeqCst);
                     Option::<fn()>::None
@@ -528,7 +528,7 @@ mod tests {
         let executed = Arc::new(AtomicUsize::new(0));
         let executed_clone = executed.clone();
 
-        use_async_effect_v2(
+        use_async_effect(
             move || {
                 let executed = executed_clone.clone();
                 async move {
@@ -555,7 +555,7 @@ mod tests {
         // First render
         {
             let executed_clone = executed.clone();
-            use_async_effect_v2(
+            use_async_effect(
                 move || {
                     let executed = executed_clone.clone();
                     async move {
@@ -592,7 +592,7 @@ mod tests {
 
         {
             let executed_clone = executed.clone();
-            use_async_effect_v2(
+            use_async_effect(
                 move || {
                     let executed = executed_clone.clone();
                     async move {

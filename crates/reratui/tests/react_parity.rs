@@ -1,6 +1,6 @@
-//! Integration tests for React parity in reratui-fiber.
+//! Integration tests for React parity in reratui.
 //!
-//! These tests verify that the v2 hooks and runtime behave like React:
+//! These tests verify that the hooks and runtime behave like React:
 //! - Effects run after commit, not during render
 //! - State updates are batched
 //! - Context providers have proper lifecycle
@@ -11,9 +11,7 @@ use std::sync::Arc;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
 use reratui::fiber_tree::{FiberTree, clear_fiber_tree, set_fiber_tree, with_fiber_tree_mut};
-use reratui::hooks::{
-    use_context_provider_v2, use_context_v2, use_effect_once, use_effect_v2, use_state_v2,
-};
+use reratui::hooks::{use_context, use_context_provider, use_effect, use_effect_once, use_state};
 use reratui::scheduler::batch::{begin_batch, clear_state_batch, end_batch_with_tree};
 use reratui::scheduler::effect_queue::{clear_effect_queue, flush_effects_with_tree};
 use reratui::{FiberId, context_stack::clear_context_stack};
@@ -114,7 +112,7 @@ fn test_cleanup_runs_before_new_effect() {
     // First render with effect that has cleanup
     {
         let order = execution_order.clone();
-        use_effect_v2(
+        use_effect(
             move || {
                 order.lock().unwrap().push("effect1");
                 let order_cleanup = order.clone();
@@ -139,7 +137,7 @@ fn test_cleanup_runs_before_new_effect() {
 
     {
         let order = execution_order.clone();
-        use_effect_v2(
+        use_effect(
             move || {
                 order.lock().unwrap().push("effect2");
                 Option::<fn()>::None
@@ -175,7 +173,7 @@ fn test_hook_state_isolated_between_fibers() {
     with_fiber_tree_mut(|tree| {
         tree.begin_render(parent_id);
     });
-    let (parent_count, _) = use_state_v2(|| 100);
+    let (parent_count, _) = use_state(|| 100);
     with_fiber_tree_mut(|tree| {
         tree.end_render();
     });
@@ -184,7 +182,7 @@ fn test_hook_state_isolated_between_fibers() {
     with_fiber_tree_mut(|tree| {
         tree.begin_render(child_id);
     });
-    let (child_count, _) = use_state_v2(|| 200);
+    let (child_count, _) = use_state(|| 200);
     with_fiber_tree_mut(|tree| {
         tree.end_render();
     });
@@ -200,9 +198,9 @@ fn test_hook_state_isolated_between_fibers() {
 fn test_multiple_hooks_in_same_fiber() {
     let _fiber_id = setup_single_fiber();
 
-    let (count, _) = use_state_v2(|| 1);
-    let (name, _) = use_state_v2(|| "Alice".to_string());
-    let (active, _) = use_state_v2(|| true);
+    let (count, _) = use_state(|| 1);
+    let (name, _) = use_state(|| "Alice".to_string());
+    let (active, _) = use_state(|| true);
 
     assert_eq!(count, 1);
     assert_eq!(name, "Alice");
@@ -219,7 +217,7 @@ fn test_multiple_hooks_in_same_fiber() {
 fn test_multiple_state_updates_are_batched() {
     let fiber_id = setup_single_fiber();
 
-    let (_, set_count) = use_state_v2(|| 0);
+    let (_, set_count) = use_state(|| 0);
 
     // Begin batch (simulating event handler)
     begin_batch();
@@ -259,7 +257,7 @@ fn test_multiple_state_updates_are_batched() {
 fn test_functional_updates_receive_latest_state() {
     let fiber_id = setup_single_fiber();
 
-    let (_, set_count) = use_state_v2(|| 0);
+    let (_, set_count) = use_state(|| 0);
 
     begin_batch();
 
@@ -288,7 +286,7 @@ fn test_functional_updates_receive_latest_state() {
 fn test_set_if_changed_skips_equal_values() {
     let fiber_id = setup_single_fiber();
 
-    let (_, set_count) = use_state_v2(|| 42);
+    let (_, set_count) = use_state(|| 42);
 
     // End initial render and mark clean
     with_fiber_tree_mut(|tree| {
@@ -326,7 +324,7 @@ fn test_context_provider_scoping() {
     with_fiber_tree_mut(|tree| {
         tree.begin_render(parent_id);
     });
-    use_context_provider_v2(|| "parent-value".to_string());
+    use_context_provider(|| "parent-value".to_string());
     with_fiber_tree_mut(|tree| {
         tree.end_render();
     });
@@ -335,7 +333,7 @@ fn test_context_provider_scoping() {
     with_fiber_tree_mut(|tree| {
         tree.begin_render(child_id);
     });
-    let value = use_context_v2::<String>();
+    let value = use_context::<String>();
     assert_eq!(value, "parent-value", "Child should see parent's context");
     with_fiber_tree_mut(|tree| {
         tree.end_render();
@@ -352,7 +350,7 @@ fn test_nested_context_providers_shadow() {
     with_fiber_tree_mut(|tree| {
         tree.begin_render(parent_id);
     });
-    use_context_provider_v2(|| "outer".to_string());
+    use_context_provider(|| "outer".to_string());
     with_fiber_tree_mut(|tree| {
         tree.end_render();
     });
@@ -361,8 +359,8 @@ fn test_nested_context_providers_shadow() {
     with_fiber_tree_mut(|tree| {
         tree.begin_render(child_id);
     });
-    use_context_provider_v2(|| "inner".to_string());
-    let value = use_context_v2::<String>();
+    use_context_provider(|| "inner".to_string());
+    let value = use_context::<String>();
     assert_eq!(value, "inner", "Inner provider should shadow outer");
     with_fiber_tree_mut(|tree| {
         tree.end_render();
@@ -379,7 +377,7 @@ fn test_context_cleanup_on_unmount() {
     with_fiber_tree_mut(|tree| {
         tree.begin_render(parent_id);
     });
-    use_context_provider_v2(|| "outer".to_string());
+    use_context_provider(|| "outer".to_string());
     with_fiber_tree_mut(|tree| {
         tree.end_render();
     });
@@ -388,7 +386,7 @@ fn test_context_cleanup_on_unmount() {
     with_fiber_tree_mut(|tree| {
         tree.begin_render(child_id);
     });
-    use_context_provider_v2(|| "inner".to_string());
+    use_context_provider(|| "inner".to_string());
     with_fiber_tree_mut(|tree| {
         tree.end_render();
     });
@@ -427,7 +425,7 @@ fn test_unmount_cleanup_order() {
     with_fiber_tree_mut(|tree| {
         tree.begin_render(parent_id);
     });
-    use_context_provider_v2(|| 1i32);
+    use_context_provider(|| 1i32);
     with_fiber_tree_mut(|tree| {
         tree.end_render();
     });
@@ -435,7 +433,7 @@ fn test_unmount_cleanup_order() {
     with_fiber_tree_mut(|tree| {
         tree.begin_render(child_id);
     });
-    use_context_provider_v2(|| 2i32);
+    use_context_provider(|| 2i32);
     with_fiber_tree_mut(|tree| {
         tree.end_render();
     });
@@ -477,7 +475,7 @@ fn test_effect_with_empty_deps_runs_once() {
     // First render
     {
         let count = run_count.clone();
-        use_effect_v2(
+        use_effect(
             move || {
                 count.fetch_add(1, Ordering::SeqCst);
                 Option::<fn()>::None
@@ -500,7 +498,7 @@ fn test_effect_with_empty_deps_runs_once() {
 
     {
         let count = run_count.clone();
-        use_effect_v2(
+        use_effect(
             move || {
                 count.fetch_add(1, Ordering::SeqCst);
                 Option::<fn()>::None
@@ -532,7 +530,7 @@ fn test_effect_with_changing_deps_reruns() {
     // First render with deps = (1,)
     {
         let count = run_count.clone();
-        use_effect_v2(
+        use_effect(
             move || {
                 count.fetch_add(1, Ordering::SeqCst);
                 Option::<fn()>::None
@@ -555,7 +553,7 @@ fn test_effect_with_changing_deps_reruns() {
 
     {
         let count = run_count.clone();
-        use_effect_v2(
+        use_effect(
             move || {
                 count.fetch_add(1, Ordering::SeqCst);
                 Option::<fn()>::None
@@ -587,7 +585,7 @@ fn test_effect_with_same_deps_does_not_rerun() {
     // First render with deps = (42,)
     {
         let count = run_count.clone();
-        use_effect_v2(
+        use_effect(
             move || {
                 count.fetch_add(1, Ordering::SeqCst);
                 Option::<fn()>::None
@@ -610,7 +608,7 @@ fn test_effect_with_same_deps_does_not_rerun() {
 
     {
         let count = run_count.clone();
-        use_effect_v2(
+        use_effect(
             move || {
                 count.fetch_add(1, Ordering::SeqCst);
                 Option::<fn()>::None

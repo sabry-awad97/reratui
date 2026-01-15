@@ -9,7 +9,7 @@ pub struct MessageList {
     pub theme: Theme,
 }
 
-impl ComponentV2 for MessageList {
+impl Component for MessageList {
     fn render(&self, area: Rect, buffer: &mut Buffer) {
         // Use the theme passed from the parent component
         let theme = &self.theme;

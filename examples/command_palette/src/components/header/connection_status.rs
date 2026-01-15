@@ -26,7 +26,7 @@ impl ConnectionStatusComponent {
     }
 }
 
-impl ComponentV2 for ConnectionStatusComponent {
+impl Component for ConnectionStatusComponent {
     fn render(&self, area: Rect, buffer: &mut Buffer) {
         let mut spans = Vec::new();
         self.get_spans(&mut spans);

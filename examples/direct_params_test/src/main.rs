@@ -1,6 +1,6 @@
-//! Direct Parameters Test - ComponentV2 with Direct Rendering
+//! Direct Parameters Test - Component with Direct Rendering
 //!
-//! Demonstrates using ComponentV2 trait with direct widget rendering.
+//! Demonstrates using Component trait with direct widget rendering.
 
 use reratui::prelude::*;
 
@@ -16,7 +16,7 @@ impl DirectParamsDemo {
     }
 }
 
-impl ComponentV2 for DirectParamsDemo {
+impl Component for DirectParamsDemo {
     fn render(&self, area: Rect, buffer: &mut Buffer) {
         // Handle exit
         if let Some(Event::Key(KeyEvent {
@@ -25,7 +25,7 @@ impl ComponentV2 for DirectParamsDemo {
             ..
         })) = use_event()
         {
-            request_exit_v2();
+            request_exit();
         }
 
         // Create layout
@@ -48,7 +48,7 @@ impl ComponentV2 for DirectParamsDemo {
                     .fg(Color::Cyan)
                     .add_modifier(Modifier::BOLD),
             );
-        let header = Paragraph::new("🚀 Direct Parameters + ComponentV2 Demo")
+        let header = Paragraph::new("🚀 Direct Parameters + Component Demo")
             .alignment(Alignment::Center)
             .block(header_block);
         header.render(chunks[0], buffer);
@@ -65,7 +65,7 @@ impl ComponentV2 for DirectParamsDemo {
             .borders(Borders::ALL)
             .border_style(Style::default().fg(Color::Blue));
         let left_content =
-            Paragraph::new("✅ Nested Layouts\n✅ Direct Parameters\n✅ ComponentV2 Trait")
+            Paragraph::new("✅ Nested Layouts\n✅ Direct Parameters\n✅ Component Trait")
                 .block(left_block);
         left_content.render(main_chunks[0], buffer);
 
@@ -110,6 +110,6 @@ impl ComponentV2 for DirectParamsDemo {
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    render_v2(|| DirectParamsDemo::new("✨ Direct Parameters Test ✨")).await?;
+    render(|| DirectParamsDemo::new("✨ Direct Parameters Test ✨")).await?;
     Ok(())
 }

@@ -1,7 +1,7 @@
-//! Data Fetcher Example with use_future_v2 Hook
+//! Data Fetcher Example with use_future Hook
 //!
 //! A beautiful async data fetching application demonstrating:
-//! - use_future_v2 hook for async operations
+//! - use_future hook for async operations
 //! - Elegant loading states
 //! - Multiple data sources with different loading times
 //! - Global and individual refresh functionality
@@ -11,7 +11,7 @@
 //! - Press '1-4' to refresh individual sources
 //! - Press 'q' to exit
 
-use reratui::hooks::{FutureState, use_future_v2};
+use reratui::hooks::{FutureState, use_future};
 use reratui::prelude::*;
 use std::time::Duration;
 use tokio::time::sleep;
@@ -42,14 +42,14 @@ async fn fetch_notifications() -> Result<String, String> {
 
 struct DataFetcherApp;
 
-impl ComponentV2 for DataFetcherApp {
+impl Component for DataFetcherApp {
     fn render(&self, area: Rect, buffer: &mut Buffer) {
         // Refresh triggers
-        let (refresh_count, set_refresh_count) = use_state_v2(|| 0u32);
-        let (user_refresh, set_user_refresh) = use_state_v2(|| 0u32);
-        let (weather_refresh, set_weather_refresh) = use_state_v2(|| 0u32);
-        let (stats_refresh, set_stats_refresh) = use_state_v2(|| 0u32);
-        let (notifications_refresh, set_notifications_refresh) = use_state_v2(|| 0u32);
+        let (refresh_count, set_refresh_count) = use_state(|| 0u32);
+        let (user_refresh, set_user_refresh) = use_state(|| 0u32);
+        let (weather_refresh, set_weather_refresh) = use_state(|| 0u32);
+        let (stats_refresh, set_stats_refresh) = use_state(|| 0u32);
+        let (notifications_refresh, set_notifications_refresh) = use_state(|| 0u32);
 
         // Handle keyboard events
         if let Some(Event::Key(KeyEvent {
@@ -64,17 +64,16 @@ impl ComponentV2 for DataFetcherApp {
                 KeyCode::Char('2') => set_weather_refresh.update(|c| c + 1),
                 KeyCode::Char('3') => set_stats_refresh.update(|c| c + 1),
                 KeyCode::Char('4') => set_notifications_refresh.update(|c| c + 1),
-                KeyCode::Char('q') => request_exit_v2(),
+                KeyCode::Char('q') => request_exit(),
                 _ => {}
             }
         }
 
         // Fetch data from multiple sources
-        let user_data = use_future_v2(fetch_user_data, Some((refresh_count, user_refresh)));
-        let weather_data =
-            use_future_v2(fetch_weather_data, Some((refresh_count, weather_refresh)));
-        let stats_data = use_future_v2(fetch_stats, Some((refresh_count, stats_refresh)));
-        let notifications_data = use_future_v2(
+        let user_data = use_future(fetch_user_data, Some((refresh_count, user_refresh)));
+        let weather_data = use_future(fetch_weather_data, Some((refresh_count, weather_refresh)));
+        let stats_data = use_future(fetch_stats, Some((refresh_count, stats_refresh)));
+        let notifications_data = use_future(
             fetch_notifications,
             Some((refresh_count, notifications_refresh)),
         );
@@ -140,7 +139,7 @@ fn render_data_card(
     buffer: &mut Buffer,
     area: Rect,
     title: &str,
-    handle: &reratui::hooks::FutureHandleV2<String, String>,
+    handle: &reratui::hooks::FutureHandle<String, String>,
 ) {
     let (border_color, content) = match handle.state() {
         FutureState::Idle => (Color::Gray, "⏸️  Not started".to_string()),
@@ -161,6 +160,6 @@ fn render_data_card(
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    render_v2(|| DataFetcherApp).await?;
+    render(|| DataFetcherApp).await?;
     Ok(())
 }

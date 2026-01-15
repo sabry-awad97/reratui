@@ -37,7 +37,7 @@ pub struct PendingEffect {
 /// A pending async effect to be executed after commit
 ///
 /// This type supports async effect functions that return async cleanup functions.
-/// Used by `use_async_effect_v2` for effects that need to perform async operations.
+/// Used by `use_async_effect` for effects that need to perform async operations.
 pub struct AsyncPendingEffect {
     /// The async effect function to execute
     /// Returns a future that resolves to an optional async cleanup function
@@ -414,17 +414,17 @@ fn test_hook_order_detection() {
     let mut fiber = Fiber::new(FiberId(1), None, None);
 
     // First render - establish hook order
-    fiber.track_hook_call("use_state_v2");
-    fiber.track_hook_call("use_effect_v2");
-    fiber.track_hook_call("use_state_v2");
+    fiber.track_hook_call("use_state");
+    fiber.track_hook_call("use_effect");
+    fiber.track_hook_call("use_state");
 
     // End first render
     fiber.reset_hook_index();
 
     // Second render - same order (should not warn)
-    fiber.track_hook_call("use_state_v2");
-    fiber.track_hook_call("use_effect_v2");
-    fiber.track_hook_call("use_state_v2");
+    fiber.track_hook_call("use_state");
+    fiber.track_hook_call("use_effect");
+    fiber.track_hook_call("use_state");
 
     // Check hook order - should not panic or warn
     fiber.check_hook_order();
@@ -440,16 +440,16 @@ fn test_hook_count_change_detection() {
     let mut fiber = Fiber::new(FiberId(1), None, None);
 
     // First render - 2 hooks
-    fiber.track_hook_call("use_state_v2");
-    fiber.track_hook_call("use_effect_v2");
+    fiber.track_hook_call("use_state");
+    fiber.track_hook_call("use_effect");
 
     // End first render
     fiber.reset_hook_index();
 
     // Second render - 3 hooks (different count)
-    fiber.track_hook_call("use_state_v2");
-    fiber.track_hook_call("use_effect_v2");
-    fiber.track_hook_call("use_state_v2");
+    fiber.track_hook_call("use_state");
+    fiber.track_hook_call("use_effect");
+    fiber.track_hook_call("use_state");
 
     // Check hook order - will log warning about count change
     fiber.check_hook_order();
@@ -465,20 +465,20 @@ fn test_hook_order_change_detection() {
     let mut fiber = Fiber::new(FiberId(1), None, None);
 
     // First render
-    fiber.track_hook_call("use_state_v2");
-    fiber.track_hook_call("use_effect_v2");
+    fiber.track_hook_call("use_state");
+    fiber.track_hook_call("use_effect");
 
     // End first render
     fiber.reset_hook_index();
 
     // Second render - different order
-    fiber.track_hook_call("use_effect_v2");
-    fiber.track_hook_call("use_state_v2");
+    fiber.track_hook_call("use_effect");
+    fiber.track_hook_call("use_state");
 
     // Check hook order - will log warning about order change
     fiber.check_hook_order();
 
     // Verify order changed
-    assert_eq!(fiber.previous_hook_types[0], "use_state_v2");
-    assert_eq!(fiber.current_hook_types[0], "use_effect_v2");
+    assert_eq!(fiber.previous_hook_types[0], "use_state");
+    assert_eq!(fiber.current_hook_types[0], "use_effect");
 }

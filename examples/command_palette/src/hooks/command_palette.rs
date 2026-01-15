@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
-use reratui::hooks::StateSetterV2;
-use reratui::prelude::use_state_v2;
+use reratui::hooks::StateSetter;
+use reratui::prelude::use_state;
 use std::collections::HashMap;
 
 /// A command that can be executed
@@ -26,13 +26,13 @@ impl PartialEq for Command {
 /// Manages keyboard commands and command palette UI
 pub struct CommandPalette {
     commands: HashMap<String, Command>,
-    set_commands: StateSetterV2<HashMap<String, Command>>,
+    set_commands: StateSetter<HashMap<String, Command>>,
     is_visible: bool,
-    set_is_visible: StateSetterV2<bool>,
+    set_is_visible: StateSetter<bool>,
     selected_index: usize,
-    set_selected_index: StateSetterV2<usize>,
+    set_selected_index: StateSetter<usize>,
     filter_text: String,
-    set_filter_text: StateSetterV2<String>,
+    set_filter_text: StateSetter<String>,
 }
 
 impl CommandPalette {
@@ -117,10 +117,10 @@ impl CommandPalette {
 
 /// Hook for managing keyboard commands and command palette
 pub fn use_command_palette() -> CommandPalette {
-    let (commands, set_commands) = use_state_v2(HashMap::new);
-    let (is_visible, set_is_visible) = use_state_v2(|| false);
-    let (selected_index, set_selected_index) = use_state_v2(|| 0usize);
-    let (filter_text, set_filter_text) = use_state_v2(String::new);
+    let (commands, set_commands) = use_state(HashMap::new);
+    let (is_visible, set_is_visible) = use_state(|| false);
+    let (selected_index, set_selected_index) = use_state(|| 0usize);
+    let (filter_text, set_filter_text) = use_state(String::new);
 
     CommandPalette {
         commands,

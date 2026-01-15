@@ -7,19 +7,19 @@
 //! # Example
 //!
 //! ```rust,ignore
-//! use reratui_fiber::hooks::{use_callback_v2, use_memo_v2};
+//! use reratui_fiber::hooks::{use_callback, use_memo};
 //!
 //! #[component]
 //! fn ExpensiveComponent(items: Vec<String>) -> Element {
 //!     // Memoize an expensive computation
-//!     let sorted_items = use_memo_v2(|| {
+//!     let sorted_items = use_memo(|| {
 //!         let mut sorted = items.clone();
 //!         sorted.sort();
 //!         sorted
 //!     }, Some(items.clone()));
 //!
 //!     // Memoize a callback to prevent child re-renders
-//!     let on_click = use_callback_v2(|id: usize| {
+//!     let on_click = use_callback(|id: usize| {
 //!         println!("Clicked item {}", id);
 //!     }, None::<()>); // Empty deps = stable callback
 //!
@@ -97,19 +97,19 @@ impl<T: Clone, Deps: Clone> Clone for MemoStorage<T, Deps> {
 /// # Example
 ///
 /// ```rust,ignore
-/// use reratui_fiber::hooks::use_callback_v2;
+/// use reratui_fiber::hooks::use_callback;
 ///
 /// #[component]
 /// fn Parent() -> Element {
-///     let (count, set_count) = use_state_v2(|| 0);
+///     let (count, set_count) = use_state(|| 0);
 ///
 ///     // Callback that depends on count - recreated when count changes
-///     let log_count = use_callback_v2(move |_: ()| {
+///     let log_count = use_callback(move |_: ()| {
 ///         println!("Count is: {}", count);
 ///     }, Some(count));
 ///
 ///     // Stable callback - never recreated
-///     let on_reset = use_callback_v2(move |_: ()| {
+///     let on_reset = use_callback(move |_: ()| {
 ///         set_count.set(0);
 ///     }, None::<()>);
 ///
@@ -123,7 +123,7 @@ impl<T: Clone, Deps: Clone> Clone for MemoStorage<T, Deps> {
 /// # Panics
 ///
 /// Panics if called outside of a component render context (no current fiber).
-pub fn use_callback_v2<F, Deps>(callback: F, deps: Option<Deps>) -> Arc<F>
+pub fn use_callback<F, Deps>(callback: F, deps: Option<Deps>) -> Arc<F>
 where
     F: Clone + Send + Sync + 'static,
     Deps: Clone + PartialEq + Send + 'static,
@@ -162,7 +162,7 @@ where
 
         storage.callback
     })
-    .expect("use_callback_v2 must be called within a component render context")
+    .expect("use_callback must be called within a component render context")
 }
 
 /// React-style useMemo for memoizing computed values.
@@ -191,12 +191,12 @@ where
 /// # Example
 ///
 /// ```rust,ignore
-/// use reratui_fiber::hooks::use_memo_v2;
+/// use reratui_fiber::hooks::use_memo;
 ///
 /// #[component]
 /// fn FilteredList(items: Vec<Item>, filter: String) -> Element {
 ///     // Only recompute when items or filter change
-///     let filtered = use_memo_v2(|| {
+///     let filtered = use_memo(|| {
 ///         items.iter()
 ///             .filter(|item| item.name.contains(&filter))
 ///             .cloned()
@@ -212,7 +212,7 @@ where
 /// # Panics
 ///
 /// Panics if called outside of a component render context (no current fiber).
-pub fn use_memo_v2<T, Deps, F>(compute: F, deps: Option<Deps>) -> T
+pub fn use_memo<T, Deps, F>(compute: F, deps: Option<Deps>) -> T
 where
     T: Clone + Send + 'static,
     Deps: Clone + PartialEq + Send + 'static,
@@ -252,7 +252,7 @@ where
 
         storage.value
     })
-    .expect("use_memo_v2 must be called within a component render context")
+    .expect("use_memo must be called within a component render context")
 }
 
 #[cfg(test)]
@@ -273,20 +273,20 @@ mod tests {
         clear_fiber_tree();
     }
 
-    // ==================== use_callback_v2 tests ====================
+    // ==================== use_callback tests ====================
 
     #[test]
-    fn test_use_callback_v2_basic() {
+    fn test_use_callback_basic() {
         let _fiber_id = setup_test_fiber();
 
-        let callback = use_callback_v2(|x: i32| x * 2, None::<()>);
+        let callback = use_callback(|x: i32| x * 2, None::<()>);
         assert_eq!(callback(5), 10);
 
         cleanup_test();
     }
 
     #[test]
-    fn test_use_callback_v2_stable_with_none_deps() {
+    fn test_use_callback_stable_with_none_deps() {
         let fiber_id = setup_test_fiber();
 
         // Use a named function to ensure same type across renders
@@ -295,7 +295,7 @@ mod tests {
         }
 
         // First render
-        let callback1 = use_callback_v2(add_one, None::<()>);
+        let callback1 = use_callback(add_one, None::<()>);
         let ptr1 = Arc::as_ptr(&callback1);
 
         // Simulate re-render
@@ -305,7 +305,7 @@ mod tests {
         });
 
         // Second render with same function type (but None deps = stable)
-        let callback2 = use_callback_v2(add_one, None::<()>);
+        let callback2 = use_callback(add_one, None::<()>);
         let ptr2 = Arc::as_ptr(&callback2);
 
         // Should be pointer-equal (stable)
@@ -318,7 +318,7 @@ mod tests {
     }
 
     #[test]
-    fn test_use_callback_v2_recreated_on_dep_change() {
+    fn test_use_callback_recreated_on_dep_change() {
         let fiber_id = setup_test_fiber();
 
         fn multiply(x: i32) -> i32 {
@@ -326,7 +326,7 @@ mod tests {
         }
 
         // First render with dep = 1
-        let callback1 = use_callback_v2(multiply, Some(1));
+        let callback1 = use_callback(multiply, Some(1));
         let ptr1 = Arc::as_ptr(&callback1);
 
         // Simulate re-render
@@ -336,7 +336,7 @@ mod tests {
         });
 
         // Second render with dep = 2 (changed)
-        let callback2 = use_callback_v2(multiply, Some(2));
+        let callback2 = use_callback(multiply, Some(2));
         let ptr2 = Arc::as_ptr(&callback2);
 
         // Should NOT be pointer-equal (deps changed)
@@ -346,7 +346,7 @@ mod tests {
     }
 
     #[test]
-    fn test_use_callback_v2_stable_with_same_deps() {
+    fn test_use_callback_stable_with_same_deps() {
         let fiber_id = setup_test_fiber();
 
         fn double(x: i32) -> i32 {
@@ -354,7 +354,7 @@ mod tests {
         }
 
         // First render with dep = 42
-        let callback1 = use_callback_v2(double, Some(42));
+        let callback1 = use_callback(double, Some(42));
         let ptr1 = Arc::as_ptr(&callback1);
 
         // Simulate re-render
@@ -364,7 +364,7 @@ mod tests {
         });
 
         // Second render with same dep = 42
-        let callback2 = use_callback_v2(double, Some(42));
+        let callback2 = use_callback(double, Some(42));
         let ptr2 = Arc::as_ptr(&callback2);
 
         // Should be pointer-equal (deps unchanged)
@@ -377,7 +377,7 @@ mod tests {
     }
 
     #[test]
-    fn test_use_callback_v2_with_tuple_deps() {
+    fn test_use_callback_with_tuple_deps() {
         let fiber_id = setup_test_fiber();
 
         fn noop(_: ()) -> i32 {
@@ -385,7 +385,7 @@ mod tests {
         }
 
         // First render
-        let callback1 = use_callback_v2(noop, Some((1, "hello")));
+        let callback1 = use_callback(noop, Some((1, "hello")));
         let ptr1 = Arc::as_ptr(&callback1);
 
         // Re-render with same deps
@@ -394,7 +394,7 @@ mod tests {
             tree.begin_render(fiber_id);
         });
 
-        let callback2 = use_callback_v2(noop, Some((1, "hello")));
+        let callback2 = use_callback(noop, Some((1, "hello")));
         let ptr2 = Arc::as_ptr(&callback2);
 
         assert_eq!(ptr1, ptr2, "Same tuple deps should be stable");
@@ -405,7 +405,7 @@ mod tests {
             tree.begin_render(fiber_id);
         });
 
-        let callback3 = use_callback_v2(noop, Some((2, "hello")));
+        let callback3 = use_callback(noop, Some((2, "hello")));
         let ptr3 = Arc::as_ptr(&callback3);
 
         assert_ne!(ptr2, ptr3, "Different tuple deps should recreate");
@@ -417,9 +417,9 @@ mod tests {
     fn test_multiple_callbacks() {
         let _fiber_id = setup_test_fiber();
 
-        let cb1 = use_callback_v2(|x: i32| x + 1, None::<()>);
-        let cb2 = use_callback_v2(|x: i32| x * 2, None::<()>);
-        let cb3 = use_callback_v2(|s: &str| s.len(), None::<()>);
+        let cb1 = use_callback(|x: i32| x + 1, None::<()>);
+        let cb2 = use_callback(|x: i32| x * 2, None::<()>);
+        let cb3 = use_callback(|s: &str| s.len(), None::<()>);
 
         assert_eq!(cb1(5), 6);
         assert_eq!(cb2(5), 10);
@@ -429,26 +429,26 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(expected = "use_callback_v2 must be called within a component render context")]
-    fn test_use_callback_v2_panics_outside_render() {
+    #[should_panic(expected = "use_callback must be called within a component render context")]
+    fn test_use_callback_panics_outside_render() {
         clear_fiber_tree();
-        let _ = use_callback_v2(|_: ()| {}, None::<()>);
+        let _ = use_callback(|_: ()| {}, None::<()>);
     }
 
-    // ==================== use_memo_v2 tests ====================
+    // ==================== use_memo tests ====================
 
     #[test]
-    fn test_use_memo_v2_basic() {
+    fn test_use_memo_basic() {
         let _fiber_id = setup_test_fiber();
 
-        let value = use_memo_v2(|| 42, None::<()>);
+        let value = use_memo(|| 42, None::<()>);
         assert_eq!(value, 42);
 
         cleanup_test();
     }
 
     #[test]
-    fn test_use_memo_v2_stable_with_none_deps() {
+    fn test_use_memo_stable_with_none_deps() {
         let fiber_id = setup_test_fiber();
 
         use std::sync::atomic::{AtomicUsize, Ordering};
@@ -456,7 +456,7 @@ mod tests {
 
         // First render
         let cc1 = compute_count.clone();
-        let value1 = use_memo_v2(
+        let value1 = use_memo(
             move || {
                 cc1.fetch_add(1, Ordering::SeqCst);
                 100
@@ -475,7 +475,7 @@ mod tests {
 
         // Second render - should NOT recompute
         let cc2 = compute_count.clone();
-        let value2 = use_memo_v2(
+        let value2 = use_memo(
             move || {
                 cc2.fetch_add(1, Ordering::SeqCst);
                 200
@@ -490,11 +490,11 @@ mod tests {
     }
 
     #[test]
-    fn test_use_memo_v2_recomputes_on_dep_change() {
+    fn test_use_memo_recomputes_on_dep_change() {
         let fiber_id = setup_test_fiber();
 
         // First render with dep = 1
-        let value1 = use_memo_v2(|| "first", Some(1));
+        let value1 = use_memo(|| "first", Some(1));
         assert_eq!(value1, "first");
 
         // Simulate re-render
@@ -504,18 +504,18 @@ mod tests {
         });
 
         // Second render with dep = 2 (changed)
-        let value2 = use_memo_v2(|| "second", Some(2));
+        let value2 = use_memo(|| "second", Some(2));
         assert_eq!(value2, "second"); // Recomputed
 
         cleanup_test();
     }
 
     #[test]
-    fn test_use_memo_v2_stable_with_same_deps() {
+    fn test_use_memo_stable_with_same_deps() {
         let fiber_id = setup_test_fiber();
 
         // First render
-        let _value1 = use_memo_v2(|| vec![1, 2, 3], Some("key"));
+        let _value1 = use_memo(|| vec![1, 2, 3], Some("key"));
 
         // Simulate re-render
         crate::fiber_tree::with_fiber_tree_mut(|tree| {
@@ -524,7 +524,7 @@ mod tests {
         });
 
         // Second render with same deps
-        let value2 = use_memo_v2(|| vec![4, 5, 6], Some("key"));
+        let value2 = use_memo(|| vec![4, 5, 6], Some("key"));
 
         // Should return cached value
         assert_eq!(value2, vec![1, 2, 3]);
@@ -533,9 +533,9 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(expected = "use_memo_v2 must be called within a component render context")]
-    fn test_use_memo_v2_panics_outside_render() {
+    #[should_panic(expected = "use_memo must be called within a component render context")]
+    fn test_use_memo_panics_outside_render() {
         clear_fiber_tree();
-        let _ = use_memo_v2(|| 42, None::<()>);
+        let _ = use_memo(|| 42, None::<()>);
     }
 }

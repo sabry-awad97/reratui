@@ -411,7 +411,7 @@ mod property_tests {
         /// **Property 11: Context Stack Shadowing**
         /// **Validates: Requirements 6.3, 6.5**
         ///
-        /// For any nested context providers of the same type, use_context_v2 SHALL
+        /// For any nested context providers of the same type, use_context SHALL
         /// return the value from the innermost (most recently pushed) provider.
         #[test]
         fn prop_context_stack_shadowing(

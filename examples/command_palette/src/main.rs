@@ -13,6 +13,6 @@ use app::CommandPaletteApp;
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Create app with CommandPaletteApp component
-    render_v2(|| CommandPaletteApp::new("✨ Enhanced Command Palette Demo ✨")).await?;
+    render(|| CommandPaletteApp::new("✨ Enhanced Command Palette Demo ✨")).await?;
     Ok(())
 }

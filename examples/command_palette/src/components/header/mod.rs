@@ -28,7 +28,7 @@ pub struct Header {
     pub marquee_text: String,
 }
 
-impl ComponentV2 for Header {
+impl Component for Header {
     fn render(&self, area: Rect, buffer: &mut Buffer) {
         // Create layout for header with menu bar, status icons, title, and marquee
         let main_chunks = Layout::default()
@@ -49,7 +49,7 @@ impl ComponentV2 for Header {
             match action {
                 MenuAction::Exit => {
                     // Handle exit action
-                    request_exit_v2();
+                    request_exit();
                 }
                 MenuAction::Custom(action_name) => {
                     // Handle custom actions
@@ -104,7 +104,7 @@ struct LeftHeaderComponent {
     theme: Theme,
 }
 
-impl ComponentV2 for LeftHeaderComponent {
+impl Component for LeftHeaderComponent {
     fn render(&self, area: Rect, buffer: &mut Buffer) {
         // Get the rendered content from both components
         let mut system_info_spans = Vec::new();

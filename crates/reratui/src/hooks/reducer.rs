@@ -1,12 +1,12 @@
 //! Reducer hook for complex state management with actions.
 //!
-//! This module provides React-like `use_reducer_v2` hook with proper fiber-based semantics.
+//! This module provides React-like `use_reducer` hook with proper fiber-based semantics.
 //! Multiple dispatches within the same event handler are batched into a single re-render.
 //!
 //! # Example
 //!
 //! ```rust,ignore
-//! use reratui_fiber::hooks::use_reducer_v2;
+//! use reratui_fiber::hooks::use_reducer;
 //!
 //! #[derive(Clone)]
 //! enum Action {
@@ -25,7 +25,7 @@
 //!
 //! #[component]
 //! fn Counter() -> Element {
-//!     let (count, dispatch) = use_reducer_v2(reducer, 0);
+//!     let (count, dispatch) = use_reducer(reducer, 0);
 //!
 //!     // Multiple dispatches are batched - only ONE re-render
 //!     let increment_by_3 = move |_| {
@@ -75,30 +75,30 @@ struct ReducerFnWrapper<S, A>(ReducerFn<S, A>);
 
 /// Dispatch function for sending actions to the reducer.
 ///
-/// This struct is returned by `use_reducer_v2` and provides the `dispatch` method
+/// This struct is returned by `use_reducer` and provides the `dispatch` method
 /// to send actions. Dispatches are queued and batched, not applied immediately.
 ///
 /// # Stability
 ///
-/// The `DispatchV2` struct is stable across renders - the same instance is returned
+/// The `Dispatch` struct is stable across renders - the same instance is returned
 /// on each render, making it safe to use in dependency arrays and callbacks.
-pub struct DispatchV2<S, A> {
+pub struct Dispatch<S, A> {
     pub(crate) fiber_id: FiberId,
     pub(crate) hook_index: usize,
     pub(crate) reducer: ReducerFn<S, A>,
     pub(crate) _marker: PhantomData<(S, A)>,
 }
 
-impl<S, A> fmt::Debug for DispatchV2<S, A> {
+impl<S, A> fmt::Debug for Dispatch<S, A> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("DispatchV2")
+        f.debug_struct("Dispatch")
             .field("fiber_id", &self.fiber_id)
             .field("hook_index", &self.hook_index)
             .finish_non_exhaustive()
     }
 }
 
-impl<S, A> Clone for DispatchV2<S, A> {
+impl<S, A> Clone for Dispatch<S, A> {
     fn clone(&self) -> Self {
         Self {
             fiber_id: self.fiber_id,
@@ -109,7 +109,7 @@ impl<S, A> Clone for DispatchV2<S, A> {
     }
 }
 
-impl<S: Clone + Send + 'static, A: Send + 'static> DispatchV2<S, A> {
+impl<S: Clone + Send + 'static, A: Send + 'static> Dispatch<S, A> {
     /// Dispatch an action to the reducer (queued for batching).
     ///
     /// The action is processed by the reducer function to compute the new state.
@@ -119,7 +119,7 @@ impl<S: Clone + Send + 'static, A: Send + 'static> DispatchV2<S, A> {
     /// # Example
     ///
     /// ```rust,ignore
-    /// let (count, dispatch) = use_reducer_v2(reducer, 0);
+    /// let (count, dispatch) = use_reducer(reducer, 0);
     ///
     /// // These are batched into a single re-render
     /// dispatch.dispatch(Action::Increment);
@@ -165,12 +165,12 @@ impl<S: Clone + Send + 'static, A: Send + 'static> DispatchV2<S, A> {
 ///
 /// A tuple of `(current_state, dispatch)` where:
 /// - `current_state` is the current state value (cloned)
-/// - `dispatch` is a `DispatchV2` that can be used to send actions
+/// - `dispatch` is a `Dispatch` that can be used to send actions
 ///
 /// # Example
 ///
 /// ```rust,ignore
-/// use reratui_fiber::hooks::use_reducer_v2;
+/// use reratui_fiber::hooks::use_reducer;
 ///
 /// #[derive(Clone)]
 /// enum Action {
@@ -189,7 +189,7 @@ impl<S: Clone + Send + 'static, A: Send + 'static> DispatchV2<S, A> {
 ///
 /// #[component]
 /// fn Counter() -> Element {
-///     let (count, dispatch) = use_reducer_v2(reducer, 0);
+///     let (count, dispatch) = use_reducer(reducer, 0);
 ///
 ///     let increment = {
 ///         let dispatch = dispatch.clone();
@@ -208,7 +208,7 @@ impl<S: Clone + Send + 'static, A: Send + 'static> DispatchV2<S, A> {
 /// # Panics
 ///
 /// Panics if called outside of a component render context (no current fiber).
-pub fn use_reducer_v2<S, A, R>(reducer: R, initial_state: S) -> (S, DispatchV2<S, A>)
+pub fn use_reducer<S, A, R>(reducer: R, initial_state: S) -> (S, Dispatch<S, A>)
 where
     S: Clone + Send + 'static,
     A: Send + 'static,
@@ -237,7 +237,7 @@ where
         let state_hook_index = fiber.next_hook_index();
         let state = fiber.get_or_init_hook(state_hook_index, || initial_state);
 
-        let dispatch = DispatchV2 {
+        let dispatch = Dispatch {
             fiber_id: fiber.id,
             hook_index: state_hook_index,
             reducer: reducer_fn,
@@ -246,7 +246,7 @@ where
 
         (state, dispatch)
     })
-    .expect("use_reducer_v2 must be called within a component render context")
+    .expect("use_reducer must be called within a component render context")
 }
 
 #[cfg(test)]
@@ -281,21 +281,21 @@ mod tests {
     }
 
     #[test]
-    fn test_use_reducer_v2_initial_value() {
+    fn test_use_reducer_initial_value() {
         let _fiber_id = setup_test_fiber();
 
-        let (state, _dispatch) = use_reducer_v2(test_reducer, 42);
+        let (state, _dispatch) = use_reducer(test_reducer, 42);
         assert_eq!(state, 42);
 
         cleanup_test();
     }
 
     #[test]
-    fn test_use_reducer_v2_returns_same_value_on_rerender() {
+    fn test_use_reducer_returns_same_value_on_rerender() {
         let fiber_id = setup_test_fiber();
 
         // First render
-        let (state1, _dispatch1) = use_reducer_v2(test_reducer, 100);
+        let (state1, _dispatch1) = use_reducer(test_reducer, 100);
         assert_eq!(state1, 100);
 
         // Simulate re-render by resetting hook index
@@ -305,7 +305,7 @@ mod tests {
         });
 
         // Second render - should return same value, not call initializer again
-        let (state2, _dispatch2) = use_reducer_v2(test_reducer, 999);
+        let (state2, _dispatch2) = use_reducer(test_reducer, 999);
         assert_eq!(state2, 100); // Still 100, not 999
 
         cleanup_test();
@@ -315,7 +315,7 @@ mod tests {
     fn test_dispatch_queues_update() {
         let fiber_id = setup_test_fiber();
 
-        let (_state, dispatch) = use_reducer_v2(test_reducer, 0);
+        let (_state, dispatch) = use_reducer(test_reducer, 0);
 
         // Dispatch should queue an update
         dispatch.dispatch(TestAction::Increment);
@@ -338,7 +338,7 @@ mod tests {
         let fiber_id = setup_test_fiber();
 
         // Initialize reducer
-        let (_state, dispatch) = use_reducer_v2(test_reducer, 10);
+        let (_state, dispatch) = use_reducer(test_reducer, 10);
 
         // Dispatch an action
         dispatch.dispatch(TestAction::Add(5));
@@ -366,7 +366,7 @@ mod tests {
         let fiber_id = setup_test_fiber();
 
         // Initialize reducer
-        let (_state, dispatch) = use_reducer_v2(test_reducer, 0);
+        let (_state, dispatch) = use_reducer(test_reducer, 0);
 
         // Queue multiple dispatches
         dispatch.dispatch(TestAction::Increment);
@@ -398,9 +398,9 @@ mod tests {
     fn test_dispatch_is_clone() {
         let _fiber_id = setup_test_fiber();
 
-        let (_state, dispatch) = use_reducer_v2(test_reducer, 0);
+        let (_state, dispatch) = use_reducer(test_reducer, 0);
 
-        // DispatchV2 should be Clone
+        // Dispatch should be Clone
         let dispatch_clone = dispatch.clone();
         let _dispatch_clone2 = dispatch_clone.clone();
 
@@ -412,7 +412,7 @@ mod tests {
         let fiber_id = setup_test_fiber();
 
         // First render
-        let (_state1, dispatch1) = use_reducer_v2(test_reducer, 0);
+        let (_state1, dispatch1) = use_reducer(test_reducer, 0);
         let dispatch1_fiber_id = dispatch1.fiber_id;
         let dispatch1_hook_index = dispatch1.hook_index;
 
@@ -423,7 +423,7 @@ mod tests {
         });
 
         // Second render
-        let (_state2, dispatch2) = use_reducer_v2(test_reducer, 999);
+        let (_state2, dispatch2) = use_reducer(test_reducer, 999);
 
         // Dispatch should have same fiber_id and hook_index (stable reference)
         assert_eq!(dispatch1_fiber_id, dispatch2.fiber_id);
@@ -440,8 +440,8 @@ mod tests {
             format!("{}{}", state, action)
         }
 
-        let (count, _dispatch_count) = use_reducer_v2(test_reducer, 0);
-        let (text, _dispatch_text) = use_reducer_v2(string_reducer, String::new());
+        let (count, _dispatch_count) = use_reducer(test_reducer, 0);
+        let (text, _dispatch_text) = use_reducer(string_reducer, String::new());
 
         assert_eq!(count, 0);
         assert_eq!(text, "");
@@ -450,14 +450,14 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(expected = "use_reducer_v2 must be called within a component render context")]
-    fn test_use_reducer_v2_panics_outside_render() {
+    #[should_panic(expected = "use_reducer must be called within a component render context")]
+    fn test_use_reducer_panics_outside_render() {
         // Clear any existing fiber tree
         clear_fiber_tree();
         crate::scheduler::batch::clear_state_batch();
 
         // This should panic because there's no current fiber
-        let _ = use_reducer_v2(test_reducer, 0);
+        let _ = use_reducer(test_reducer, 0);
     }
 
     #[test]
@@ -493,7 +493,7 @@ mod tests {
             count: 0,
         };
 
-        let (_state, dispatch) = use_reducer_v2(todo_reducer, initial);
+        let (_state, dispatch) = use_reducer(todo_reducer, initial);
 
         // Add some todos
         dispatch.dispatch(TodoAction::Add("Task 1".to_string()));
@@ -573,7 +573,7 @@ mod property_tests {
             let fiber_id = setup_test_fiber();
 
             // Initialize reducer
-            let (_state, dispatch) = use_reducer_v2(counter_reducer, initial_state);
+            let (_state, dispatch) = use_reducer(counter_reducer, initial_state);
 
             // Dispatch all actions
             for action in &actions {
@@ -627,7 +627,7 @@ mod property_tests {
 
             let fiber_id = setup_test_fiber();
 
-            let (_state, dispatch) = use_reducer_v2(counter_reducer, initial_state);
+            let (_state, dispatch) = use_reducer(counter_reducer, initial_state);
 
             // Dispatch all operations
             for op in &operations {
@@ -676,7 +676,7 @@ mod property_tests {
 
             let fiber_id = setup_test_fiber();
 
-            let (_state, dispatch) = use_reducer_v2(counter_reducer, initial_state);
+            let (_state, dispatch) = use_reducer(counter_reducer, initial_state);
 
             // Dispatch multiple actions
             for i in 0..num_dispatches {
@@ -736,8 +736,8 @@ mod property_tests {
             let fiber_id = setup_test_fiber();
 
             // Create two reducers
-            let (_state1, dispatch1) = use_reducer_v2(counter_reducer, initial1);
-            let (_state2, dispatch2) = use_reducer_v2(counter_reducer, initial2);
+            let (_state1, dispatch1) = use_reducer(counter_reducer, initial1);
+            let (_state2, dispatch2) = use_reducer(counter_reducer, initial2);
 
             // Dispatch to both
             for action in &actions1 {
@@ -787,7 +787,7 @@ mod property_tests {
         // **Property 5: Dispatch function stability**
         // **Validates: Requirements 2.4**
         //
-        // For any component using `use_reducer_v2`, the dispatch function
+        // For any component using `use_reducer`, the dispatch function
         // reference SHALL be pointer-equal across renders.
         // ============================================================
 
@@ -802,7 +802,7 @@ mod property_tests {
             let fiber_id = setup_test_fiber();
 
             // First render
-            let (_state1, dispatch1) = use_reducer_v2(counter_reducer, initial_state);
+            let (_state1, dispatch1) = use_reducer(counter_reducer, initial_state);
             let dispatch1_fiber_id = dispatch1.fiber_id;
             let dispatch1_hook_index = dispatch1.hook_index;
 
@@ -814,7 +814,7 @@ mod property_tests {
                 });
 
                 // Get dispatch again
-                let (_state, dispatch) = use_reducer_v2(counter_reducer, 999999);
+                let (_state, dispatch) = use_reducer(counter_reducer, 999999);
 
                 // Property: Dispatch should have same fiber_id and hook_index (stable reference)
                 prop_assert_eq!(
@@ -846,7 +846,7 @@ mod property_tests {
             let fiber_id = setup_test_fiber();
 
             // First render
-            let (_state, dispatch) = use_reducer_v2(counter_reducer, initial_state);
+            let (_state, dispatch) = use_reducer(counter_reducer, initial_state);
 
             // Dispatch some actions
             for action in &actions_before {
@@ -870,7 +870,7 @@ mod property_tests {
             });
 
             // Get new dispatch (should work with updated state)
-            let (state_after_rerender, dispatch_after) = use_reducer_v2(counter_reducer, 999999);
+            let (state_after_rerender, dispatch_after) = use_reducer(counter_reducer, 999999);
 
             // State should reflect previous dispatches
             prop_assert_eq!(

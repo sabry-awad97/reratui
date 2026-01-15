@@ -6,23 +6,23 @@
 //! # Example
 //!
 //! ```rust,ignore
-//! use reratui_fiber::hooks::{use_keyboard_v2, use_keyboard_press_v2, use_keyboard_shortcut_v2};
+//! use reratui_fiber::hooks::{use_keyboard, use_keyboard_press, use_keyboard_shortcut};
 //! use crossterm::event::{KeyCode, KeyModifiers};
 //!
 //! #[component]
 //! fn MyComponent() -> Element {
 //!     // Handle all keyboard events
-//!     use_keyboard_v2(|key_event| {
+//!     use_keyboard(|key_event| {
 //!         println!("Key: {:?}", key_event.code);
 //!     });
 //!
 //!     // Handle only key press events (not release/repeat)
-//!     use_keyboard_press_v2(|key_event| {
+//!     use_keyboard_press(|key_event| {
 //!         println!("Key pressed: {:?}", key_event.code);
 //!     });
 //!
 //!     // Handle specific keyboard shortcuts
-//!     use_keyboard_shortcut_v2(KeyCode::Char('s'), KeyModifiers::CONTROL, || {
+//!     use_keyboard_shortcut(KeyCode::Char('s'), KeyModifiers::CONTROL, || {
 //!         println!("Ctrl+S pressed - Save!");
 //!     });
 //!
@@ -32,12 +32,12 @@
 
 use crossterm::event::{Event, KeyCode, KeyEvent, KeyModifiers};
 
-use super::effect_event::use_effect_event_v2;
+use super::effect_event::use_effect_event;
 use super::event::use_event;
 
 /// A hook that handles keyboard events with a stable callback.
 ///
-/// This hook uses `use_effect_event_v2` internally to ensure the callback always
+/// This hook uses `use_effect_event` internally to ensure the callback always
 /// sees the latest captured values while maintaining a stable identity.
 ///
 /// # Type Parameters
@@ -51,13 +51,13 @@ use super::event::use_event;
 /// # Examples
 ///
 /// ```rust,ignore
-/// use reratui_fiber::hooks::use_keyboard_v2;
-/// use reratui_fiber::hooks::use_state_v2;
+/// use reratui_fiber::hooks::use_keyboard;
+/// use reratui_fiber::hooks::use_state;
 ///
 /// // Track key press count
-/// let (count, set_count) = use_state_v2(|| 0);
+/// let (count, set_count) = use_state(|| 0);
 ///
-/// use_keyboard_v2(move |key_event| {
+/// use_keyboard(move |key_event| {
 ///     println!("Key pressed: {:?}", key_event);
 ///     set_count.update(|c| c + 1);
 /// });
@@ -69,12 +69,12 @@ use super::event::use_event;
 /// - Each key event is only processed once per component
 /// - The callback has a stable identity across renders
 /// - Only keyboard events trigger the callback (mouse, resize, etc. are ignored)
-pub fn use_keyboard_v2<F>(handler: F)
+pub fn use_keyboard<F>(handler: F)
 where
     F: Fn(KeyEvent) + Send + Sync + 'static,
 {
     // Create a stable callback using effect event pattern
-    let stable_handler = use_effect_event_v2(move |key_event: KeyEvent| {
+    let stable_handler = use_effect_event(move |key_event: KeyEvent| {
         handler(key_event);
     });
 
@@ -87,7 +87,7 @@ where
 
 /// A hook that handles keyboard press events only (filters out release events).
 ///
-/// This is a convenience wrapper around `use_keyboard_v2` that only triggers the callback
+/// This is a convenience wrapper around `use_keyboard` that only triggers the callback
 /// when a key is pressed down, ignoring key release and repeat events.
 ///
 /// # Type Parameters
@@ -101,13 +101,13 @@ where
 /// # Examples
 ///
 /// ```rust,ignore
-/// use reratui_fiber::hooks::use_keyboard_press_v2;
-/// use reratui_fiber::hooks::use_state_v2;
+/// use reratui_fiber::hooks::use_keyboard_press;
+/// use reratui_fiber::hooks::use_state;
 ///
 /// // Only track actual key presses, not releases
-/// let (count, set_count) = use_state_v2(|| 0);
+/// let (count, set_count) = use_state(|| 0);
 ///
-/// use_keyboard_press_v2(move |key_event| {
+/// use_keyboard_press(move |key_event| {
 ///     println!("Key pressed: {:?}", key_event.code);
 ///     set_count.update(|c| c + 1);
 /// });
@@ -119,11 +119,11 @@ where
 /// - Filters out `KeyEventKind::Release` and `KeyEventKind::Repeat`
 /// - The callback always sees the latest state values (via effect event pattern)
 /// - The callback has a stable identity across renders
-pub fn use_keyboard_press_v2<F>(handler: F)
+pub fn use_keyboard_press<F>(handler: F)
 where
     F: Fn(KeyEvent) + Send + Sync + 'static,
 {
-    use_keyboard_v2(move |key_event| {
+    use_keyboard(move |key_event| {
         // Only handle press events, ignore release and repeat
         if key_event.is_press() {
             handler(key_event);
@@ -149,13 +149,13 @@ where
 /// # Examples
 ///
 /// ```rust,ignore
-/// use reratui_fiber::hooks::use_keyboard_shortcut_v2;
-/// use reratui_fiber::hooks::use_state_v2;
+/// use reratui_fiber::hooks::use_keyboard_shortcut;
+/// use reratui_fiber::hooks::use_state;
 /// use crossterm::event::{KeyCode, KeyModifiers};
 ///
 /// // Ctrl+S to save
-/// let (saved, set_saved) = use_state_v2(|| false);
-/// use_keyboard_shortcut_v2(KeyCode::Char('s'), KeyModifiers::CONTROL, {
+/// let (saved, set_saved) = use_state(|| false);
+/// use_keyboard_shortcut(KeyCode::Char('s'), KeyModifiers::CONTROL, {
 ///     let set_saved = set_saved.clone();
 ///     move || {
 ///         println!("Save triggered!");
@@ -164,17 +164,17 @@ where
 /// });
 ///
 /// // Alt+Q to quit
-/// use_keyboard_shortcut_v2(KeyCode::Char('q'), KeyModifiers::ALT, || {
+/// use_keyboard_shortcut(KeyCode::Char('q'), KeyModifiers::ALT, || {
 ///     println!("Quit triggered!");
 /// });
 ///
 /// // No modifiers - just Enter
-/// use_keyboard_shortcut_v2(KeyCode::Enter, KeyModifiers::NONE, || {
+/// use_keyboard_shortcut(KeyCode::Enter, KeyModifiers::NONE, || {
 ///     println!("Enter pressed!");
 /// });
 ///
 /// // Ctrl+Shift+P for command palette
-/// use_keyboard_shortcut_v2(
+/// use_keyboard_shortcut(
 ///     KeyCode::Char('p'),
 ///     KeyModifiers::CONTROL | KeyModifiers::SHIFT,
 ///     || {
@@ -186,15 +186,15 @@ where
 /// # Note
 ///
 /// - Only triggers on exact matches of key code AND modifiers
-/// - Uses `use_keyboard_press_v2` internally (only press events, no release/repeat)
+/// - Uses `use_keyboard_press` internally (only press events, no release/repeat)
 /// - The callback always sees the latest state values (via effect event pattern)
 /// - The callback has a stable identity across renders
 /// - For multiple modifiers, use bitwise OR: `KeyModifiers::CONTROL | KeyModifiers::SHIFT`
-pub fn use_keyboard_shortcut_v2<F>(key_code: KeyCode, modifiers: KeyModifiers, handler: F)
+pub fn use_keyboard_shortcut<F>(key_code: KeyCode, modifiers: KeyModifiers, handler: F)
 where
     F: Fn() + Send + Sync + 'static,
 {
-    use_keyboard_press_v2(move |key_event| {
+    use_keyboard_press(move |key_event| {
         // Check if both key code and modifiers match
         if key_event.code == key_code && key_event.modifiers == modifiers {
             handler();
@@ -246,7 +246,7 @@ mod tests {
     }
 
     #[test]
-    fn test_use_keyboard_v2_receives_key_event() {
+    fn test_use_keyboard_receives_key_event() {
         let _lock = TEST_MUTEX.lock();
         cleanup_test();
         let _fiber_id = setup_test_fiber();
@@ -259,7 +259,7 @@ mod tests {
         set_current_event(Some(Arc::new(event)));
 
         // Use the keyboard hook
-        use_keyboard_v2(move |key_event| {
+        use_keyboard(move |key_event| {
             assert_eq!(key_event.code, KeyCode::Char('a'));
             call_count_clone.fetch_add(1, Ordering::SeqCst);
         });
@@ -270,7 +270,7 @@ mod tests {
     }
 
     #[test]
-    fn test_use_keyboard_v2_ignores_non_key_events() {
+    fn test_use_keyboard_ignores_non_key_events() {
         let _lock = TEST_MUTEX.lock();
         cleanup_test();
         let _fiber_id = setup_test_fiber();
@@ -288,7 +288,7 @@ mod tests {
         set_current_event(Some(Arc::new(event)));
 
         // Use the keyboard hook
-        use_keyboard_v2(move |_key_event| {
+        use_keyboard(move |_key_event| {
             call_count_clone.fetch_add(1, Ordering::SeqCst);
         });
 
@@ -299,7 +299,7 @@ mod tests {
     }
 
     #[test]
-    fn test_use_keyboard_press_v2_only_handles_press() {
+    fn test_use_keyboard_press_only_handles_press() {
         let _lock = TEST_MUTEX.lock();
         cleanup_test();
         let fiber_id = setup_test_fiber();
@@ -312,7 +312,7 @@ mod tests {
         set_current_event(Some(Arc::new(press_event)));
 
         let call_count_clone = call_count.clone();
-        use_keyboard_press_v2(move |_| {
+        use_keyboard_press(move |_| {
             call_count_clone.fetch_add(1, Ordering::SeqCst);
         });
 
@@ -334,7 +334,7 @@ mod tests {
         set_current_event(Some(Arc::new(release_event)));
 
         let call_count_clone2 = call_count.clone();
-        use_keyboard_press_v2(move |_| {
+        use_keyboard_press(move |_| {
             call_count_clone2.fetch_add(1, Ordering::SeqCst);
         });
 
@@ -345,7 +345,7 @@ mod tests {
     }
 
     #[test]
-    fn test_use_keyboard_shortcut_v2_matches_exact() {
+    fn test_use_keyboard_shortcut_matches_exact() {
         let _lock = TEST_MUTEX.lock();
         cleanup_test();
         let _fiber_id = setup_test_fiber();
@@ -358,7 +358,7 @@ mod tests {
         set_current_event(Some(Arc::new(event)));
 
         // Use the shortcut hook
-        use_keyboard_shortcut_v2(KeyCode::Char('s'), KeyModifiers::CONTROL, move || {
+        use_keyboard_shortcut(KeyCode::Char('s'), KeyModifiers::CONTROL, move || {
             call_count_clone.fetch_add(1, Ordering::SeqCst);
         });
 
@@ -368,7 +368,7 @@ mod tests {
     }
 
     #[test]
-    fn test_use_keyboard_shortcut_v2_ignores_wrong_modifier() {
+    fn test_use_keyboard_shortcut_ignores_wrong_modifier() {
         let _lock = TEST_MUTEX.lock();
         cleanup_test();
         let _fiber_id = setup_test_fiber();
@@ -381,7 +381,7 @@ mod tests {
         set_current_event(Some(Arc::new(event)));
 
         // Use the shortcut hook expecting Ctrl+S
-        use_keyboard_shortcut_v2(KeyCode::Char('s'), KeyModifiers::CONTROL, move || {
+        use_keyboard_shortcut(KeyCode::Char('s'), KeyModifiers::CONTROL, move || {
             call_count_clone.fetch_add(1, Ordering::SeqCst);
         });
 
@@ -392,7 +392,7 @@ mod tests {
     }
 
     #[test]
-    fn test_use_keyboard_shortcut_v2_ignores_wrong_key() {
+    fn test_use_keyboard_shortcut_ignores_wrong_key() {
         let _lock = TEST_MUTEX.lock();
         cleanup_test();
         let _fiber_id = setup_test_fiber();
@@ -405,7 +405,7 @@ mod tests {
         set_current_event(Some(Arc::new(event)));
 
         // Use the shortcut hook expecting Ctrl+S
-        use_keyboard_shortcut_v2(KeyCode::Char('s'), KeyModifiers::CONTROL, move || {
+        use_keyboard_shortcut(KeyCode::Char('s'), KeyModifiers::CONTROL, move || {
             call_count_clone.fetch_add(1, Ordering::SeqCst);
         });
 
@@ -416,7 +416,7 @@ mod tests {
     }
 
     #[test]
-    fn test_use_keyboard_v2_no_event() {
+    fn test_use_keyboard_no_event() {
         let _lock = TEST_MUTEX.lock();
         cleanup_test();
         let _fiber_id = setup_test_fiber();
@@ -427,7 +427,7 @@ mod tests {
         // No event set
         clear_current_event();
 
-        use_keyboard_v2(move |_| {
+        use_keyboard(move |_| {
             call_count_clone.fetch_add(1, Ordering::SeqCst);
         });
 
@@ -438,7 +438,7 @@ mod tests {
     }
 
     #[test]
-    fn test_use_keyboard_shortcut_v2_with_combined_modifiers() {
+    fn test_use_keyboard_shortcut_with_combined_modifiers() {
         let _lock = TEST_MUTEX.lock();
         cleanup_test();
         let _fiber_id = setup_test_fiber();
@@ -454,7 +454,7 @@ mod tests {
         set_current_event(Some(Arc::new(event)));
 
         // Use the shortcut hook
-        use_keyboard_shortcut_v2(
+        use_keyboard_shortcut(
             KeyCode::Char('p'),
             KeyModifiers::CONTROL | KeyModifiers::SHIFT,
             move || {

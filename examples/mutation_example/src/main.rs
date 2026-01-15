@@ -1,6 +1,6 @@
 //! 🔄 Mutation Hook Example - User Management System
 //!
-//! A beautiful demonstration of the `use_mutation_v2` and `use_reducer_v2` hooks with:
+//! A beautiful demonstration of the `use_mutation` and `use_reducer` hooks with:
 //! - 🎯 Create, Update, Delete operations
 //! - 🔄 Retry logic with exponential backoff
 //! - ✅ Success/Error callbacks with notifications
@@ -12,7 +12,7 @@
 
 use parking_lot::Mutex;
 use reratui::hooks::{
-    MutationHandleV2, MutationOptions, MutationStatus, use_keyboard_press_v2, use_mutation_v2,
+    MutationHandle, MutationOptions, MutationStatus, use_keyboard_press, use_mutation,
 };
 use reratui::prelude::*;
 use reratui::ratatui::widgets::BorderType;
@@ -177,17 +177,17 @@ struct App {
     notification: Arc<Mutex<Option<Notification>>>,
 }
 
-impl ComponentV2 for App {
+impl Component for App {
     fn render(&self, area: Rect, buffer: &mut Buffer) {
         // State management with reducer for form
-        let (form_state, form_dispatch) = use_reducer_v2(form_reducer, FormState::default());
-        let (selected_index, set_selected_index) = use_state_v2(|| 0usize);
+        let (form_state, form_dispatch) = use_reducer(form_reducer, FormState::default());
+        let (selected_index, set_selected_index) = use_state(|| 0usize);
 
         let users_clone = self.users.clone();
         let notification_clone = self.notification.clone();
 
         // Create User Mutation
-        let create_mutation = use_mutation_v2(
+        let create_mutation = use_mutation(
             |request: CreateUserRequest| async move { create_user_api(request).await },
             Some(MutationOptions {
                 retry: true,
@@ -199,7 +199,7 @@ impl ComponentV2 for App {
         );
 
         // Update User Mutation
-        let update_mutation = use_mutation_v2(
+        let update_mutation = use_mutation(
             |request: UpdateUserRequest| async move { update_user_api(request).await },
             Some(MutationOptions {
                 retry: true,
@@ -209,7 +209,7 @@ impl ComponentV2 for App {
         );
 
         // Delete User Mutation
-        let delete_mutation = use_mutation_v2(
+        let delete_mutation = use_mutation(
             |user_id: u32| async move { delete_user_api(user_id).await },
             None,
         );
@@ -266,12 +266,12 @@ impl ComponentV2 for App {
         let form_dispatch_clone = form_dispatch.clone();
         let form_state_clone = form_state.clone();
 
-        use_keyboard_press_v2(move |key| {
+        use_keyboard_press(move |key| {
             let form = &form_state_clone;
 
             match key.code {
                 KeyCode::Char('q') if key.modifiers.contains(KeyModifiers::CONTROL) => {
-                    request_exit_v2();
+                    request_exit();
                 }
                 KeyCode::Char('n') if !form.is_open => {
                     form_dispatch_clone.dispatch(FormAction::Open);
@@ -522,7 +522,7 @@ fn render_create_form(
     buffer: &mut Buffer,
     area: Rect,
     form: &FormState,
-    mutation: &MutationHandleV2<User, ApiError, CreateUserRequest>,
+    mutation: &MutationHandle<User, ApiError, CreateUserRequest>,
 ) {
     let block = Block::default()
         .title("➕ Create New User")
@@ -597,9 +597,9 @@ fn render_create_form(
 fn render_status_panel(
     buffer: &mut Buffer,
     area: Rect,
-    create_mut: &MutationHandleV2<User, ApiError, CreateUserRequest>,
-    update_mut: &MutationHandleV2<User, ApiError, UpdateUserRequest>,
-    delete_mut: &MutationHandleV2<u32, ApiError, u32>,
+    create_mut: &MutationHandle<User, ApiError, CreateUserRequest>,
+    update_mut: &MutationHandle<User, ApiError, UpdateUserRequest>,
+    delete_mut: &MutationHandle<u32, ApiError, u32>,
 ) {
     let block = Block::default()
         .title("📊 Mutation Status")
@@ -779,6 +779,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         notification: Arc::new(Mutex::new(None)),
     };
 
-    render_v2(move || app.clone()).await?;
+    render(move || app.clone()).await?;
     Ok(())
 }

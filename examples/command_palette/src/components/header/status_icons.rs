@@ -38,18 +38,18 @@ impl StatusIconsComponent {
     }
 }
 
-impl ComponentV2 for StatusIconsComponent {
+impl Component for StatusIconsComponent {
     fn render(&self, area: Rect, buffer: &mut Buffer) {
         // Animation state for notification blinking
-        let (animation_step, set_animation_step) = use_state_v2(|| 0usize);
+        let (animation_step, set_animation_step) = use_state(|| 0usize);
 
         // Clock state
-        let (current_time, set_current_time) = use_state_v2(Local::now);
+        let (current_time, set_current_time) = use_state(Local::now);
 
         // Border breathing effect state for consistent border color with other components
-        let (breath_value, set_breath_value) = use_state_v2(|| 0.0f32);
+        let (breath_value, set_breath_value) = use_state(|| 0.0f32);
 
-        use_interval_v2(
+        use_interval(
             {
                 // Set up animation interval
                 move || {
@@ -60,7 +60,7 @@ impl ComponentV2 for StatusIconsComponent {
             500, // Slower animation speed to reduce CPU usage
         );
 
-        use_interval_v2(
+        use_interval(
             {
                 // Set up clock update interval
                 move || {
@@ -71,7 +71,7 @@ impl ComponentV2 for StatusIconsComponent {
             1000, // Update every second
         );
 
-        use_interval_v2(
+        use_interval(
             {
                 // Set up border breathing effect
                 move || {

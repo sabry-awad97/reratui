@@ -1,6 +1,6 @@
 //! 🔍 Query Hook Example - GitHub Repository Search
 //!
-//! A beautiful demonstration of the `use_query_v2` hook with:
+//! A beautiful demonstration of the `use_query` hook with:
 //! - 🎯 Smart caching with automatic background refresh
 //! - 🔄 Retry logic with exponential backoff
 //! - 📊 Real-time loading states and error handling
@@ -10,9 +10,7 @@
 
 use std::time::Duration;
 
-use reratui::hooks::{
-    QueryOptions, QueryResultV2, QueryStatus, use_keyboard_press_v2, use_query_v2,
-};
+use reratui::hooks::{QueryOptions, QueryResult, QueryStatus, use_keyboard_press, use_query};
 use reratui::prelude::*;
 use reratui::ratatui::widgets::BorderType;
 use serde::Deserialize;
@@ -58,9 +56,9 @@ async fn search_github_repos(query: &str) -> Result<SearchResponse, String> {
 
 struct App;
 
-impl ComponentV2 for App {
+impl Component for App {
     fn render(&self, area: Rect, buffer: &mut Buffer) {
-        let (search_query, set_search_query) = use_state_v2(|| String::from("rust"));
+        let (search_query, set_search_query) = use_state(|| String::from("rust"));
         let current_query = search_query.clone();
 
         // Query with caching and background refresh
@@ -75,7 +73,7 @@ impl ComponentV2 for App {
 
         // Clone for the query closure
         let query_for_fetch = current_query.clone();
-        let query_result = use_query_v2(
+        let query_result = use_query(
             current_query.clone(),
             move || {
                 let query = query_for_fetch.clone();
@@ -88,9 +86,9 @@ impl ComponentV2 for App {
         let query_result_clone = query_result.clone();
 
         // Keyboard controls
-        use_keyboard_press_v2(move |key| match key.code {
+        use_keyboard_press(move |key| match key.code {
             KeyCode::Char('q') if key.modifiers.contains(KeyModifiers::CONTROL) => {
-                request_exit_v2();
+                request_exit();
             }
             KeyCode::Char('r') => {
                 query_result_clone.refetch();
@@ -159,7 +157,7 @@ fn render_search_info(
     buffer: &mut Buffer,
     area: Rect,
     query: &str,
-    result: &QueryResultV2<SearchResponse, String>,
+    result: &QueryResult<SearchResponse, String>,
 ) {
     let block = Block::default()
         .borders(Borders::ALL)
@@ -191,7 +189,7 @@ fn render_search_info(
     text.render(area, buffer);
 }
 
-fn render_results(buffer: &mut Buffer, area: Rect, result: &QueryResultV2<SearchResponse, String>) {
+fn render_results(buffer: &mut Buffer, area: Rect, result: &QueryResult<SearchResponse, String>) {
     match result.status {
         QueryStatus::Idle => render_idle(buffer, area),
         QueryStatus::Loading => render_loading(buffer, area),
@@ -358,7 +356,7 @@ fn render_error(buffer: &mut Buffer, area: Rect, error: &str) {
     text.render(area, buffer);
 }
 
-fn render_status(buffer: &mut Buffer, area: Rect, result: &QueryResultV2<SearchResponse, String>) {
+fn render_status(buffer: &mut Buffer, area: Rect, result: &QueryResult<SearchResponse, String>) {
     let block = Block::default()
         .title("📊 Query Status")
         .borders(Borders::ALL)
@@ -495,6 +493,6 @@ fn render_controls(buffer: &mut Buffer, area: Rect) {
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    render_v2(|| App).await?;
+    render(|| App).await?;
     Ok(())
 }

@@ -14,17 +14,17 @@ impl AnimatedTitleComponent {
     }
 }
 
-impl ComponentV2 for AnimatedTitleComponent {
+impl Component for AnimatedTitleComponent {
     fn render(&self, area: Rect, buffer: &mut Buffer) {
         // Animation state for color cycling
-        let (animation_step, set_animation_step) = use_state_v2(|| 0usize);
+        let (animation_step, set_animation_step) = use_state(|| 0usize);
 
         // Typing animation state
-        let (visible_chars, set_visible_chars) = use_state_v2(|| 0usize);
-        let (typing_complete, set_typing_complete) = use_state_v2(|| false);
+        let (visible_chars, set_visible_chars) = use_state(|| 0usize);
+        let (typing_complete, set_typing_complete) = use_state(|| false);
 
         // Border breathing effect state
-        let (breath_value, set_breath_value) = use_state_v2(|| 0.0f32);
+        let (breath_value, set_breath_value) = use_state(|| 0.0f32);
 
         // Define colors for animation
         let colors = [
@@ -35,7 +35,7 @@ impl ComponentV2 for AnimatedTitleComponent {
             self.theme.success,
         ];
 
-        use_interval_v2(
+        use_interval(
             {
                 // Set up color cycling animation interval
                 let colors_len = colors.len();
@@ -50,7 +50,7 @@ impl ComponentV2 for AnimatedTitleComponent {
             300, // Reduced animation frequency to save CPU
         );
 
-        use_interval_v2(
+        use_interval(
             {
                 // Set up typing animation interval
                 let title_len = self.title.chars().count();
@@ -70,7 +70,7 @@ impl ComponentV2 for AnimatedTitleComponent {
             150, // Slower typing speed to reduce CPU usage
         );
 
-        use_interval_v2(
+        use_interval(
             {
                 // Set up border breathing effect
                 move || {

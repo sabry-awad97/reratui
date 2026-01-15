@@ -1,10 +1,10 @@
-//! Counter Example with v2 APIs using ComponentV2 trait
+//! Counter Example using Component trait
 //!
-//! This example demonstrates using the ComponentV2 trait with use_event hook.
+//! This example demonstrates using the Component trait with use_event hook.
 //! With position-based component identification, you can create components
 //! inside the render closure and state will persist across frames (like React).
 //!
-//! This example uses only `reratui-fiber` - no rsx! macro needed.
+//! This example uses only `reratui` - no rsx! macro needed.
 //!
 //! Press 'j' to increment, 'k' to decrement, 'r' to reset, 'q' to quit.
 
@@ -13,10 +13,10 @@ use reratui::prelude::*;
 /// The main counter component - just implement render()!
 struct Counter;
 
-impl ComponentV2 for Counter {
+impl Component for Counter {
     fn render(&self, area: Rect, buffer: &mut Buffer) {
-        let (count, set_count) = use_state_v2(|| 0i32);
-        let component_area = try_use_context_v2::<ComponentArea>()
+        let (count, set_count) = use_state(|| 0i32);
+        let component_area = try_use_context::<ComponentArea>()
             .map(|ca| ca.area())
             .unwrap_or(area);
 
@@ -40,14 +40,14 @@ impl ComponentV2 for Counter {
                     set_count.set(0);
                 }
                 KeyCode::Char('q') => {
-                    request_exit_v2();
+                    request_exit();
                 }
                 _ => {}
             }
         }
 
         // Effect that runs after commit when count changes
-        use_effect_v2(
+        use_effect(
             {
                 move || {
                     let _ = count; // Could log: "Count changed to {count}"
@@ -57,7 +57,7 @@ impl ComponentV2 for Counter {
             Some((count,)),
         );
 
-        let title = "✨ Counter App (v2 Trait + use_event)";
+        let title = "✨ Counter App (Fiber Architecture)";
 
         // Create layout chunks
         let chunks = Layout::default()
@@ -143,6 +143,6 @@ impl ComponentV2 for Counter {
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Simple: just pass a closure that returns your component!
-    render_v2(|| Counter).await?;
+    render(|| Counter).await?;
     Ok(())
 }

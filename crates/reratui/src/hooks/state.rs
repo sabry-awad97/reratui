@@ -1,16 +1,16 @@
 //! State hook with batching support.
 //!
-//! This module provides React-like `use_state_v2` hook with proper batching semantics.
+//! This module provides React-like `use_state` hook with proper batching semantics.
 //! Multiple state updates within the same event handler are batched into a single re-render.
 //!
 //! # Example
 //!
 //! ```rust,ignore
-//! use reratui_fiber::hooks::use_state_v2;
+//! use reratui_fiber::hooks::use_state;
 //!
 //! #[component]
 //! fn Counter() -> Element {
-//!     let (count, set_count) = use_state_v2(|| 0);
+//!     let (count, set_count) = use_state(|| 0);
 //!
 //!     // Multiple updates are batched - only ONE re-render
 //!     let increment_by_5 = move |_| {
@@ -33,24 +33,24 @@ use crate::scheduler::batch::{StateUpdate, StateUpdateKind, queue_update};
 
 /// State setter that queues updates for batching.
 ///
-/// This struct is returned by `use_state_v2` and provides methods to update state.
+/// This struct is returned by `use_state` and provides methods to update state.
 /// Updates are queued and batched, not applied immediately.
 #[derive(Debug)]
-pub struct StateSetterV2<T> {
+pub struct StateSetter<T> {
     pub(crate) fiber_id: FiberId,
     pub(crate) hook_index: usize,
     pub(crate) _marker: PhantomData<T>,
 }
 
-impl<T> Clone for StateSetterV2<T> {
+impl<T> Clone for StateSetter<T> {
     fn clone(&self) -> Self {
         *self
     }
 }
 
-impl<T> Copy for StateSetterV2<T> {}
+impl<T> Copy for StateSetter<T> {}
 
-impl<T: Clone + Send + 'static> StateSetterV2<T> {
+impl<T: Clone + Send + 'static> StateSetter<T> {
     /// Set the state to a new value (queued for batching).
     ///
     /// The update is queued and will be applied when the batch ends.
@@ -59,7 +59,7 @@ impl<T: Clone + Send + 'static> StateSetterV2<T> {
     /// # Example
     ///
     /// ```rust,ignore
-    /// let (count, set_count) = use_state_v2(|| 0);
+    /// let (count, set_count) = use_state(|| 0);
     /// set_count.set(42); // Queued, not applied immediately
     /// ```
     pub fn set(&self, new_value: T) {
@@ -83,7 +83,7 @@ impl<T: Clone + Send + 'static> StateSetterV2<T> {
     /// # Example
     ///
     /// ```rust,ignore
-    /// let (count, set_count) = use_state_v2(|| 0);
+    /// let (count, set_count) = use_state(|| 0);
     ///
     /// // These are batched and applied in order
     /// set_count.update(|n| n + 1); // 0 -> 1
@@ -107,7 +107,7 @@ impl<T: Clone + Send + 'static> StateSetterV2<T> {
     }
 }
 
-impl<T: Clone + Send + PartialEq + 'static> StateSetterV2<T> {
+impl<T: Clone + Send + PartialEq + 'static> StateSetter<T> {
     /// Set the state to a new value only if it differs from the current value.
     ///
     /// This is an optimization that skips marking the fiber as dirty if the
@@ -116,7 +116,7 @@ impl<T: Clone + Send + PartialEq + 'static> StateSetterV2<T> {
     /// # Example
     ///
     /// ```rust,ignore
-    /// let (count, set_count) = use_state_v2(|| 0);
+    /// let (count, set_count) = use_state(|| 0);
     ///
     /// // This will NOT trigger a re-render if count is already 0
     /// set_count.set_if_changed(0);
@@ -149,7 +149,7 @@ impl<T: Clone + Send + PartialEq + 'static> StateSetterV2<T> {
     /// # Example
     ///
     /// ```rust,ignore
-    /// let (count, set_count) = use_state_v2(|| 5);
+    /// let (count, set_count) = use_state(|| 5);
     ///
     /// // This will NOT trigger a re-render because 5.max(3) == 5
     /// set_count.update_if_changed(|n| n.max(3));
@@ -186,7 +186,7 @@ impl<T: Clone + Send + PartialEq + 'static> StateSetterV2<T> {
 /// Returns a tuple of the current state value and a setter to update it.
 /// State updates are batched within event handlers for optimal performance.
 ///
-/// # Differences from use_state (deprecated)
+/// # Features
 ///
 /// - State updates are batched within event handlers
 /// - Functional updates receive the latest state value
@@ -201,16 +201,16 @@ impl<T: Clone + Send + PartialEq + 'static> StateSetterV2<T> {
 ///
 /// A tuple of `(current_value, setter)` where:
 /// - `current_value` is the current state value (cloned)
-/// - `setter` is a `StateSetterV2` that can be used to update the state
+/// - `setter` is a `StateSetter` that can be used to update the state
 ///
 /// # Example
 ///
 /// ```rust,ignore
-/// use reratui_fiber::hooks::use_state_v2;
+/// use reratui_fiber::hooks::use_state;
 ///
 /// #[component]
 /// fn Counter() -> Element {
-///     let (count, set_count) = use_state_v2(|| 0);
+///     let (count, set_count) = use_state(|| 0);
 ///
 ///     let increment = move |_| {
 ///         set_count.update(|n| n + 1);
@@ -228,19 +228,19 @@ impl<T: Clone + Send + PartialEq + 'static> StateSetterV2<T> {
 /// # Panics
 ///
 /// Panics if called outside of a component render context (no current fiber).
-pub fn use_state_v2<T, F>(initializer: F) -> (T, StateSetterV2<T>)
+pub fn use_state<T, F>(initializer: F) -> (T, StateSetter<T>)
 where
     T: Clone + Send + 'static,
     F: FnOnce() -> T,
 {
     with_current_fiber(|fiber| {
-        fiber.track_hook_call("use_state_v2");
+        fiber.track_hook_call("use_state");
         let hook_index = fiber.next_hook_index();
 
         // Get or initialize state
         let value = fiber.get_or_init_hook(hook_index, initializer);
 
-        let setter = StateSetterV2 {
+        let setter = StateSetter {
             fiber_id: fiber.id,
             hook_index,
             _marker: PhantomData,
@@ -248,7 +248,7 @@ where
 
         (value, setter)
     })
-    .expect("use_state_v2 must be called within a component render context")
+    .expect("use_state must be called within a component render context")
 }
 
 #[cfg(test)]
@@ -270,21 +270,21 @@ mod tests {
     }
 
     #[test]
-    fn test_use_state_v2_initial_value() {
+    fn test_use_state_initial_value() {
         let _fiber_id = setup_test_fiber();
 
-        let (value, _setter) = use_state_v2(|| 42);
+        let (value, _setter) = use_state(|| 42);
         assert_eq!(value, 42);
 
         cleanup_test();
     }
 
     #[test]
-    fn test_use_state_v2_returns_same_value_on_rerender() {
+    fn test_use_state_returns_same_value_on_rerender() {
         let fiber_id = setup_test_fiber();
 
         // First render
-        let (value1, _setter1) = use_state_v2(|| 100);
+        let (value1, _setter1) = use_state(|| 100);
         assert_eq!(value1, 100);
 
         // Simulate re-render by resetting hook index
@@ -294,7 +294,7 @@ mod tests {
         });
 
         // Second render - should return same value, not call initializer again
-        let (value2, _setter2) = use_state_v2(|| 999);
+        let (value2, _setter2) = use_state(|| 999);
         assert_eq!(value2, 100); // Still 100, not 999
 
         cleanup_test();
@@ -304,7 +304,7 @@ mod tests {
     fn test_state_setter_set_queues_update() {
         let fiber_id = setup_test_fiber();
 
-        let (_value, setter) = use_state_v2(|| 0);
+        let (_value, setter) = use_state(|| 0);
 
         // Set should queue an update
         setter.set(42);
@@ -326,7 +326,7 @@ mod tests {
     fn test_state_setter_update_queues_functional_update() {
         let fiber_id = setup_test_fiber();
 
-        let (_value, setter) = use_state_v2(|| 10);
+        let (_value, setter) = use_state(|| 10);
 
         // Update should queue a functional update
         setter.update(|n| n + 5);
@@ -348,9 +348,9 @@ mod tests {
     fn test_multiple_state_hooks() {
         let _fiber_id = setup_test_fiber();
 
-        let (count, _set_count) = use_state_v2(|| 0);
-        let (name, _set_name) = use_state_v2(|| "Alice".to_string());
-        let (active, _set_active) = use_state_v2(|| true);
+        let (count, _set_count) = use_state(|| 0);
+        let (name, _set_name) = use_state(|| "Alice".to_string());
+        let (active, _set_active) = use_state(|| true);
 
         assert_eq!(count, 0);
         assert_eq!(name, "Alice");
@@ -363,9 +363,9 @@ mod tests {
     fn test_state_setter_is_copy() {
         let _fiber_id = setup_test_fiber();
 
-        let (_value, setter) = use_state_v2(|| 0);
+        let (_value, setter) = use_state(|| 0);
 
-        // StateSetterV2 should be Copy
+        // StateSetter should be Copy
         let setter_copy = setter;
         let _setter_copy2 = setter_copy;
         let _setter_copy3 = setter;
@@ -378,7 +378,7 @@ mod tests {
         let fiber_id = setup_test_fiber();
 
         // Initialize state
-        let (_value, setter) = use_state_v2(|| 0);
+        let (_value, setter) = use_state(|| 0);
 
         // Queue multiple updates
         setter.set(10);
@@ -409,7 +409,7 @@ mod tests {
         let fiber_id = setup_test_fiber();
 
         // Initialize state
-        let (_value, setter) = use_state_v2(|| 0);
+        let (_value, setter) = use_state(|| 0);
 
         // Queue multiple functional updates
         for _ in 0..5 {
@@ -437,24 +437,24 @@ mod tests {
     fn test_state_setter_debug() {
         let _fiber_id = setup_test_fiber();
 
-        let (_value, setter) = use_state_v2(|| 0);
+        let (_value, setter) = use_state(|| 0);
 
-        // StateSetterV2 should implement Debug
+        // StateSetter should implement Debug
         let debug_str = format!("{:?}", setter);
-        assert!(debug_str.contains("StateSetterV2"));
+        assert!(debug_str.contains("StateSetter"));
 
         cleanup_test();
     }
 
     #[test]
-    #[should_panic(expected = "use_state_v2 must be called within a component render context")]
-    fn test_use_state_v2_panics_outside_render() {
+    #[should_panic(expected = "use_state must be called within a component render context")]
+    fn test_use_state_panics_outside_render() {
         // Clear any existing fiber tree
         clear_fiber_tree();
         crate::scheduler::batch::clear_state_batch();
 
         // This should panic because there's no current fiber
-        let _ = use_state_v2(|| 0);
+        let _ = use_state(|| 0);
     }
 
     #[test]
@@ -462,7 +462,7 @@ mod tests {
         let fiber_id = setup_test_fiber();
 
         // Initialize state with value 42
-        let (_value, setter) = use_state_v2(|| 42);
+        let (_value, setter) = use_state(|| 42);
 
         // End render to apply initial state
         crate::fiber_tree::with_fiber_tree_mut(|tree| {
@@ -497,7 +497,7 @@ mod tests {
         let fiber_id = setup_test_fiber();
 
         // Initialize state with value 42
-        let (_value, setter) = use_state_v2(|| 42);
+        let (_value, setter) = use_state(|| 42);
 
         // End render to apply initial state
         crate::fiber_tree::with_fiber_tree_mut(|tree| {
@@ -533,7 +533,7 @@ mod tests {
         let fiber_id = setup_test_fiber();
 
         // Initialize state with value 5
-        let (_value, setter) = use_state_v2(|| 5);
+        let (_value, setter) = use_state(|| 5);
 
         // End render to apply initial state
         crate::fiber_tree::with_fiber_tree_mut(|tree| {
@@ -569,7 +569,7 @@ mod tests {
         let fiber_id = setup_test_fiber();
 
         // Initialize state with value 5
-        let (_value, setter) = use_state_v2(|| 5);
+        let (_value, setter) = use_state(|| 5);
 
         // End render to apply initial state
         crate::fiber_tree::with_fiber_tree_mut(|tree| {

@@ -12,31 +12,31 @@ cargo run --example <example_name>
 
 ## Example Overview
 
-| Example               | Description           | Key Concepts                        |
-| --------------------- | --------------------- | ----------------------------------- |
-| `counter_v2`          | Basic counter         | State, keyboard events              |
-| `effect_timing_v2`    | Effect lifecycle      | Effects, cleanup                    |
-| `async_fetch_example` | Async data fetching   | `use_future_v2`, async              |
-| `query_example`       | Data queries          | `use_query_v2`, caching             |
-| `mutation_example`    | Mutations             | `use_mutation_v2`, `use_reducer_v2` |
-| `data_fetcher`        | Multiple data sources | Multiple futures, refresh           |
-| `events_showcase`     | Event handling        | Keyboard, mouse events              |
-| `command_palette`     | Complex UI            | Context, intervals, composition     |
+| Example               | Description           | Key Concepts                    |
+| --------------------- | --------------------- | ------------------------------- |
+| `counter_fiber`       | Basic counter         | State, keyboard events          |
+| `effect_timing`       | Effect lifecycle      | Effects, cleanup                |
+| `async_fetch_example` | Async data fetching   | `use_future`, async             |
+| `query_example`       | Data queries          | `use_query`, caching            |
+| `mutation_example`    | Mutations             | `use_mutation`, `use_reducer`   |
+| `data_fetcher`        | Multiple data sources | Multiple futures, refresh       |
+| `events_showcase`     | Event handling        | Keyboard, mouse events          |
+| `command_palette`     | Complex UI            | Context, intervals, composition |
 
 ---
 
-## counter_v2
+## counter_fiber
 
 A simple counter demonstrating basic state management.
 
 ```bash
-cargo run --example counter_v2
+cargo run --example counter_fiber
 ```
 
 **Key Concepts:**
 
-- `use_state_v2` for state management
-- `use_keyboard_press_v2` for input handling
+- `use_state` for state management
+- `use_keyboard_press` for input handling
 - Basic component structure
 
 **Controls:**
@@ -49,14 +49,14 @@ cargo run --example counter_v2
 ```rust
 struct Counter;
 
-impl ComponentV2 for Counter {
+impl Component for Counter {
     fn render(&self, area: Rect, buffer: &mut Buffer) {
-        let (count, set_count) = use_state_v2(|| 0);
+        let (count, set_count) = use_state(|| 0);
 
-        use_keyboard_press_v2(move |key| {
+        use_keyboard_press(move |key| {
             match key.code {
                 KeyCode::Char(' ') => set_count.update(|c| c + 1),
-                KeyCode::Char('q') => request_exit_v2(),
+                KeyCode::Char('q') => request_exit(),
                 _ => {}
             }
         });
@@ -70,17 +70,17 @@ impl ComponentV2 for Counter {
 
 ---
 
-## effect_timing_v2
+## effect_timing
 
 Demonstrates effect lifecycle and cleanup.
 
 ```bash
-cargo run --example effect_timing_v2
+cargo run --example effect_timing
 ```
 
 **Key Concepts:**
 
-- `use_effect_v2` with dependencies
+- `use_effect` with dependencies
 - `use_effect_once` for mount effects
 - Effect cleanup functions
 - Effect execution order
@@ -103,7 +103,7 @@ cargo run --example async_fetch_example
 
 **Key Concepts:**
 
-- `use_future_v2` for async operations
+- `use_future` for async operations
 - Loading states
 - Error handling
 - Refetching data
@@ -125,7 +125,7 @@ cargo run --example query_example
 
 **Key Concepts:**
 
-- `use_query_v2` for data fetching
+- `use_query` for data fetching
 - Query caching and stale-while-revalidate
 - Retry logic with exponential backoff
 - Cache invalidation
@@ -149,7 +149,7 @@ let query_options = QueryOptions {
     ..Default::default()
 };
 
-let query_result = use_query_v2(
+let query_result = use_query(
     current_query.clone(),
     move || async move { search_github_repos(&query).await },
     Some(query_options),
@@ -168,8 +168,8 @@ cargo run --example mutation_example
 
 **Key Concepts:**
 
-- `use_mutation_v2` for CRUD operations
-- `use_reducer_v2` for complex state
+- `use_mutation` for CRUD operations
+- `use_reducer` for complex state
 - Mutation status tracking
 - Success/error handling
 
@@ -202,10 +202,10 @@ fn form_reducer(state: &FormState, action: FormAction) -> FormState {
     }
 }
 
-let (form_state, form_dispatch) = use_reducer_v2(form_reducer, FormState::default());
+let (form_state, form_dispatch) = use_reducer(form_reducer, FormState::default());
 
 // Mutation with retry
-let create_mutation = use_mutation_v2(
+let create_mutation = use_mutation(
     |request: CreateUserRequest| async move { create_user_api(request).await },
     Some(MutationOptions {
         retry: true,
@@ -228,7 +228,7 @@ cargo run --example data_fetcher
 
 **Key Concepts:**
 
-- Multiple `use_future_v2` hooks
+- Multiple `use_future` hooks
 - Individual and global refresh
 - Progress tracking
 - Parallel data fetching
@@ -243,10 +243,10 @@ cargo run --example data_fetcher
 
 ```rust
 // Multiple independent futures
-let user_data = use_future_v2(fetch_user_data, Some((refresh_count, user_refresh)));
-let weather_data = use_future_v2(fetch_weather_data, Some((refresh_count, weather_refresh)));
-let stats_data = use_future_v2(fetch_stats, Some((refresh_count, stats_refresh)));
-let notifications = use_future_v2(fetch_notifications, Some((refresh_count, notif_refresh)));
+let user_data = use_future(fetch_user_data, Some((refresh_count, user_refresh)));
+let weather_data = use_future(fetch_weather_data, Some((refresh_count, weather_refresh)));
+let stats_data = use_future(fetch_stats, Some((refresh_count, stats_refresh)));
+let notifications = use_future(fetch_notifications, Some((refresh_count, notif_refresh)));
 
 // Track overall progress
 let completed = [&user_data, &weather_data, &stats_data, &notifications]
@@ -319,7 +319,7 @@ cargo run --example command_palette
 
 - Component composition
 - Context providers (theme)
-- `use_interval_v2` for periodic updates
+- `use_interval` for periodic updates
 - Command registration pattern
 - Keyboard shortcuts
 
@@ -355,7 +355,7 @@ CommandPaletteApp
 
 ```rust
 // Theme context
-use_context_provider_v2(|| theme.clone());
+use_context_provider(|| theme.clone());
 
 // Command registration
 palette.register("greet", "👋 Display greeting", move || {
@@ -366,7 +366,7 @@ palette.register("greet", "👋 Display greeting", move || {
 });
 
 // Periodic status updates
-use_interval_v2(
+use_interval(
     move || {
         set_connection_status.update(|status| match status {
             ConnectionStatus::Connected => ConnectionStatus::Connecting,
@@ -389,7 +389,7 @@ use reratui::prelude::*;
 
 struct App;
 
-impl ComponentV2 for App {
+impl Component for App {
     fn render(&self, area: Rect, buffer: &mut Buffer) {
         // Your component logic here
         Paragraph::new("Hello, Reratui!")
@@ -399,7 +399,7 @@ impl ComponentV2 for App {
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    render_v2(|| App).await?;
+    render(|| App).await?;
     Ok(())
 }
 ```
@@ -411,15 +411,15 @@ use reratui::prelude::*;
 
 struct App;
 
-impl ComponentV2 for App {
+impl Component for App {
     fn render(&self, area: Rect, buffer: &mut Buffer) {
-        let (state, set_state) = use_state_v2(|| "Initial".to_string());
+        let (state, set_state) = use_state(|| "Initial".to_string());
 
-        use_keyboard_press_v2(move |key| {
+        use_keyboard_press(move |key| {
             match key.code {
                 KeyCode::Char('1') => set_state.set("State 1".to_string()),
                 KeyCode::Char('2') => set_state.set("State 2".to_string()),
-                KeyCode::Char('q') => request_exit_v2(),
+                KeyCode::Char('q') => request_exit(),
                 _ => {}
             }
         });
@@ -437,7 +437,7 @@ impl ComponentV2 for App {
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    render_v2(|| App).await?;
+    render(|| App).await?;
     Ok(())
 }
 ```
@@ -446,13 +446,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
 ```rust
 use reratui::prelude::*;
-use reratui::hooks::{use_query_v2, QueryStatus};
+use reratui::hooks::{use_query, QueryStatus};
 
 struct App;
 
-impl ComponentV2 for App {
+impl Component for App {
     fn render(&self, area: Rect, buffer: &mut Buffer) {
-        let query = use_query_v2(
+        let query = use_query(
             "data",
             || async { fetch_data().await },
             None,
@@ -476,7 +476,7 @@ async fn fetch_data() -> Result<String, String> {
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    render_v2(|| App).await?;
+    render(|| App).await?;
     Ok(())
 }
 ```
@@ -485,8 +485,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
 ## Tips for Learning
 
-1. **Start Simple** - Begin with `counter_v2` to understand basics
-2. **Add Complexity Gradually** - Move to `effect_timing_v2` for effects
+1. **Start Simple** - Begin with `counter_fiber` to understand basics
+2. **Add Complexity Gradually** - Move to `effect_timing` for effects
 3. **Explore Async** - Try `async_fetch_example` then `query_example`
 4. **Study Complex Apps** - Examine `command_palette` for architecture patterns
 5. **Experiment** - Modify examples to test your understanding

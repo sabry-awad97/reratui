@@ -14,19 +14,19 @@
 //! # Example
 //!
 //! ```rust,ignore
-//! use reratui_fiber::hooks::{use_state_v2, use_effect_event_v2, use_effect_v2};
+//! use reratui_fiber::hooks::{use_state, use_effect_event, use_effect};
 //!
 //! #[component]
 //! fn Logger() -> Element {
-//!     let (count, set_count) = use_state_v2(|| 0);
+//!     let (count, set_count) = use_state(|| 0);
 //!
 //!     // This callback has a stable identity but always sees the latest count
-//!     let log_count = use_effect_event_v2(move |_: ()| {
+//!     let log_count = use_effect_event(move |_: ()| {
 //!         println!("Current count: {}", count);
 //!     });
 //!
 //!     // Can be used in effects without adding count to dependencies
-//!     use_effect_v2(|| {
+//!     use_effect(|| {
 //!         // Set up some subscription that calls log_count
 //!         log_count.call(());
 //!         None
@@ -64,31 +64,31 @@ impl<IN, OUT> Clone for EffectEventStorage<IN, OUT> {
 
 /// A stable callback that always invokes the latest handler.
 ///
-/// This struct is returned by `use_effect_event_v2`. The callback identity
+/// This struct is returned by `use_effect_event`. The callback identity
 /// remains stable across renders (same Arc reference), but it always calls
 /// the most recent version of the handler function.
 ///
 /// # Thread Safety
 ///
-/// `EffectEventV2` is thread-safe and can be safely shared across async tasks.
+/// `EffectEvent` is thread-safe and can be safely shared across async tasks.
 /// It uses `Arc<RwLock<...>>` internally for concurrent access.
-pub struct EffectEventV2<IN, OUT> {
+pub struct EffectEvent<IN, OUT> {
     pub(crate) fiber_id: FiberId,
     pub(crate) hook_index: usize,
     pub(crate) handler: EffectEventHandler<IN, OUT>,
     pub(crate) _marker: PhantomData<(IN, OUT)>,
 }
 
-impl<IN, OUT> std::fmt::Debug for EffectEventV2<IN, OUT> {
+impl<IN, OUT> std::fmt::Debug for EffectEvent<IN, OUT> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("EffectEventV2")
+        f.debug_struct("EffectEvent")
             .field("fiber_id", &self.fiber_id)
             .field("hook_index", &self.hook_index)
             .finish_non_exhaustive()
     }
 }
 
-impl<IN, OUT> Clone for EffectEventV2<IN, OUT> {
+impl<IN, OUT> Clone for EffectEvent<IN, OUT> {
     fn clone(&self) -> Self {
         Self {
             fiber_id: self.fiber_id,
@@ -99,7 +99,7 @@ impl<IN, OUT> Clone for EffectEventV2<IN, OUT> {
     }
 }
 
-impl<IN, OUT> EffectEventV2<IN, OUT>
+impl<IN, OUT> EffectEvent<IN, OUT>
 where
     IN: 'static,
     OUT: 'static,
@@ -112,7 +112,7 @@ where
     /// # Example
     ///
     /// ```rust,ignore
-    /// let log_event = use_effect_event_v2(move |msg: &str| {
+    /// let log_event = use_effect_event(move |msg: &str| {
     ///     println!("Event: {} (count: {})", msg, count);
     /// });
     ///
@@ -124,7 +124,7 @@ where
     ///
     /// Panics if the internal lock is poisoned.
     pub fn call(&self, input: IN) -> OUT {
-        let handler = self.handler.read().expect("EffectEventV2 lock poisoned");
+        let handler = self.handler.read().expect("EffectEvent lock poisoned");
         handler(input)
     }
 }
@@ -142,11 +142,11 @@ where
 ///
 /// 1. On first render, creates storage with the handler wrapped in Arc<RwLock<...>>
 /// 2. On subsequent renders, updates the handler reference inside the storage
-/// 3. Returns a stable `EffectEventV2` that always calls the current handler
+/// 3. Returns a stable `EffectEvent` that always calls the current handler
 ///
-/// # Differences from use_callback_v2
+/// # Differences from use_callback
 ///
-/// | Feature | `use_effect_event_v2` | `use_callback_v2` |
+/// | Feature | `use_effect_event` | `use_callback` |
 /// |---------|----------------------|-------------------|
 /// | Stability | Always stable | Stable when deps unchanged |
 /// | State access | Always current | Captured at creation |
@@ -160,19 +160,19 @@ where
 ///
 /// # Returns
 ///
-/// An `EffectEventV2<IN, OUT>` that provides a `call` method to invoke the handler.
+/// An `EffectEvent<IN, OUT>` that provides a `call` method to invoke the handler.
 ///
 /// # Example
 ///
 /// ```rust,ignore
-/// use reratui_fiber::hooks::{use_state_v2, use_effect_event_v2, use_effect_v2};
+/// use reratui_fiber::hooks::{use_state, use_effect_event, use_effect};
 ///
 /// #[component]
 /// fn ChatRoom(room_id: String) -> Element {
-///     let (messages, set_messages) = use_state_v2(|| vec![]);
+///     let (messages, set_messages) = use_state(|| vec![]);
 ///
 ///     // Stable callback that always sees current messages
-///     let on_message = use_effect_event_v2(move |new_msg: String| {
+///     let on_message = use_effect_event(move |new_msg: String| {
 ///         // This always has access to current messages
 ///         set_messages.update(|msgs| {
 ///             let mut new_msgs = msgs.clone();
@@ -182,7 +182,7 @@ where
 ///     });
 ///
 ///     // Effect only re-runs when room_id changes, not when messages change
-///     use_effect_v2(|| {
+///     use_effect(|| {
 ///         let subscription = subscribe_to_room(&room_id, move |msg| {
 ///             on_message.call(msg);
 ///         });
@@ -197,7 +197,7 @@ where
 /// # Panics
 ///
 /// Panics if called outside of a component render context (no current fiber).
-pub fn use_effect_event_v2<IN, OUT, F>(handler: F) -> EffectEventV2<IN, OUT>
+pub fn use_effect_event<IN, OUT, F>(handler: F) -> EffectEvent<IN, OUT>
 where
     IN: 'static,
     OUT: 'static,
@@ -212,10 +212,7 @@ where
         let storage = if let Some(storage) = existing_storage {
             // Storage exists, just update the handler
             {
-                let mut guard = storage
-                    .handler
-                    .write()
-                    .expect("EffectEventV2 lock poisoned");
+                let mut guard = storage.handler.write().expect("EffectEvent lock poisoned");
                 *guard = Box::new(handler);
             }
             storage
@@ -230,14 +227,14 @@ where
             new_storage
         };
 
-        EffectEventV2 {
+        EffectEvent {
             fiber_id: fiber.id,
             hook_index,
             handler: storage.handler,
             _marker: PhantomData,
         }
     })
-    .expect("use_effect_event_v2 must be called within a component render context")
+    .expect("use_effect_event must be called within a component render context")
 }
 
 #[cfg(test)]
@@ -259,23 +256,23 @@ mod tests {
     }
 
     #[test]
-    fn test_use_effect_event_v2_basic() {
+    fn test_use_effect_event_basic() {
         let _fiber_id = setup_test_fiber();
 
-        let effect_event = use_effect_event_v2(|x: i32| x * 2);
+        let effect_event = use_effect_event(|x: i32| x * 2);
         assert_eq!(effect_event.call(5), 10);
 
         cleanup_test();
     }
 
     #[test]
-    fn test_use_effect_event_v2_with_unit_input() {
+    fn test_use_effect_event_with_unit_input() {
         let _fiber_id = setup_test_fiber();
 
         let counter = Arc::new(AtomicI32::new(0));
         let counter_clone = counter.clone();
 
-        let effect_event = use_effect_event_v2(move |_: ()| {
+        let effect_event = use_effect_event(move |_: ()| {
             counter_clone.fetch_add(1, Ordering::SeqCst);
         });
 
@@ -293,7 +290,7 @@ mod tests {
         let fiber_id = setup_test_fiber();
 
         // First render
-        let effect_event1 = use_effect_event_v2(|x: i32| x + 1);
+        let effect_event1 = use_effect_event(|x: i32| x + 1);
         let handler_ptr1 = Arc::as_ptr(&effect_event1.handler);
 
         // Simulate re-render
@@ -303,7 +300,7 @@ mod tests {
         });
 
         // Second render with different handler
-        let effect_event2 = use_effect_event_v2(|x: i32| x + 100);
+        let effect_event2 = use_effect_event(|x: i32| x + 100);
         let handler_ptr2 = Arc::as_ptr(&effect_event2.handler);
 
         // The Arc pointer should be the same (stable reference)
@@ -327,7 +324,7 @@ mod tests {
         let state_clone = state.clone();
 
         // First render - handler captures state value 10
-        let effect_event = use_effect_event_v2(move |_: ()| state_clone.load(Ordering::SeqCst));
+        let effect_event = use_effect_event(move |_: ()| state_clone.load(Ordering::SeqCst));
 
         assert_eq!(effect_event.call(()), 10);
 
@@ -342,7 +339,7 @@ mod tests {
 
         // Second render - handler should see new state
         let state_clone2 = state.clone();
-        let effect_event2 = use_effect_event_v2(move |_: ()| state_clone2.load(Ordering::SeqCst));
+        let effect_event2 = use_effect_event(move |_: ()| state_clone2.load(Ordering::SeqCst));
 
         // Should see current state value
         assert_eq!(effect_event2.call(()), 42);
@@ -360,7 +357,7 @@ mod tests {
         let counter = Arc::new(AtomicI32::new(0));
         let counter_clone = counter.clone();
 
-        let effect_event = use_effect_event_v2(move |_: ()| {
+        let effect_event = use_effect_event(move |_: ()| {
             counter_clone.fetch_add(1, Ordering::SeqCst);
         });
 
@@ -379,9 +376,9 @@ mod tests {
     fn test_multiple_effect_events() {
         let _fiber_id = setup_test_fiber();
 
-        let effect1 = use_effect_event_v2(|x: i32| x * 2);
-        let effect2 = use_effect_event_v2(|x: i32| x + 10);
-        let effect3 = use_effect_event_v2(|s: &str| s.len());
+        let effect1 = use_effect_event(|x: i32| x * 2);
+        let effect2 = use_effect_event(|x: i32| x + 10);
+        let effect3 = use_effect_event(|s: &str| s.len());
 
         assert_eq!(effect1.call(5), 10);
         assert_eq!(effect2.call(5), 15);
@@ -394,7 +391,7 @@ mod tests {
     fn test_effect_event_with_return_value() {
         let _fiber_id = setup_test_fiber();
 
-        let effect_event = use_effect_event_v2(|input: (i32, i32)| {
+        let effect_event = use_effect_event(|input: (i32, i32)| {
             let (a, b) = input;
             format!("{} + {} = {}", a, b, a + b)
         });
@@ -408,8 +405,8 @@ mod tests {
     fn test_effect_event_fiber_id_and_hook_index() {
         let fiber_id = setup_test_fiber();
 
-        let effect1 = use_effect_event_v2(|_: ()| {});
-        let effect2 = use_effect_event_v2(|_: ()| {});
+        let effect1 = use_effect_event(|_: ()| {});
+        let effect2 = use_effect_event(|_: ()| {});
 
         assert_eq!(effect1.fiber_id, fiber_id);
         assert_eq!(effect2.fiber_id, fiber_id);
@@ -420,14 +417,12 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(
-        expected = "use_effect_event_v2 must be called within a component render context"
-    )]
-    fn test_use_effect_event_v2_panics_outside_render() {
+    #[should_panic(expected = "use_effect_event must be called within a component render context")]
+    fn test_use_effect_event_panics_outside_render() {
         clear_fiber_tree();
 
         // This should panic because there's no current fiber
-        let _ = use_effect_event_v2(|_: ()| {});
+        let _ = use_effect_event(|_: ()| {});
     }
 
     #[test]
@@ -439,7 +434,7 @@ mod tests {
 
         // First render - handler returns 1
         let cc1 = call_count.clone();
-        let effect_event = use_effect_event_v2(move |_: ()| {
+        let effect_event = use_effect_event(move |_: ()| {
             cc1.fetch_add(1, Ordering::SeqCst);
             1
         });
@@ -455,7 +450,7 @@ mod tests {
 
         // Second render - handler returns 2
         let cc2 = call_count.clone();
-        let _effect_event2 = use_effect_event_v2(move |_: ()| {
+        let _effect_event2 = use_effect_event(move |_: ()| {
             cc2.fetch_add(1, Ordering::SeqCst);
             2
         });
@@ -499,7 +494,7 @@ mod property_tests {
         // **Property 8: Effect event function stability**
         // **Validates: Requirements 4.1**
         //
-        // For any function returned by `use_effect_event_v2`, the function
+        // For any function returned by `use_effect_event`, the function
         // reference SHALL be pointer-equal across renders.
         // ============================================================
 
@@ -513,7 +508,7 @@ mod property_tests {
             let fiber_id = setup_test_fiber();
 
             // First render - create effect event
-            let effect_event1 = use_effect_event_v2(|x: i32| x + 1);
+            let effect_event1 = use_effect_event(|x: i32| x + 1);
             let handler_ptr1 = Arc::as_ptr(&effect_event1.handler);
 
             // Simulate multiple re-renders with different handlers
@@ -525,7 +520,7 @@ mod property_tests {
 
                 // Create effect event with a different handler each time
                 let multiplier = render_num as i32;
-                let effect_event = use_effect_event_v2(move |x: i32| x * multiplier);
+                let effect_event = use_effect_event(move |x: i32| x * multiplier);
                 let handler_ptr = Arc::as_ptr(&effect_event.handler);
 
                 // Property: Arc pointer should be the same across all renders
@@ -553,7 +548,7 @@ mod property_tests {
             let fiber_id = setup_test_fiber();
 
             // First render
-            let effect_event1 = use_effect_event_v2(move |x: i32| x + initial_offset);
+            let effect_event1 = use_effect_event(move |x: i32| x + initial_offset);
             let handler_ptr1 = Arc::as_ptr(&effect_event1.handler);
             let fiber_id1 = effect_event1.fiber_id;
             let hook_index1 = effect_event1.hook_index;
@@ -566,7 +561,7 @@ mod property_tests {
                 });
 
                 let offset_copy = *offset;
-                let effect_event = use_effect_event_v2(move |x: i32| x + offset_copy);
+                let effect_event = use_effect_event(move |x: i32| x + offset_copy);
 
                 // Property: All identifying fields should be stable
                 prop_assert_eq!(
@@ -593,7 +588,7 @@ mod property_tests {
         // **Property 9: Effect event sees current state**
         // **Validates: Requirements 4.2**
         //
-        // For any function returned by `use_effect_event_v2`, when called
+        // For any function returned by `use_effect_event`, when called
         // after state updates, it SHALL execute with the current (updated)
         // state values.
         // ============================================================
@@ -613,7 +608,7 @@ mod property_tests {
             let state_clone = state.clone();
 
             // First render - handler reads from state
-            let effect_event = use_effect_event_v2(move |_: ()| {
+            let effect_event = use_effect_event(move |_: ()| {
                 state_clone.load(Ordering::SeqCst)
             });
 
@@ -637,7 +632,7 @@ mod property_tests {
 
                 // Re-create effect event with new handler that captures current state
                 let state_clone2 = state.clone();
-                let _effect_event2 = use_effect_event_v2(move |_: ()| {
+                let _effect_event2 = use_effect_event(move |_: ()| {
                     state_clone2.load(Ordering::SeqCst)
                 });
 
@@ -663,7 +658,7 @@ mod property_tests {
             let fiber_id = setup_test_fiber();
 
             // First render - handler returns render number (1)
-            let effect_event = use_effect_event_v2(|_: ()| 1i32);
+            let effect_event = use_effect_event(|_: ()| 1i32);
 
             // Property: First render should return 1
             prop_assert_eq!(effect_event.call(()), 1, "First render should return 1");
@@ -676,7 +671,7 @@ mod property_tests {
                 });
 
                 let expected = render_num as i32;
-                let _effect_event_new = use_effect_event_v2(move |_: ()| expected);
+                let _effect_event_new = use_effect_event(move |_: ()| expected);
 
                 // Property: Old reference should call the NEW handler
                 prop_assert_eq!(
@@ -712,7 +707,7 @@ mod property_tests {
 
             for i in 0..num_events {
                 let offset = i as i32;
-                let effect_event = use_effect_event_v2(move |x: i32| x + offset);
+                let effect_event = use_effect_event(move |x: i32| x + offset);
                 handler_ptrs.push(Arc::as_ptr(&effect_event.handler));
                 effect_events.push(effect_event);
             }
@@ -740,7 +735,7 @@ mod property_tests {
                 for (i, handler_ptr) in handler_ptrs.iter().enumerate().take(num_events) {
                     let multiplier = (render_num + 1) as i32;
                     let offset = i as i32;
-                    let effect_event = use_effect_event_v2(move |x: i32| x * multiplier + offset);
+                    let effect_event = use_effect_event(move |x: i32| x * multiplier + offset);
 
                     // Property: Arc pointer should be stable
                     prop_assert_eq!(

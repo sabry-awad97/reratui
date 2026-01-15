@@ -23,7 +23,7 @@ pub struct FiberTree {
     next_id: AtomicU64,
     /// Fibers scheduled for unmount
     pub(crate) pending_unmount: Vec<FiberId>,
-    /// Maps component IDs to their fiber IDs for ComponentV2 tracking
+    /// Maps component IDs to their fiber IDs for Component tracking
     component_id_to_fiber: HashMap<u64, FiberId>,
     /// Maps fiber IDs back to component IDs for cleanup
     fiber_to_component_id: HashMap<FiberId, u64>,
@@ -67,7 +67,7 @@ impl FiberTree {
         id
     }
 
-    /// Get or create a fiber for a ComponentV2 by its component ID.
+    /// Get or create a fiber for a Component by its component ID.
     ///
     /// If a fiber already exists for this component ID, returns the existing fiber ID.
     /// Otherwise, creates a new fiber and associates it with the component ID.
@@ -96,7 +96,7 @@ impl FiberTree {
     /// Mark fibers not seen this render for unmount and clear the seen set.
     ///
     /// This should be called after the render phase completes. Any fibers that
-    /// were associated with ComponentV2 instances but not rendered this pass
+    /// were associated with Component instances but not rendered this pass
     /// will be scheduled for unmount.
     pub fn mark_unseen_for_unmount(&mut self) {
         // Find fibers that have component IDs but weren't seen this render
@@ -673,7 +673,7 @@ mod property_tests {
         /// **Property 2: Fiber Lifecycle Management**
         /// **Validates: Requirements 1.5, 2.1, 2.2, 2.3**
         ///
-        /// For any ComponentV2 render, a fiber is created/retrieved, set as current
+        /// For any Component render, a fiber is created/retrieved, set as current
         /// during render, and restored after.
         #[test]
         fn prop_fiber_lifecycle_management(

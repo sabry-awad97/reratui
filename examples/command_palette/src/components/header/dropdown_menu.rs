@@ -120,7 +120,7 @@ impl DropdownMenu {
     /// Render just the dropdown part (for z-index control)
     pub fn render_dropdown(&self, area: Rect, buffer: &mut Buffer) {
         // State for the currently selected item
-        let (_selected_index, _set_selected_index) = use_state_v2(|| 0);
+        let (_selected_index, _set_selected_index) = use_state(|| 0);
 
         // Check if this menu should be open based on active submenu
         let active_submenu = get_active_submenu();
@@ -200,13 +200,13 @@ impl DropdownMenu {
     }
 }
 
-impl ComponentV2 for DropdownMenu {
+impl Component for DropdownMenu {
     fn render(&self, area: Rect, buffer: &mut Buffer) {
         // State for whether the menu is open
-        let (is_open, set_is_open) = use_state_v2(|| false);
+        let (is_open, set_is_open) = use_state(|| false);
 
         // State for the currently selected item
-        let (selected_index, set_selected_index) = use_state_v2(|| 0);
+        let (selected_index, set_selected_index) = use_state(|| 0);
 
         // Check if this menu should be open based on active submenu
         let active_submenu = get_active_submenu();

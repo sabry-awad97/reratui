@@ -6,20 +6,20 @@
 //! # Example
 //!
 //! ```rust,ignore
-//! use reratui_fiber::hooks::{use_timeout_v2, use_interval_v2};
+//! use reratui_fiber::hooks::{use_timeout, use_interval};
 //!
 //! #[component]
 //! fn TimerDemo() -> Element {
-//!     let (count, set_count) = use_state_v2(|| 0);
+//!     let (count, set_count) = use_state(|| 0);
 //!     
 //!     // Auto-increment every second
-//!     use_interval_v2(move || {
+//!     use_interval(move || {
 //!         set_count.update(|n| n + 1);
 //!     }, 1000);
 //!     
 //!     // Show message after 5 seconds
-//!     let (show_message, set_show_message) = use_state_v2(|| false);
-//!     use_timeout_v2(move || {
+//!     let (show_message, set_show_message) = use_state(|| false);
+//!     use_timeout(move || {
 //!         set_show_message.set(true);
 //!     }, 5000);
 //!     
@@ -34,7 +34,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
-use crate::hooks::use_effect_v2;
+use crate::hooks::use_effect;
 
 /// Handle for controlling a timeout.
 ///
@@ -52,7 +52,7 @@ impl TimeoutHandle {
     /// # Example
     ///
     /// ```rust,ignore
-    /// let handle = use_timeout_v2(|| println!("Fired!"), 5000);
+    /// let handle = use_timeout(|| println!("Fired!"), 5000);
     /// // Later...
     /// handle.cancel(); // Prevents "Fired!" from printing
     /// ```
@@ -83,13 +83,13 @@ impl TimeoutHandle {
 /// # Example
 ///
 /// ```rust,ignore
-/// use reratui_fiber::hooks::use_timeout_v2;
+/// use reratui_fiber::hooks::use_timeout;
 ///
 /// #[component]
 /// fn DelayedMessage() -> Element {
-///     let (visible, set_visible) = use_state_v2(|| false);
+///     let (visible, set_visible) = use_state(|| false);
 ///     
-///     use_timeout_v2(move || {
+///     use_timeout(move || {
 ///         set_visible.set(true);
 ///     }, 3000); // Show after 3 seconds
 ///     
@@ -102,7 +102,7 @@ impl TimeoutHandle {
 /// # Panics
 ///
 /// Panics if called outside of a component render context.
-pub fn use_timeout_v2<F>(callback: F, delay_ms: u64) -> TimeoutHandle
+pub fn use_timeout<F>(callback: F, delay_ms: u64) -> TimeoutHandle
 where
     F: FnOnce() + Send + 'static,
 {
@@ -112,7 +112,7 @@ where
     // Wrap callback in Arc<Mutex<Option<F>>> so it can be moved into the spawned task
     let callback = Arc::new(Mutex::new(Some(callback)));
 
-    use_effect_v2(
+    use_effect(
         move || {
             let cancelled = cancelled_for_effect.clone();
             let cancelled_for_spawn = cancelled.clone();
@@ -156,7 +156,7 @@ impl IntervalHandle {
     /// # Example
     ///
     /// ```rust,ignore
-    /// let handle = use_interval_v2(|| println!("Tick!"), 1000);
+    /// let handle = use_interval(|| println!("Tick!"), 1000);
     /// handle.pause(); // Stops ticking
     /// handle.resume(); // Resumes ticking
     /// ```
@@ -204,13 +204,13 @@ impl IntervalHandle {
 /// # Example
 ///
 /// ```rust,ignore
-/// use reratui_fiber::hooks::use_interval_v2;
+/// use reratui_fiber::hooks::use_interval;
 ///
 /// #[component]
 /// fn Counter() -> Element {
-///     let (count, set_count) = use_state_v2(|| 0);
+///     let (count, set_count) = use_state(|| 0);
 ///     
-///     let handle = use_interval_v2(move || {
+///     let handle = use_interval(move || {
 ///         set_count.update(|n| n + 1);
 ///     }, 1000); // Increment every second
 ///     
@@ -225,7 +225,7 @@ impl IntervalHandle {
 /// # Panics
 ///
 /// Panics if called outside of a component render context.
-pub fn use_interval_v2<F>(callback: F, interval_ms: u64) -> IntervalHandle
+pub fn use_interval<F>(callback: F, interval_ms: u64) -> IntervalHandle
 where
     F: Fn() + Send + Sync + 'static,
 {
@@ -236,7 +236,7 @@ where
     let cancelled_for_effect = cancelled.clone();
     let callback = Arc::new(callback);
 
-    use_effect_v2(
+    use_effect(
         move || {
             let paused = paused_for_effect.clone();
             let cancelled = cancelled_for_effect.clone();
@@ -328,20 +328,20 @@ mod tests {
     }
 
     #[test]
-    fn test_use_timeout_v2_returns_handle() {
+    fn test_use_timeout_returns_handle() {
         let _fiber_id = setup_test_fiber();
 
-        let handle = use_timeout_v2(|| {}, 1000);
+        let handle = use_timeout(|| {}, 1000);
         assert!(!handle.is_cancelled());
 
         cleanup_test();
     }
 
     #[test]
-    fn test_use_timeout_v2_can_cancel() {
+    fn test_use_timeout_can_cancel() {
         let _fiber_id = setup_test_fiber();
 
-        let handle = use_timeout_v2(|| {}, 1000);
+        let handle = use_timeout(|| {}, 1000);
         handle.cancel();
         assert!(handle.is_cancelled());
 
@@ -349,10 +349,10 @@ mod tests {
     }
 
     #[test]
-    fn test_use_interval_v2_returns_handle() {
+    fn test_use_interval_returns_handle() {
         let _fiber_id = setup_test_fiber();
 
-        let handle = use_interval_v2(|| {}, 1000);
+        let handle = use_interval(|| {}, 1000);
         assert!(!handle.is_cancelled());
         assert!(!handle.is_paused());
 
@@ -362,10 +362,10 @@ mod tests {
     }
 
     #[test]
-    fn test_use_interval_v2_can_pause_resume() {
+    fn test_use_interval_can_pause_resume() {
         let _fiber_id = setup_test_fiber();
 
-        let handle = use_interval_v2(|| {}, 1000);
+        let handle = use_interval(|| {}, 1000);
 
         handle.pause();
         assert!(handle.is_paused());
@@ -379,10 +379,10 @@ mod tests {
     }
 
     #[test]
-    fn test_use_interval_v2_can_cancel() {
+    fn test_use_interval_can_cancel() {
         let _fiber_id = setup_test_fiber();
 
-        let handle = use_interval_v2(|| {}, 1000);
+        let handle = use_interval(|| {}, 1000);
         handle.cancel();
         assert!(handle.is_cancelled());
 
@@ -422,7 +422,7 @@ mod property_tests {
         fn prop_timeout_cancel_idempotent(cancel_count in 1usize..10) {
             let _fiber_id = setup_test_fiber();
 
-            let handle = use_timeout_v2(|| {}, 10000);
+            let handle = use_timeout(|| {}, 10000);
 
             // Cancel multiple times should be safe
             for _ in 0..cancel_count {
@@ -439,7 +439,7 @@ mod property_tests {
         fn prop_timeout_handle_clone_shares_state(_dummy in 0..1i32) {
             let _fiber_id = setup_test_fiber();
 
-            let handle1 = use_timeout_v2(|| {}, 10000);
+            let handle1 = use_timeout(|| {}, 10000);
             let handle2 = handle1.clone();
 
             prop_assert!(!handle1.is_cancelled());
@@ -459,7 +459,7 @@ mod property_tests {
         fn prop_interval_pause_resume_consistent(ops in prop::collection::vec(prop_oneof![Just(true), Just(false)], 1..20)) {
             let _fiber_id = setup_test_fiber();
 
-            let handle = use_interval_v2(|| {}, 10000);
+            let handle = use_interval(|| {}, 10000);
 
             #[allow(unused_assignments)]
             let mut expected_paused = false;
@@ -484,7 +484,7 @@ mod property_tests {
         fn prop_interval_cancel_idempotent(cancel_count in 1usize..10) {
             let _fiber_id = setup_test_fiber();
 
-            let handle = use_interval_v2(|| {}, 10000);
+            let handle = use_interval(|| {}, 10000);
 
             // Cancel multiple times should be safe
             for _ in 0..cancel_count {
@@ -501,7 +501,7 @@ mod property_tests {
         fn prop_interval_handle_clone_shares_state(_dummy in 0..1i32) {
             let _fiber_id = setup_test_fiber();
 
-            let handle1 = use_interval_v2(|| {}, 10000);
+            let handle1 = use_interval(|| {}, 10000);
             let handle2 = handle1.clone();
 
             // Test pause sharing
@@ -528,7 +528,7 @@ mod property_tests {
             let _fiber_id = setup_test_fiber();
 
             let handles: Vec<_> = (0..count)
-                .map(|_| use_timeout_v2(|| {}, 10000))
+                .map(|_| use_timeout(|| {}, 10000))
                 .collect();
 
             // Cancel first half
@@ -560,7 +560,7 @@ mod property_tests {
             let _fiber_id = setup_test_fiber();
 
             let handles: Vec<_> = (0..count)
-                .map(|_| use_interval_v2(|| {}, 10000))
+                .map(|_| use_interval(|| {}, 10000))
                 .collect();
 
             // Pause first half

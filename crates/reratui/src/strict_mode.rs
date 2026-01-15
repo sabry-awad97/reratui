@@ -17,7 +17,7 @@
 //! use reratui_fiber::prelude::*;
 //!
 //! // Enable strict mode via render options
-//! render_v2_with_options(
+//! render_with_options(
 //!     || rsx! { <App /> },
 //!     RenderOptions {
 //!         strict_mode: true,

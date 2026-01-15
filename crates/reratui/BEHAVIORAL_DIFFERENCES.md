@@ -24,9 +24,9 @@ struct Counter {
     initial_count: i32,
 }
 
-impl ComponentV2 for Counter {
+impl Component for Counter {
     fn render(&self, area: Rect, buffer: &mut Buffer) {
-        let (count, set_count) = use_state_v2(|| self.initial_count);
+        let (count, set_count) = use_state(|| self.initial_count);
         Paragraph::new(format!("Count: {}", count))
             .render(area, buffer);
     }
@@ -35,7 +35,7 @@ impl ComponentV2 for Counter {
 
 **Key Differences:**
 
-- Components are structs implementing `ComponentV2` trait
+- Components are structs implementing `Component` trait
 - Props are struct fields
 - Render receives `area` and `buffer` instead of returning JSX
 - Direct rendering to buffer instead of virtual DOM
@@ -77,7 +77,7 @@ useEffect(() => {
 ### Reratui
 
 ```rust
-use_effect_v2(
+use_effect(
     move || {
         println!("Effect ran");
         Some(Box::new(|| println!("Cleanup")))
@@ -94,12 +94,12 @@ use_effect_v2(
 
 ### Dependency Comparison
 
-| React                  | Reratui                            |
-| ---------------------- | ---------------------------------- |
-| `[]` (empty array)     | `use_effect_once`                  |
-| `[dep]`                | `use_effect_v2(..., dep)`          |
-| `[dep1, dep2]`         | `use_effect_v2(..., (dep1, dep2))` |
-| No deps (every render) | Not directly supported             |
+| React                  | Reratui                         |
+| ---------------------- | ------------------------------- |
+| `[]` (empty array)     | `use_effect_once`               |
+| `[dep]`                | `use_effect(..., dep)`          |
+| `[dep1, dep2]`         | `use_effect(..., (dep1, dep2))` |
+| No deps (every render) | Not directly supported          |
 
 ## Context
 
@@ -119,10 +119,10 @@ const theme = useContext(ThemeContext);
 
 ```rust
 // Provider (inside component)
-use_context_provider_v2(|| theme.clone());
+use_context_provider(|| theme.clone());
 
 // Consumer
-let theme = use_context_v2::<Theme>();
+let theme = use_context::<Theme>();
 ```
 
 **Key Differences:**
@@ -130,7 +130,7 @@ let theme = use_context_v2::<Theme>();
 - No separate Context object creation
 - Provider is a hook, not a component wrapper
 - Type-based lookup instead of context object
-- `try_use_context_v2` for optional context
+- `try_use_context` for optional context
 
 ## Refs
 
@@ -145,7 +145,7 @@ console.log(ref.current);
 ### Reratui
 
 ```rust
-let ref_handle = use_ref_v2(|| initial_value);
+let ref_handle = use_ref(|| initial_value);
 ref_handle.set(new_value);
 let value = ref_handle.get();
 ```
@@ -168,14 +168,14 @@ const callback = useCallback(() => doSomething(), [dep]);
 ### Reratui
 
 ```rust
-let memoized = use_memo_v2(|| expensive(), dep);
-let callback = use_callback_v2(|| do_something(), dep);
+let memoized = use_memo(|| expensive(), dep);
+let callback = use_callback(|| do_something(), dep);
 ```
 
 **Key Differences:**
 
 - Single dependency value (use tuples for multiple)
-- Callback returns `CallbackV2<F>` wrapper
+- Callback returns `Callback<F>` wrapper
 
 ## Event Handling
 
@@ -188,13 +188,13 @@ let callback = use_callback_v2(|| do_something(), dep);
 ### Reratui
 
 ```rust
-use_keyboard_press_v2(move |key| {
+use_keyboard_press(move |key| {
     if key.code == KeyCode::Enter {
         handle_click();
     }
 });
 
-use_mouse_click_v2(move |button, x, y| {
+use_mouse_click(move |button, x, y| {
     if button == MouseButton::Left {
         handle_click();
     }
@@ -223,7 +223,7 @@ const { data, isLoading, error, refetch } = useQuery({
 ### Reratui
 
 ```rust
-let query = use_query_v2(
+let query = use_query(
     "users",
     || async { fetch_users().await },
     Some(QueryOptions {
@@ -281,34 +281,34 @@ Mount → Render Loop → Unmount
 
 ### React Features Not in Reratui
 
-| React               | Reratui Alternative                        |
-| ------------------- | ------------------------------------------ |
-| JSX                 | Direct widget rendering                    |
-| Suspense            | Manual loading states                      |
-| Error Boundaries    | Manual error handling                      |
-| Portals             | Not applicable (single buffer)             |
-| Fragments           | Not needed                                 |
-| forwardRef          | Not applicable                             |
-| useImperativeHandle | Not applicable                             |
-| useLayoutEffect     | `use_effect_v2` (all effects are "layout") |
-| useDeferredValue    | Not available                              |
-| useTransition       | Not available                              |
-| Server Components   | Not applicable                             |
+| React               | Reratui Alternative                     |
+| ------------------- | --------------------------------------- |
+| JSX                 | Direct widget rendering                 |
+| Suspense            | Manual loading states                   |
+| Error Boundaries    | Manual error handling                   |
+| Portals             | Not applicable (single buffer)          |
+| Fragments           | Not needed                              |
+| forwardRef          | Not applicable                          |
+| useImperativeHandle | Not applicable                          |
+| useLayoutEffect     | `use_effect` (all effects are "layout") |
+| useDeferredValue    | Not available                           |
+| useTransition       | Not available                           |
+| Server Components   | Not applicable                          |
 
 ### Reratui-Specific Features
 
-| Feature              | Description               |
-| -------------------- | ------------------------- |
-| `use_keyboard_v2`    | Terminal keyboard events  |
-| `use_mouse_v2`       | Terminal mouse events     |
-| `use_area_v2`        | Component render area     |
-| `use_frame_v2`       | Frame timing info         |
-| `use_resize_v2`      | Terminal resize events    |
-| `use_media_query_v2` | Terminal size breakpoints |
-| `use_history_v2`     | Undo/redo state           |
-| `use_form_v2`        | Form validation           |
-| `use_timeout_v2`     | Timeout with handle       |
-| `use_interval_v2`    | Interval with handle      |
+| Feature           | Description               |
+| ----------------- | ------------------------- |
+| `use_keyboard`    | Terminal keyboard events  |
+| `use_mouse`       | Terminal mouse events     |
+| `use_area`        | Component render area     |
+| `use_frame`       | Frame timing info         |
+| `use_resize`      | Terminal resize events    |
+| `use_media_query` | Terminal size breakpoints |
+| `use_history`     | Undo/redo state           |
+| `use_form`        | Form validation           |
+| `use_timeout`     | Timeout with handle       |
+| `use_interval`    | Interval with handle      |
 
 ## Threading Model
 

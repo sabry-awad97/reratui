@@ -148,7 +148,7 @@ Process terminal events:
 set_current_event(event);
 
 // Re-render to process event
-// (hooks like use_keyboard_v2 read the event)
+// (hooks like use_keyboard read the event)
 ```
 
 ### 5. Effect Phase
@@ -208,7 +208,7 @@ This is why hooks must be called in the same order - the index determines which 
 ### Hook Implementation Pattern
 
 ```rust
-pub fn use_state_v2<T, F>(initializer: F) -> (T, StateSetterV2<T>)
+pub fn use_state<T, F>(initializer: F) -> (T, StateSetter<T>)
 where
     T: Clone + Send + Sync + PartialEq + 'static,
     F: FnOnce() -> T,
@@ -221,7 +221,7 @@ where
         let value = fiber.get_or_init_hook(hook_index, initializer);
 
         // Create setter
-        let setter = StateSetterV2 {
+        let setter = StateSetter {
             fiber_id,
             hook_index,
             _marker: PhantomData,
@@ -317,7 +317,7 @@ pub struct EffectQueue {
 Effects track dependencies to determine when to re-run:
 
 ```rust
-pub fn use_effect_v2<D, F>(effect: F, deps: D)
+pub fn use_effect<D, F>(effect: F, deps: D)
 where
     D: PartialEq + Clone + Send + Sync + 'static,
 {
@@ -364,7 +364,7 @@ pub struct ContextStack {
 ### Provider
 
 ```rust
-pub fn use_context_provider_v2<T, F>(initializer: F)
+pub fn use_context_provider<T, F>(initializer: F)
 where
     T: Clone + Send + Sync + 'static,
     F: FnOnce() -> T,
@@ -385,7 +385,7 @@ where
 ### Consumer
 
 ```rust
-pub fn use_context_v2<T>() -> T
+pub fn use_context<T>() -> T
 where
     T: Clone + Send + Sync + 'static,
 {
@@ -428,12 +428,12 @@ pub fn use_event() -> Option<Event> {
 Event hooks use the effect event pattern for stable callbacks:
 
 ```rust
-pub fn use_keyboard_v2<F>(handler: F)
+pub fn use_keyboard<F>(handler: F)
 where
     F: Fn(KeyEvent) + Send + Sync + 'static,
 {
     // Create stable callback
-    let stable_handler = use_effect_event_v2(move |key_event: KeyEvent| {
+    let stable_handler = use_effect_event(move |key_event: KeyEvent| {
         handler(key_event);
     });
 
@@ -487,7 +487,7 @@ impl FiberTree {
 Use `set_if_changed` to avoid unnecessary re-renders:
 
 ```rust
-impl<T: PartialEq> StateSetterV2<T> {
+impl<T: PartialEq> StateSetter<T> {
     pub fn set_if_changed(&self, value: T) {
         // Only queue update if value differs
         if current_value != value {
@@ -499,10 +499,10 @@ impl<T: PartialEq> StateSetterV2<T> {
 
 ### Memoization
 
-`use_memo_v2` caches expensive computations:
+`use_memo` caches expensive computations:
 
 ```rust
-pub fn use_memo_v2<T, D, F>(compute: F, deps: D) -> T {
+pub fn use_memo<T, D, F>(compute: F, deps: D) -> T {
     with_current_fiber(|fiber| {
         let hook_index = fiber.next_hook_index();
 
@@ -540,7 +540,7 @@ tracing_subscriber::fmt()
 Enable strict mode to catch hook violations:
 
 ```rust
-render_v2_with_options(|| App, RenderOptions {
+render_with_options(|| App, RenderOptions {
     strict_mode: true,
     ..Default::default()
 }).await?;

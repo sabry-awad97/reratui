@@ -6,11 +6,11 @@
 //! # Example
 //!
 //! ```rust,ignore
-//! use reratui_fiber::hooks::use_history_v2;
+//! use reratui_fiber::hooks::use_history;
 //!
 //! #[component]
 //! fn TextEditor() -> Element {
-//!     let history = use_history_v2(|| String::new());
+//!     let history = use_history(|| String::new());
 //!     
 //!     // Update text
 //!     history.set("Hello".to_string());
@@ -123,7 +123,7 @@ impl<T: Clone + Send + Sync + 'static> HistoryHandle<T> {
     /// # Example
     ///
     /// ```rust,ignore
-    /// let history = use_history_v2(|| 0);
+    /// let history = use_history(|| 0);
     /// let value = history.current(); // 0
     /// ```
     pub fn current(&self) -> T {
@@ -142,7 +142,7 @@ impl<T: Clone + Send + Sync + 'static> HistoryHandle<T> {
     /// # Example
     ///
     /// ```rust,ignore
-    /// let history = use_history_v2(|| 0);
+    /// let history = use_history(|| 0);
     /// history.set(1);
     /// history.set(2);
     /// assert_eq!(history.current(), 2);
@@ -169,7 +169,7 @@ impl<T: Clone + Send + Sync + 'static> HistoryHandle<T> {
     /// # Example
     ///
     /// ```rust,ignore
-    /// let history = use_history_v2(|| 0);
+    /// let history = use_history(|| 0);
     /// history.set(1);
     /// history.undo(); // Returns true, current is now 0
     /// history.undo(); // Returns false, nothing to undo
@@ -198,7 +198,7 @@ impl<T: Clone + Send + Sync + 'static> HistoryHandle<T> {
     /// # Example
     ///
     /// ```rust,ignore
-    /// let history = use_history_v2(|| 0);
+    /// let history = use_history(|| 0);
     /// history.set(1);
     /// history.undo();
     /// history.redo(); // Returns true, current is now 1
@@ -226,7 +226,7 @@ impl<T: Clone + Send + Sync + 'static> HistoryHandle<T> {
     /// # Example
     ///
     /// ```rust,ignore
-    /// let history = use_history_v2(|| 0);
+    /// let history = use_history(|| 0);
     /// assert!(!history.can_undo()); // Nothing to undo yet
     /// history.set(1);
     /// assert!(history.can_undo()); // Can undo to 0
@@ -246,7 +246,7 @@ impl<T: Clone + Send + Sync + 'static> HistoryHandle<T> {
     /// # Example
     ///
     /// ```rust,ignore
-    /// let history = use_history_v2(|| 0);
+    /// let history = use_history(|| 0);
     /// history.set(1);
     /// assert!(!history.can_redo()); // Nothing to redo
     /// history.undo();
@@ -369,11 +369,11 @@ impl<T: Clone + Send + Sync + 'static> HistoryHandle<T> {
 /// # Example
 ///
 /// ```rust,ignore
-/// use reratui_fiber::hooks::use_history_v2;
+/// use reratui_fiber::hooks::use_history;
 ///
 /// #[component]
 /// fn Counter() -> Element {
-///     let history = use_history_v2(|| 0);
+///     let history = use_history(|| 0);
 ///     
 ///     rsx! {
 ///         <Text text={format!("Count: {}", history.current())} />
@@ -387,7 +387,7 @@ impl<T: Clone + Send + Sync + 'static> HistoryHandle<T> {
 /// # Panics
 ///
 /// Panics if called outside of a component render context (no current fiber).
-pub fn use_history_v2<T, F>(initializer: F) -> HistoryHandle<T>
+pub fn use_history<T, F>(initializer: F) -> HistoryHandle<T>
 where
     T: Clone + Send + Sync + 'static,
     F: FnOnce() -> T,
@@ -414,7 +414,7 @@ where
             storage,
         }
     })
-    .expect("use_history_v2 must be called within a component render context")
+    .expect("use_history must be called within a component render context")
 }
 
 #[cfg(test)]
@@ -437,20 +437,20 @@ mod tests {
     }
 
     #[test]
-    fn test_use_history_v2_basic() {
+    fn test_use_history_basic() {
         let _fiber_id = setup_test_fiber();
 
-        let history = use_history_v2(|| 0);
+        let history = use_history(|| 0);
         assert_eq!(history.current(), 0);
 
         cleanup_test();
     }
 
     #[test]
-    fn test_use_history_v2_set() {
+    fn test_use_history_set() {
         let _fiber_id = setup_test_fiber();
 
-        let history = use_history_v2(|| 0);
+        let history = use_history(|| 0);
         history.set(1);
         assert_eq!(history.current(), 1);
         history.set(2);
@@ -460,10 +460,10 @@ mod tests {
     }
 
     #[test]
-    fn test_use_history_v2_undo() {
+    fn test_use_history_undo() {
         let _fiber_id = setup_test_fiber();
 
-        let history = use_history_v2(|| 0);
+        let history = use_history(|| 0);
         history.set(1);
         history.set(2);
 
@@ -481,10 +481,10 @@ mod tests {
     }
 
     #[test]
-    fn test_use_history_v2_redo() {
+    fn test_use_history_redo() {
         let _fiber_id = setup_test_fiber();
 
-        let history = use_history_v2(|| 0);
+        let history = use_history(|| 0);
         history.set(1);
         history.set(2);
 
@@ -505,10 +505,10 @@ mod tests {
     }
 
     #[test]
-    fn test_use_history_v2_set_clears_future() {
+    fn test_use_history_set_clears_future() {
         let _fiber_id = setup_test_fiber();
 
-        let history = use_history_v2(|| 0);
+        let history = use_history(|| 0);
         history.set(1);
         history.set(2);
 
@@ -523,10 +523,10 @@ mod tests {
     }
 
     #[test]
-    fn test_use_history_v2_can_undo_redo() {
+    fn test_use_history_can_undo_redo() {
         let _fiber_id = setup_test_fiber();
 
-        let history = use_history_v2(|| 0);
+        let history = use_history(|| 0);
 
         assert!(!history.can_undo());
         assert!(!history.can_redo());
@@ -543,10 +543,10 @@ mod tests {
     }
 
     #[test]
-    fn test_use_history_v2_past_future_count() {
+    fn test_use_history_past_future_count() {
         let _fiber_id = setup_test_fiber();
 
-        let history = use_history_v2(|| 0);
+        let history = use_history(|| 0);
 
         assert_eq!(history.past_count(), 0);
         assert_eq!(history.future_count(), 0);
@@ -568,10 +568,10 @@ mod tests {
     }
 
     #[test]
-    fn test_use_history_v2_clear_history() {
+    fn test_use_history_clear_history() {
         let _fiber_id = setup_test_fiber();
 
-        let history = use_history_v2(|| 0);
+        let history = use_history(|| 0);
         history.set(1);
         history.set(2);
         history.undo();
@@ -586,10 +586,10 @@ mod tests {
     }
 
     #[test]
-    fn test_use_history_v2_go_back_forward() {
+    fn test_use_history_go_back_forward() {
         let _fiber_id = setup_test_fiber();
 
-        let history = use_history_v2(|| 0);
+        let history = use_history(|| 0);
         history.set(1);
         history.set(2);
         history.set(3);
@@ -605,11 +605,11 @@ mod tests {
     }
 
     #[test]
-    fn test_use_history_v2_stable_across_renders() {
+    fn test_use_history_stable_across_renders() {
         let fiber_id = setup_test_fiber();
 
         // First render
-        let history1 = use_history_v2(|| 0);
+        let history1 = use_history(|| 0);
         history1.set(1);
         history1.set(2);
 
@@ -620,7 +620,7 @@ mod tests {
         });
 
         // Second render
-        let history2 = use_history_v2(|| 999); // Different initializer ignored
+        let history2 = use_history(|| 999); // Different initializer ignored
 
         // Should have same state
         assert_eq!(history2.current(), 2);
@@ -630,10 +630,10 @@ mod tests {
     }
 
     #[test]
-    fn test_use_history_v2_with_string() {
+    fn test_use_history_with_string() {
         let _fiber_id = setup_test_fiber();
 
-        let history = use_history_v2(String::new);
+        let history = use_history(String::new);
         history.set("Hello".to_string());
         history.set("Hello World".to_string());
 
@@ -649,11 +649,11 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(expected = "use_history_v2 must be called within a component render context")]
-    fn test_use_history_v2_panics_outside_render() {
+    #[should_panic(expected = "use_history must be called within a component render context")]
+    fn test_use_history_panics_outside_render() {
         clear_fiber_tree();
         crate::scheduler::batch::clear_state_batch();
-        let _ = use_history_v2(|| 0);
+        let _ = use_history(|| 0);
     }
 }
 
@@ -691,7 +691,7 @@ mod property_tests {
         fn prop_history_undo_redo_round_trip(v1 in any::<i32>(), v2 in any::<i32>()) {
             let _fiber_id = setup_test_fiber();
 
-            let history = use_history_v2(|| v1);
+            let history = use_history(|| v1);
 
             // Set to V2
             history.set(v2);
@@ -713,7 +713,7 @@ mod property_tests {
             let _fiber_id = setup_test_fiber();
 
             let initial = values[0];
-            let history = use_history_v2(|| initial);
+            let history = use_history(|| initial);
 
             // Set all values
             for &v in &values[1..] {
@@ -755,7 +755,7 @@ mod property_tests {
             let _fiber_id = setup_test_fiber();
 
             let initial = values[0];
-            let history = use_history_v2(|| initial);
+            let history = use_history(|| initial);
 
             // Initially can't undo
             prop_assert!(!history.can_undo());
@@ -785,7 +785,7 @@ mod property_tests {
         ) {
             let _fiber_id = setup_test_fiber();
 
-            let history = use_history_v2(|| initial);
+            let history = use_history(|| initial);
 
             // Build up history
             history.set(v1);
@@ -808,7 +808,7 @@ mod property_tests {
         fn prop_history_can_undo_redo_consistency(ops in prop::collection::vec(prop_oneof![Just(true), Just(false)], 1..30)) {
             let _fiber_id = setup_test_fiber();
 
-            let history = use_history_v2(|| 0i32);
+            let history = use_history(|| 0i32);
 
             // Build some history first
             for i in 1..=5 {
@@ -838,7 +838,7 @@ mod property_tests {
             let _fiber_id = setup_test_fiber();
 
             let initial = values[0];
-            let history = use_history_v2(|| initial);
+            let history = use_history(|| initial);
 
             // Set all values
             for &v in &values[1..] {
@@ -867,7 +867,7 @@ mod property_tests {
             let fiber_id = setup_test_fiber();
 
             // First render
-            let history1 = use_history_v2(|| initial);
+            let history1 = use_history(|| initial);
             for &v in &values {
                 history1.set(v);
             }
@@ -882,7 +882,7 @@ mod property_tests {
             });
 
             // Second render - should have same state
-            let history2 = use_history_v2(|| 999); // Different initializer ignored
+            let history2 = use_history(|| 999); // Different initializer ignored
 
             prop_assert_eq!(history2.current(), expected_current);
             prop_assert_eq!(history2.past_count(), expected_past_count);

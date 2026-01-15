@@ -1,8 +1,8 @@
 //! 🎨 Beautiful Async Fetch Example - Direct Rendering Version
 //!
-//! A modern demonstration of `use_future_v2` hook without RSX/VNode
+//! A modern demonstration of `use_future` hook without RSX/VNode
 
-use reratui::hooks::{FutureState, use_future_v2};
+use reratui::hooks::{FutureState, use_future};
 use reratui::prelude::*;
 use serde::Deserialize;
 
@@ -17,13 +17,13 @@ struct Post {
 
 struct App;
 
-impl ComponentV2 for App {
+impl Component for App {
     fn render(&self, area: Rect, buffer: &mut Buffer) {
         // State management
-        let (post_id, set_post_id) = use_state_v2(|| 1u32);
+        let (post_id, set_post_id) = use_state(|| 1u32);
 
         // Fetch post data with automatic refetch on ID change
-        let future_handle = use_future_v2(
+        let future_handle = use_future(
             move || async move {
                 // Simulate network delay for better UX demonstration
                 tokio::time::sleep(std::time::Duration::from_millis(500)).await;
@@ -59,7 +59,7 @@ impl ComponentV2 for App {
         {
             match code {
                 KeyCode::Char('q') => {
-                    request_exit_v2();
+                    request_exit();
                 }
                 KeyCode::Left | KeyCode::Char('h') => {
                     if post_id > 1 {
@@ -283,6 +283,6 @@ fn render_footer(buffer: &mut Buffer, area: Rect, post_id: u32) {
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    render_v2(|| App).await?;
+    render(|| App).await?;
     Ok(())
 }

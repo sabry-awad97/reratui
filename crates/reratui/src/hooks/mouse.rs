@@ -6,25 +6,25 @@
 //! # Example
 //!
 //! ```rust,ignore
-//! use reratui_fiber::hooks::{use_mouse_v2, use_mouse_click_v2, use_mouse_hover_v2};
+//! use reratui_fiber::hooks::{use_mouse, use_mouse_click, use_mouse_hover};
 //! use crossterm::event::MouseButton;
 //! use ratatui::layout::Rect;
 //!
 //! #[component]
 //! fn MyComponent() -> Element {
 //!     // Handle all mouse events
-//!     use_mouse_v2(|mouse_event| {
+//!     use_mouse(|mouse_event| {
 //!         println!("Mouse at: ({}, {})", mouse_event.column, mouse_event.row);
 //!     });
 //!
 //!     // Handle only click events
-//!     use_mouse_click_v2(|button, x, y| {
+//!     use_mouse_click(|button, x, y| {
 //!         println!("Clicked {:?} at ({}, {})", button, x, y);
 //!     });
 //!
 //!     // Track hover state over an area
 //!     let button_area = Rect::new(10, 5, 20, 3);
-//!     let is_hovering = use_mouse_hover_v2(button_area);
+//!     let is_hovering = use_mouse_hover(button_area);
 //!
 //!     rsx! { <Text text={format!("Hovering: {}", is_hovering)} /> }
 //! }
@@ -34,14 +34,14 @@ use crossterm::event::{Event, MouseButton, MouseEvent, MouseEventKind};
 use ratatui::layout::Rect;
 use std::time::{Duration, Instant};
 
-use super::effect_event::use_effect_event_v2;
+use super::effect_event::use_effect_event;
 use super::event::use_event;
-use super::r#ref::use_ref_v2;
-use super::state::use_state_v2;
+use super::r#ref::use_ref;
+use super::state::use_state;
 
 /// A hook that handles mouse events with a stable callback.
 ///
-/// This hook uses `use_effect_event_v2` internally to ensure the callback always
+/// This hook uses `use_effect_event` internally to ensure the callback always
 /// sees the latest captured values while maintaining a stable identity.
 ///
 /// # Type Parameters
@@ -55,14 +55,14 @@ use super::state::use_state_v2;
 /// # Examples
 ///
 /// ```rust,ignore
-/// use reratui_fiber::hooks::use_mouse_v2;
-/// use reratui_fiber::hooks::use_state_v2;
+/// use reratui_fiber::hooks::use_mouse;
+/// use reratui_fiber::hooks::use_state;
 /// use crossterm::event::{MouseEventKind, MouseButton};
 ///
 /// // Track mouse clicks
-/// let (click_count, set_click_count) = use_state_v2(|| 0);
+/// let (click_count, set_click_count) = use_state(|| 0);
 ///
-/// use_mouse_v2(move |mouse_event| {
+/// use_mouse(move |mouse_event| {
 ///     if matches!(mouse_event.kind, MouseEventKind::Down(MouseButton::Left)) {
 ///         println!("Mouse clicked at: ({}, {})", mouse_event.column, mouse_event.row);
 ///         set_click_count.update(|c| c + 1);
@@ -77,12 +77,12 @@ use super::state::use_state_v2;
 /// - The callback has a stable identity across renders
 /// - Only mouse events trigger the callback (keyboard, resize, etc. are ignored)
 /// - Mouse capture must be enabled in the terminal
-pub fn use_mouse_v2<F>(handler: F)
+pub fn use_mouse<F>(handler: F)
 where
     F: Fn(MouseEvent) + Send + Sync + 'static,
 {
     // Create a stable callback using effect event pattern
-    let stable_handler = use_effect_event_v2(move |mouse_event: MouseEvent| {
+    let stable_handler = use_effect_event(move |mouse_event: MouseEvent| {
         handler(mouse_event);
     });
 
@@ -95,7 +95,7 @@ where
 
 /// A hook that handles mouse click events only (filters out movement and drag).
 ///
-/// This is a convenience wrapper around `use_mouse_v2` that only triggers the callback
+/// This is a convenience wrapper around `use_mouse` that only triggers the callback
 /// when a mouse button is clicked (pressed down), ignoring movement, drag, and scroll events.
 ///
 /// # Type Parameters
@@ -109,11 +109,11 @@ where
 /// # Examples
 ///
 /// ```rust,ignore
-/// use reratui_fiber::hooks::use_mouse_click_v2;
+/// use reratui_fiber::hooks::use_mouse_click;
 /// use crossterm::event::MouseButton;
 ///
 /// // Track left clicks only
-/// use_mouse_click_v2(move |button, x, y| {
+/// use_mouse_click(move |button, x, y| {
 ///     if button == MouseButton::Left {
 ///         println!("Left click at ({}, {})", x, y);
 ///     }
@@ -126,11 +126,11 @@ where
 /// - Filters out movement, drag, scroll, and button release events
 /// - The callback always sees the latest state values (via effect event pattern)
 /// - The callback has a stable identity across renders
-pub fn use_mouse_click_v2<F>(handler: F)
+pub fn use_mouse_click<F>(handler: F)
 where
     F: Fn(MouseButton, u16, u16) + Send + Sync + 'static,
 {
-    use_mouse_v2(move |mouse_event| {
+    use_mouse(move |mouse_event| {
         // Only handle click (down) events
         if let MouseEventKind::Down(button) = mouse_event.kind {
             handler(button, mouse_event.column, mouse_event.row);
@@ -171,9 +171,9 @@ pub struct DragInfo {
 /// # Examples
 ///
 /// ```rust,ignore
-/// use reratui_fiber::hooks::use_mouse_drag_v2;
+/// use reratui_fiber::hooks::use_mouse_drag;
 ///
-/// let (drag_info, reset_drag) = use_mouse_drag_v2();
+/// let (drag_info, reset_drag) = use_mouse_drag();
 ///
 /// if drag_info.is_start {
 ///     println!("Drag started at {:?}", drag_info.start);
@@ -196,14 +196,14 @@ pub struct DragInfo {
 /// - `is_dragging` is `true` during the entire drag operation
 /// - `is_start` is only `true` on the first frame of the drag
 /// - `is_end` is only `true` on the last frame of the drag
-pub fn use_mouse_drag_v2() -> (DragInfo, impl Fn() + Clone) {
-    let (drag_info, set_drag_info) = use_state_v2(DragInfo::default);
-    let drag_state = use_ref_v2(|| None::<(MouseButton, u16, u16)>);
+pub fn use_mouse_drag() -> (DragInfo, impl Fn() + Clone) {
+    let (drag_info, set_drag_info) = use_state(DragInfo::default);
+    let drag_state = use_ref(|| None::<(MouseButton, u16, u16)>);
 
     let set_info_clone = set_drag_info;
     let state_clone = drag_state.clone();
 
-    use_mouse_v2(move |mouse_event| {
+    use_mouse(move |mouse_event| {
         match mouse_event.kind {
             MouseEventKind::Down(button) => {
                 // Start drag
@@ -281,11 +281,11 @@ pub fn use_mouse_drag_v2() -> (DragInfo, impl Fn() + Clone) {
 /// # Examples
 ///
 /// ```rust,ignore
-/// use reratui_fiber::hooks::use_double_click_v2;
+/// use reratui_fiber::hooks::use_double_click;
 /// use std::time::Duration;
 ///
 /// // Detect double-clicks with 500ms window
-/// use_double_click_v2(Duration::from_millis(500), move |button, x, y| {
+/// use_double_click(Duration::from_millis(500), move |button, x, y| {
 ///     println!("Double-click at ({}, {})", x, y);
 /// });
 /// ```
@@ -294,17 +294,17 @@ pub fn use_mouse_drag_v2() -> (DragInfo, impl Fn() + Clone) {
 ///
 /// - Default timing window is 500ms (typical for most UIs)
 /// - Only triggers on the second click of a double-click
-/// - Uses `use_ref_v2` internally to track click timing without re-renders
+/// - Uses `use_ref` internally to track click timing without re-renders
 /// - The callback always sees the latest state values (via effect event pattern)
 /// - The callback has a stable identity across renders
-pub fn use_double_click_v2<F>(max_delay: Duration, handler: F)
+pub fn use_double_click<F>(max_delay: Duration, handler: F)
 where
     F: Fn(MouseButton, u16, u16) + Send + Sync + 'static,
 {
     // Track last click: Option<(button, x, y, time)>
-    let last_click = use_ref_v2(|| None::<(MouseButton, u16, u16, Instant)>);
+    let last_click = use_ref(|| None::<(MouseButton, u16, u16, Instant)>);
 
-    use_mouse_v2(move |mouse_event| {
+    use_mouse(move |mouse_event| {
         if let MouseEventKind::Down(button) = mouse_event.kind {
             let now = Instant::now();
             let current_pos = (mouse_event.column, mouse_event.row);
@@ -344,9 +344,9 @@ where
 /// # Examples
 ///
 /// ```rust,ignore
-/// use reratui_fiber::hooks::use_mouse_position_v2;
+/// use reratui_fiber::hooks::use_mouse_position;
 ///
-/// let (x, y) = use_mouse_position_v2();
+/// let (x, y) = use_mouse_position();
 /// println!("Mouse is at position: ({}, {})", x, y);
 /// ```
 ///
@@ -355,10 +355,10 @@ where
 /// - The position starts at (0, 0) until the first mouse event
 /// - Mouse capture must be enabled in the terminal
 /// - The hook updates on any mouse event, including movement, clicks, and scrolling
-pub fn use_mouse_position_v2() -> (u16, u16) {
-    let (position, set_position) = use_state_v2(|| (0u16, 0u16));
+pub fn use_mouse_position() -> (u16, u16) {
+    let (position, set_position) = use_state(|| (0u16, 0u16));
 
-    use_mouse_v2({
+    use_mouse({
         move |mouse_event| {
             let new_pos = (mouse_event.column, mouse_event.row);
             if new_pos != position {
@@ -387,11 +387,11 @@ pub fn use_mouse_position_v2() -> (u16, u16) {
 /// # Examples
 ///
 /// ```rust,ignore
-/// use reratui_fiber::hooks::use_mouse_hover_v2;
+/// use reratui_fiber::hooks::use_mouse_hover;
 /// use ratatui::layout::Rect;
 ///
 /// let button_area = Rect::new(10, 5, 20, 3);
-/// let is_hovering = use_mouse_hover_v2(button_area);
+/// let is_hovering = use_mouse_hover(button_area);
 ///
 /// if is_hovering {
 ///     println!("Mouse is hovering over the button!");
@@ -406,10 +406,10 @@ pub fn use_mouse_position_v2() -> (u16, u16) {
 ///   - `y >= area.y && y < area.y + area.height`
 /// - The hook updates on any mouse event (movement, clicks, scrolling)
 /// - Mouse capture must be enabled in the terminal
-pub fn use_mouse_hover_v2(area: Rect) -> bool {
-    let (is_hovering, set_hovering) = use_state_v2(|| false);
+pub fn use_mouse_hover(area: Rect) -> bool {
+    let (is_hovering, set_hovering) = use_state(|| false);
 
-    use_mouse_v2({
+    use_mouse({
         move |mouse_event| {
             let is_inside = mouse_event.column >= area.x
                 && mouse_event.column < area.x + area.width
@@ -466,7 +466,7 @@ mod tests {
     }
 
     #[test]
-    fn test_use_mouse_v2_receives_mouse_event() {
+    fn test_use_mouse_receives_mouse_event() {
         let _lock = TEST_MUTEX.lock();
         cleanup_test();
         let _fiber_id = setup_test_fiber();
@@ -479,7 +479,7 @@ mod tests {
         set_current_event(Some(Arc::new(event)));
 
         // Use the mouse hook
-        use_mouse_v2(move |mouse_event| {
+        use_mouse(move |mouse_event| {
             assert_eq!(mouse_event.column, 10);
             assert_eq!(mouse_event.row, 20);
             call_count_clone.fetch_add(1, Ordering::SeqCst);
@@ -491,7 +491,7 @@ mod tests {
     }
 
     #[test]
-    fn test_use_mouse_v2_ignores_non_mouse_events() {
+    fn test_use_mouse_ignores_non_mouse_events() {
         let _lock = TEST_MUTEX.lock();
         cleanup_test();
         let _fiber_id = setup_test_fiber();
@@ -507,7 +507,7 @@ mod tests {
         set_current_event(Some(Arc::new(event)));
 
         // Use the mouse hook
-        use_mouse_v2(move |_mouse_event| {
+        use_mouse(move |_mouse_event| {
             call_count_clone.fetch_add(1, Ordering::SeqCst);
         });
 
@@ -518,7 +518,7 @@ mod tests {
     }
 
     #[test]
-    fn test_use_mouse_click_v2_only_handles_down() {
+    fn test_use_mouse_click_only_handles_down() {
         let _lock = TEST_MUTEX.lock();
         cleanup_test();
         let fiber_id = setup_test_fiber();
@@ -530,7 +530,7 @@ mod tests {
         set_current_event(Some(Arc::new(down_event)));
 
         let call_count_clone = call_count.clone();
-        use_mouse_click_v2(move |button, x, y| {
+        use_mouse_click(move |button, x, y| {
             assert_eq!(button, MouseButton::Left);
             assert_eq!(x, 10);
             assert_eq!(y, 20);
@@ -551,7 +551,7 @@ mod tests {
         set_current_event(Some(Arc::new(move_event)));
 
         let call_count_clone2 = call_count.clone();
-        use_mouse_click_v2(move |_, _, _| {
+        use_mouse_click(move |_, _, _| {
             call_count_clone2.fetch_add(1, Ordering::SeqCst);
         });
 
@@ -562,7 +562,7 @@ mod tests {
     }
 
     #[test]
-    fn test_use_mouse_v2_no_event() {
+    fn test_use_mouse_no_event() {
         let _lock = TEST_MUTEX.lock();
         cleanup_test();
         let _fiber_id = setup_test_fiber();
@@ -573,7 +573,7 @@ mod tests {
         // No event set
         clear_current_event();
 
-        use_mouse_v2(move |_| {
+        use_mouse(move |_| {
             call_count_clone.fetch_add(1, Ordering::SeqCst);
         });
 
@@ -584,7 +584,7 @@ mod tests {
     }
 
     #[test]
-    fn test_use_mouse_hover_v2_inside_area() {
+    fn test_use_mouse_hover_inside_area() {
         let _lock = TEST_MUTEX.lock();
         cleanup_test();
         let fiber_id = setup_test_fiber();
@@ -595,7 +595,7 @@ mod tests {
 
         let area = Rect::new(10, 5, 20, 10);
         // First render - state is initialized to false, event triggers update
-        let is_hovering = use_mouse_hover_v2(area);
+        let is_hovering = use_mouse_hover(area);
         // Initial state is false (state updates are batched)
         assert!(!is_hovering);
 
@@ -610,14 +610,14 @@ mod tests {
         clear_current_event();
 
         // Second render - state should now be true
-        let is_hovering = use_mouse_hover_v2(area);
+        let is_hovering = use_mouse_hover(area);
         assert!(is_hovering);
 
         cleanup_test();
     }
 
     #[test]
-    fn test_use_mouse_hover_v2_outside_area() {
+    fn test_use_mouse_hover_outside_area() {
         let _lock = TEST_MUTEX.lock();
         cleanup_test();
         let _fiber_id = setup_test_fiber();
@@ -627,7 +627,7 @@ mod tests {
         set_current_event(Some(Arc::new(event)));
 
         let area = Rect::new(10, 5, 20, 10);
-        let is_hovering = use_mouse_hover_v2(area);
+        let is_hovering = use_mouse_hover(area);
 
         // Initial state is false, and event is outside area, so no update queued
         assert!(!is_hovering);
@@ -636,7 +636,7 @@ mod tests {
     }
 
     #[test]
-    fn test_use_mouse_position_v2() {
+    fn test_use_mouse_position() {
         let _lock = TEST_MUTEX.lock();
         cleanup_test();
         let fiber_id = setup_test_fiber();
@@ -646,7 +646,7 @@ mod tests {
         set_current_event(Some(Arc::new(event)));
 
         // First render - state is initialized to (0, 0), event triggers update
-        let (x, y) = use_mouse_position_v2();
+        let (x, y) = use_mouse_position();
         // Initial state is (0, 0) (state updates are batched)
         assert_eq!(x, 0);
         assert_eq!(y, 0);
@@ -662,7 +662,7 @@ mod tests {
         clear_current_event();
 
         // Second render - state should now be (42, 24)
-        let (x, y) = use_mouse_position_v2();
+        let (x, y) = use_mouse_position();
         assert_eq!(x, 42);
         assert_eq!(y, 24);
 
@@ -670,7 +670,7 @@ mod tests {
     }
 
     #[test]
-    fn test_use_mouse_position_v2_default() {
+    fn test_use_mouse_position_default() {
         let _lock = TEST_MUTEX.lock();
         cleanup_test();
         let _fiber_id = setup_test_fiber();
@@ -678,7 +678,7 @@ mod tests {
         // No event set
         clear_current_event();
 
-        let (x, y) = use_mouse_position_v2();
+        let (x, y) = use_mouse_position();
 
         // Should return default (0, 0)
         assert_eq!(x, 0);

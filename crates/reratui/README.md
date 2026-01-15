@@ -12,7 +12,7 @@ Reratui brings React's component model and hooks system to terminal user interfa
 
 ### Key Features
 
-- **React-like Component Model** - Define components using the `ComponentV2` trait
+- **React-like Component Model** - Define components using the `Component` trait
 - **Fiber Architecture** - Efficient reconciliation and rendering pipeline
 - **Comprehensive Hooks System** - State, effects, context, refs, memoization, and more
 - **Async Support** - First-class async effects, queries, and mutations
@@ -36,15 +36,15 @@ use reratui::prelude::*;
 
 struct App;
 
-impl ComponentV2 for App {
+impl Component for App {
     fn render(&self, area: Rect, buffer: &mut Buffer) {
-        let (count, set_count) = use_state_v2(|| 0);
+        let (count, set_count) = use_state(|| 0);
 
         // Handle keyboard events
-        use_keyboard_press_v2(move |key| {
+        use_keyboard_press(move |key| {
             match key.code {
                 KeyCode::Char(' ') => set_count.update(|c| c + 1),
-                KeyCode::Char('q') => request_exit_v2(),
+                KeyCode::Char('q') => request_exit(),
                 _ => {}
             }
         });
@@ -59,7 +59,7 @@ impl ComponentV2 for App {
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    render_v2(|| App).await?;
+    render(|| App).await?;
     Ok(())
 }
 ```
@@ -88,88 +88,88 @@ Each component instance is represented by a `Fiber` node that maintains:
 
 ### State Management
 
-| Hook             | Description                                |
-| ---------------- | ------------------------------------------ |
-| `use_state_v2`   | Local component state with batched updates |
-| `use_reducer_v2` | Complex state with reducer pattern         |
-| `use_ref_v2`     | Mutable reference without re-renders       |
-| `use_history_v2` | State with undo/redo support               |
+| Hook          | Description                                |
+| ------------- | ------------------------------------------ |
+| `use_state`   | Local component state with batched updates |
+| `use_reducer` | Complex state with reducer pattern         |
+| `use_ref`     | Mutable reference without re-renders       |
+| `use_history` | State with undo/redo support               |
 
 ### Effects
 
 | Hook                    | Description                           |
 | ----------------------- | ------------------------------------- |
-| `use_effect_v2`         | Side effects with dependency tracking |
+| `use_effect`            | Side effects with dependency tracking |
 | `use_effect_once`       | Effect that runs only on mount        |
-| `use_async_effect_v2`   | Async effects with cleanup            |
+| `use_async_effect`      | Async effects with cleanup            |
 | `use_async_effect_once` | Async effect that runs only on mount  |
 
 ### Context
 
-| Hook                      | Description                  |
-| ------------------------- | ---------------------------- |
-| `use_context_v2`          | Consume context from parent  |
-| `use_context_provider_v2` | Provide context to children  |
-| `try_use_context_v2`      | Optional context consumption |
+| Hook                   | Description                  |
+| ---------------------- | ---------------------------- |
+| `use_context`          | Consume context from parent  |
+| `use_context_provider` | Provide context to children  |
+| `try_use_context`      | Optional context consumption |
 
 ### Memoization
 
-| Hook              | Description                    |
-| ----------------- | ------------------------------ |
-| `use_memo_v2`     | Memoize expensive computations |
-| `use_callback_v2` | Memoize callback functions     |
+| Hook           | Description                    |
+| -------------- | ------------------------------ |
+| `use_memo`     | Memoize expensive computations |
+| `use_callback` | Memoize callback functions     |
 
 ### Async Data
 
-| Hook              | Description                |
-| ----------------- | -------------------------- |
-| `use_future_v2`   | Track async task state     |
-| `use_query_v2`    | Data fetching with caching |
-| `use_mutation_v2` | Mutation state tracking    |
+| Hook           | Description                |
+| -------------- | -------------------------- |
+| `use_future`   | Track async task state     |
+| `use_query`    | Data fetching with caching |
+| `use_mutation` | Mutation state tracking    |
 
 ### Events
 
-| Hook                       | Description                      |
-| -------------------------- | -------------------------------- |
-| `use_event`                | Access current terminal event    |
-| `use_keyboard_v2`          | Handle all keyboard events       |
-| `use_keyboard_press_v2`    | Handle key press events only     |
-| `use_keyboard_shortcut_v2` | Handle specific key combinations |
-| `use_mouse_v2`             | Handle all mouse events          |
-| `use_mouse_click_v2`       | Handle mouse clicks              |
-| `use_mouse_hover_v2`       | Track hover state over area      |
-| `use_mouse_drag_v2`        | Track drag operations            |
+| Hook                    | Description                      |
+| ----------------------- | -------------------------------- |
+| `use_event`             | Access current terminal event    |
+| `use_keyboard`          | Handle all keyboard events       |
+| `use_keyboard_press`    | Handle key press events only     |
+| `use_keyboard_shortcut` | Handle specific key combinations |
+| `use_mouse`             | Handle all mouse events          |
+| `use_mouse_click`       | Handle mouse clicks              |
+| `use_mouse_hover`       | Track hover state over area      |
+| `use_mouse_drag`        | Track drag operations            |
 
 ### Timing
 
-| Hook              | Description                  |
-| ----------------- | ---------------------------- |
-| `use_timeout_v2`  | Execute callback after delay |
-| `use_interval_v2` | Execute callback repeatedly  |
+| Hook           | Description                  |
+| -------------- | ---------------------------- |
+| `use_timeout`  | Execute callback after delay |
+| `use_interval` | Execute callback repeatedly  |
 
 ### Layout
 
-| Hook                 | Description                 |
-| -------------------- | --------------------------- |
-| `use_area_v2`        | Get component's render area |
-| `use_frame_v2`       | Access frame context        |
-| `use_resize_v2`      | Track terminal dimensions   |
-| `use_media_query_v2` | Responsive breakpoints      |
+| Hook              | Description                 |
+| ----------------- | --------------------------- |
+| `use_area`        | Get component's render area |
+| `use_frame`       | Access frame context        |
+| `use_resize`      | Track terminal dimensions   |
+| `use_media_query` | Responsive breakpoints      |
 
 ### Forms
 
-| Hook                  | Description               |
-| --------------------- | ------------------------- |
-| `use_form_v2`         | Form state and validation |
-| `use_form_context_v2` | Access form from children |
-| `use_watch_v2`        | Watch form field changes  |
+| Hook               | Description               |
+| ------------------ | ------------------------- |
+| `use_form`         | Form state and validation |
+| `use_form_context` | Access form from children |
+| `use_watch`        | Watch form field changes  |
 
 ## State Setter API
 
-The `StateSetterV2` returned by `use_state_v2` provides several methods:
+The `StateSetter` returned by `use_state` provides several methods:
 
 ```rust
-let (count, set_count) = use_state_v2(|| 0);
+let (count, set_count) = use_state(|| 0);
 
 // Direct set
 set_count.set(5);
@@ -186,8 +186,8 @@ set_count.update_if_changed(|c| c + 1);
 
 The repository includes several examples demonstrating various features:
 
-- **counter_v2** - Basic counter with state
-- **effect_timing_v2** - Effect lifecycle demonstration
+- **counter_fiber** - Basic counter with state
+- **effect_timing** - Effect lifecycle demonstration
 - **async_fetch_example** - Async data fetching
 - **query_example** - Data queries with caching
 - **mutation_example** - Mutations with reducer pattern
@@ -198,25 +198,25 @@ The repository includes several examples demonstrating various features:
 Run an example:
 
 ```bash
-cargo run --example counter_v2
+cargo run --example counter_fiber
 ```
 
 ## Runtime Functions
 
 ```rust
 // Start the application
-render_v2(|| App).await?;
+render(|| App).await?;
 
 // With options
-render_v2_with_options(|| App, RenderOptions {
+render_with_options(|| App, RenderOptions {
     frame_interval_ms: 16,  // ~60 FPS
     strict_mode: false,
 }).await?;
 
 // Exit control
-request_exit_v2();      // Request graceful exit
-should_exit_v2();       // Check if exit requested
-reset_exit_v2();        // Cancel exit request
+request_exit();      // Request graceful exit
+should_exit();       // Check if exit requested
+reset_exit();        // Cancel exit request
 ```
 
 ## Strict Mode
@@ -224,7 +224,7 @@ reset_exit_v2();        // Cancel exit request
 Enable strict mode for development to catch common issues:
 
 ```rust
-render_v2_with_options(|| App, RenderOptions {
+render_with_options(|| App, RenderOptions {
     strict_mode: true,
     ..Default::default()
 }).await?;

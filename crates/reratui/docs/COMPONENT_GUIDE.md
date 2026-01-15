@@ -15,14 +15,14 @@ This guide covers how to create and compose components in Reratui.
 
 ## Basic Components
 
-Components in Reratui implement the `ComponentV2` trait:
+Components in Reratui implement the `Component` trait:
 
 ```rust
 use reratui::prelude::*;
 
 struct MyComponent;
 
-impl ComponentV2 for MyComponent {
+impl Component for MyComponent {
     fn render(&self, area: Rect, buffer: &mut Buffer) {
         Paragraph::new("Hello, World!")
             .render(area, buffer);
@@ -42,17 +42,17 @@ Use hooks to add state to your components:
 ```rust
 struct Counter;
 
-impl ComponentV2 for Counter {
+impl Component for Counter {
     fn render(&self, area: Rect, buffer: &mut Buffer) {
         // State hook - persists across renders
-        let (count, set_count) = use_state_v2(|| 0);
+        let (count, set_count) = use_state(|| 0);
 
         // Handle keyboard input
-        use_keyboard_press_v2(move |key| {
+        use_keyboard_press(move |key| {
             match key.code {
                 KeyCode::Up => set_count.update(|c| c + 1),
                 KeyCode::Down => set_count.update(|c| c.saturating_sub(1)),
-                KeyCode::Char('q') => request_exit_v2(),
+                KeyCode::Char('q') => request_exit(),
                 _ => {}
             }
         });
@@ -90,7 +90,7 @@ impl Greeting {
     }
 }
 
-impl ComponentV2 for Greeting {
+impl Component for Greeting {
     fn render(&self, area: Rect, buffer: &mut Buffer) {
         let text = if self.show_emoji {
             format!("👋 Hello, {}!", self.name)
@@ -117,7 +117,7 @@ Compose components by calling their render methods:
 ```rust
 struct App;
 
-impl ComponentV2 for App {
+impl Component for App {
     fn render(&self, area: Rect, buffer: &mut Buffer) {
         // Split the area
         let chunks = Layout::default()
@@ -140,7 +140,7 @@ struct Header {
     title: String,
 }
 
-impl ComponentV2 for Header {
+impl Component for Header {
     fn render(&self, area: Rect, buffer: &mut Buffer) {
         let block = Block::default()
             .title(self.title.as_str())
@@ -151,7 +151,7 @@ impl ComponentV2 for Header {
 
 struct Content;
 
-impl ComponentV2 for Content {
+impl Component for Content {
     fn render(&self, area: Rect, buffer: &mut Buffer) {
         Paragraph::new("Main content here")
             .block(Block::default().borders(Borders::ALL))
@@ -161,7 +161,7 @@ impl ComponentV2 for Content {
 
 struct Footer;
 
-impl ComponentV2 for Footer {
+impl Component for Footer {
     fn render(&self, area: Rect, buffer: &mut Buffer) {
         Paragraph::new("Press 'q' to quit")
             .alignment(Alignment::Center)
@@ -179,11 +179,11 @@ struct ItemList {
     items: Vec<String>,
 }
 
-impl ComponentV2 for ItemList {
+impl Component for ItemList {
     fn render(&self, area: Rect, buffer: &mut Buffer) {
-        let (selected, set_selected) = use_state_v2(|| 0usize);
+        let (selected, set_selected) = use_state(|| 0usize);
 
-        use_keyboard_press_v2(move |key| {
+        use_keyboard_press(move |key| {
             match key.code {
                 KeyCode::Up => set_selected.update(|s| s.saturating_sub(1)),
                 KeyCode::Down => set_selected.update(|s| (s + 1).min(self.items.len() - 1)),
@@ -251,10 +251,10 @@ struct ThemeProvider {
     theme: Theme,
 }
 
-impl ComponentV2 for ThemeProvider {
+impl Component for ThemeProvider {
     fn render(&self, area: Rect, buffer: &mut Buffer) {
         // Provide theme to all children
-        use_context_provider_v2(|| self.theme.clone());
+        use_context_provider(|| self.theme.clone());
 
         // Render children (in real app, you'd pass children somehow)
         ThemedContent.render(area, buffer);
@@ -263,10 +263,10 @@ impl ComponentV2 for ThemeProvider {
 
 struct ThemedContent;
 
-impl ComponentV2 for ThemedContent {
+impl Component for ThemedContent {
     fn render(&self, area: Rect, buffer: &mut Buffer) {
         // Consume theme from context
-        let theme = use_context_v2::<Theme>();
+        let theme = use_context::<Theme>();
 
         let block = Block::default()
             .title("Themed Content")
@@ -283,12 +283,12 @@ impl ComponentV2 for ThemedContent {
 
 ### Optional Context
 
-Use `try_use_context_v2` when context might not be available:
+Use `try_use_context` when context might not be available:
 
 ```rust
-impl ComponentV2 for OptionalThemedComponent {
+impl Component for OptionalThemedComponent {
     fn render(&self, area: Rect, buffer: &mut Buffer) {
-        let theme = try_use_context_v2::<Theme>()
+        let theme = try_use_context::<Theme>()
             .unwrap_or_else(Theme::dark);
 
         // Use theme...
@@ -301,12 +301,12 @@ impl ComponentV2 for OptionalThemedComponent {
 ### Keyboard Events
 
 ```rust
-impl ComponentV2 for KeyboardDemo {
+impl Component for KeyboardDemo {
     fn render(&self, area: Rect, buffer: &mut Buffer) {
-        let (last_key, set_last_key) = use_state_v2(|| "None".to_string());
+        let (last_key, set_last_key) = use_state(|| "None".to_string());
 
         // Handle all key presses
-        use_keyboard_press_v2(move |key| {
+        use_keyboard_press(move |key| {
             let key_str = match key.code {
                 KeyCode::Char(c) => format!("'{}'", c),
                 KeyCode::Enter => "Enter".to_string(),
@@ -328,10 +328,10 @@ impl ComponentV2 for KeyboardDemo {
         });
 
         // Handle specific shortcuts
-        use_keyboard_shortcut_v2(
+        use_keyboard_shortcut(
             KeyCode::Char('q'),
             KeyModifiers::CONTROL,
-            || request_exit_v2(),
+            || request_exit(),
         );
 
         Paragraph::new(format!("Last key: {}", last_key))
@@ -343,12 +343,12 @@ impl ComponentV2 for KeyboardDemo {
 ### Mouse Events
 
 ```rust
-impl ComponentV2 for MouseDemo {
+impl Component for MouseDemo {
     fn render(&self, area: Rect, buffer: &mut Buffer) {
-        let (click_pos, set_click_pos) = use_state_v2(|| None::<(u16, u16)>);
+        let (click_pos, set_click_pos) = use_state(|| None::<(u16, u16)>);
 
         // Track clicks
-        use_mouse_click_v2(move |button, x, y| {
+        use_mouse_click(move |button, x, y| {
             if button == MouseButton::Left {
                 set_click_pos.set(Some((x, y)));
             }
@@ -356,7 +356,7 @@ impl ComponentV2 for MouseDemo {
 
         // Track hover over a specific area
         let button_area = Rect::new(10, 5, 20, 3);
-        let is_hovering = use_mouse_hover_v2(button_area);
+        let is_hovering = use_mouse_hover(button_area);
 
         let button_style = if is_hovering {
             Style::default().bg(Color::Blue)
@@ -387,7 +387,7 @@ impl ComponentV2 for MouseDemo {
 ### Mount/Unmount Effects
 
 ```rust
-impl ComponentV2 for LifecycleDemo {
+impl Component for LifecycleDemo {
     fn render(&self, area: Rect, buffer: &mut Buffer) {
         // Run once on mount
         use_effect_once(|| {
@@ -408,13 +408,13 @@ impl ComponentV2 for LifecycleDemo {
 ### Effects with Dependencies
 
 ```rust
-impl ComponentV2 for EffectDemo {
+impl Component for EffectDemo {
     fn render(&self, area: Rect, buffer: &mut Buffer) {
-        let (count, set_count) = use_state_v2(|| 0);
-        let (message, set_message) = use_state_v2(|| String::new());
+        let (count, set_count) = use_state(|| 0);
+        let (message, set_message) = use_state(|| String::new());
 
         // Effect runs when count changes
-        use_effect_v2(
+        use_effect(
             move || {
                 set_message.set(format!("Count is now: {}", count));
 
@@ -426,7 +426,7 @@ impl ComponentV2 for EffectDemo {
             count, // Dependency
         );
 
-        use_keyboard_press_v2(move |key| {
+        use_keyboard_press(move |key| {
             if key.code == KeyCode::Char(' ') {
                 set_count.update(|c| c + 1);
             }
@@ -440,13 +440,13 @@ impl ComponentV2 for EffectDemo {
 ### Async Effects
 
 ```rust
-impl ComponentV2 for AsyncEffectDemo {
+impl Component for AsyncEffectDemo {
     fn render(&self, area: Rect, buffer: &mut Buffer) {
-        let (user_id, set_user_id) = use_state_v2(|| 1);
-        let (user_name, set_user_name) = use_state_v2(|| "Loading...".to_string());
+        let (user_id, set_user_id) = use_state(|| 1);
+        let (user_name, set_user_name) = use_state(|| "Loading...".to_string());
 
         // Async effect runs when user_id changes
-        use_async_effect_v2(
+        use_async_effect(
             move || {
                 let set_name = set_user_name.clone();
                 async move {
@@ -493,10 +493,10 @@ Share state by lifting it to a common ancestor:
 ```rust
 struct Parent;
 
-impl ComponentV2 for Parent {
+impl Component for Parent {
     fn render(&self, area: Rect, buffer: &mut Buffer) {
         // State lives in parent
-        let (selected, set_selected) = use_state_v2(|| 0);
+        let (selected, set_selected) = use_state(|| 0);
 
         let chunks = Layout::default()
             .direction(Direction::Horizontal)
@@ -520,10 +520,10 @@ Avoid prop drilling with context:
 // Instead of passing theme through every component...
 struct App;
 
-impl ComponentV2 for App {
+impl Component for App {
     fn render(&self, area: Rect, buffer: &mut Buffer) {
         // Provide once at the top
-        use_context_provider_v2(|| Theme::dark());
+        use_context_provider(|| Theme::dark());
 
         // Children can access directly
         DeepNestedComponent.render(area, buffer);
@@ -534,12 +534,12 @@ impl ComponentV2 for App {
 ### 4. Memoize Expensive Computations
 
 ```rust
-impl ComponentV2 for ExpensiveComponent {
+impl Component for ExpensiveComponent {
     fn render(&self, area: Rect, buffer: &mut Buffer) {
-        let (items, _) = use_state_v2(|| load_items());
+        let (items, _) = use_state(|| load_items());
 
         // Memoize expensive computation
-        let stats = use_memo_v2(
+        let stats = use_memo(
             || calculate_statistics(&items),
             items.clone(),
         );
@@ -552,9 +552,9 @@ impl ComponentV2 for ExpensiveComponent {
 ### 5. Handle Loading States
 
 ```rust
-impl ComponentV2 for DataComponent {
+impl Component for DataComponent {
     fn render(&self, area: Rect, buffer: &mut Buffer) {
-        let query = use_query_v2(
+        let query = use_query(
             "data",
             || async { fetch_data().await },
             None,
@@ -587,7 +587,7 @@ impl ComponentV2 for DataComponent {
 Always clean up in effects:
 
 ```rust
-use_effect_v2(
+use_effect(
     move || {
         let subscription = subscribe_to_events();
 

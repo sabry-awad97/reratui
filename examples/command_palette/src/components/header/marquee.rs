@@ -14,15 +14,15 @@ impl MarqueeComponent {
     }
 }
 
-impl ComponentV2 for MarqueeComponent {
+impl Component for MarqueeComponent {
     fn render(&self, area: Rect, buffer: &mut Buffer) {
         // Border breathing effect state for consistent border color with other components
-        let (breath_value, set_breath_value) = use_state_v2(|| 0.0f32);
+        let (breath_value, set_breath_value) = use_state(|| 0.0f32);
 
         // Marquee state
-        let (marquee_offset, set_marquee_offset) = use_state_v2(|| 0usize);
+        let (marquee_offset, set_marquee_offset) = use_state(|| 0usize);
 
-        use_interval_v2(
+        use_interval(
             {
                 // Set up marquee animation
                 move || {
@@ -33,7 +33,7 @@ impl ComponentV2 for MarqueeComponent {
             250, // Slower marquee speed to reduce CPU usage
         );
 
-        use_interval_v2(
+        use_interval(
             {
                 // Set up border breathing effect
                 move || {

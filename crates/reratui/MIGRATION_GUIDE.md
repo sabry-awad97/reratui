@@ -1,10 +1,48 @@
 # Migration Guide
 
-This guide helps you migrate from older versions of Reratui to the current v2 API.
+This guide helps you migrate from older versions of Reratui to the current API.
 
-## Migrating to v0.2.x (Fiber Architecture)
+## Migrating to v1.0.0 (V2 Suffix Removal)
 
-Version 0.2.x introduced the fiber-based architecture with the `ComponentV2` trait and `_v2` hooks. This is a significant change from the previous API.
+Version 1.0.0 removes all `_v2` and `V2` suffixes from the API. The fiber-based architecture introduced in v0.2.x is now the standard API.
+
+### Breaking Changes
+
+All APIs that previously had `_v2` or `V2` suffixes now use clean names:
+
+| Old Name (v0.2.x)  | New Name (v1.0.0) |
+| ------------------ | ----------------- |
+| `StateSetterV2`    | `StateSetter`     |
+| `CallbackV2`       | `Callback`        |
+| `DispatchV2`       | `Dispatch`        |
+| `RefV2`            | `Ref`             |
+| `EffectEventV2`    | `EffectEvent`     |
+| `QueryResultV2`    | `QueryResult`     |
+| `MutationHandleV2` | `MutationHandle`  |
+| `FutureHandleV2`   | `FutureHandle`    |
+| `FormHandleV2`     | `FormHandle`      |
+| `FormStateV2`      | `FormState`       |
+| `FormConfigV2`     | `FormConfig`      |
+| `ValidatorV2`      | `Validator`       |
+
+### Example Updates
+
+The example directories have been renamed:
+
+| Old Name           | New Name        |
+| ------------------ | --------------- |
+| `counter_v2`       | `counter_fiber` |
+| `effect_timing_v2` | `effect_timing` |
+
+### Migration Steps
+
+1. Update your `Cargo.toml` to use the new version
+2. Find and replace all `V2` suffixes in your code
+3. Update any example references
+
+## Migrating from v0.1.x to v0.2.x+ (Fiber Architecture)
+
+Version 0.2.x introduced the fiber-based architecture with the `Component` trait. This is a significant change from the previous API.
 
 ### Component Changes
 
@@ -18,34 +56,20 @@ fn my_component(frame: &mut Frame, area: Rect) {
 }
 ```
 
-#### After (v0.2.x)
+#### After (v0.2.x+)
 
 ```rust
 use reratui::prelude::*;
 
 struct MyComponent;
 
-impl ComponentV2 for MyComponent {
+impl Component for MyComponent {
     fn render(&self, area: Rect, buffer: &mut Buffer) {
-        let (count, set_count) = use_state_v2(|| 0);
+        let (count, set_count) = use_state(|| 0);
         // ...
     }
 }
 ```
-
-### Hook Changes
-
-All hooks have been renamed with the `_v2` suffix and updated signatures:
-
-| Old Hook       | New Hook          |
-| -------------- | ----------------- |
-| `use_state`    | `use_state_v2`    |
-| `use_effect`   | `use_effect_v2`   |
-| `use_context`  | `use_context_v2`  |
-| `use_ref`      | `use_ref_v2`      |
-| `use_memo`     | `use_memo_v2`     |
-| `use_callback` | `use_callback_v2` |
-| `use_reducer`  | `use_reducer_v2`  |
 
 ### State Hook Changes
 
@@ -60,7 +84,7 @@ count.update(|c| *c + 1);
 #### After
 
 ```rust
-let (count, set_count) = use_state_v2(|| 0);
+let (count, set_count) = use_state(|| 0);
 set_count.set(5);
 set_count.update(|c| c + 1);
 
@@ -89,7 +113,7 @@ use_effect(|| {
 #### After
 
 ```rust
-use_effect_v2(
+use_effect(
     move || {
         println!("Effect ran");
         Some(Box::new(|| println!("Cleanup")))
@@ -126,13 +150,13 @@ let theme = use_context::<Theme>();
 
 ```rust
 // Provider
-use_context_provider_v2(|| theme.clone());
+use_context_provider(|| theme.clone());
 
 // Consumer
-let theme = use_context_v2::<Theme>();
+let theme = use_context::<Theme>();
 
 // Optional consumer
-let theme = try_use_context_v2::<Theme>();
+let theme = try_use_context::<Theme>();
 ```
 
 ### Ref Hook Changes
@@ -148,7 +172,7 @@ let value = my_ref.get();
 #### After
 
 ```rust
-let my_ref = use_ref_v2(|| initial_value);
+let my_ref = use_ref(|| initial_value);
 my_ref.set(new_value);
 let value = my_ref.get();
 my_ref.update(|v| *v + 1);
@@ -170,20 +194,20 @@ let data = use_async(|| async { fetch_data().await });
 
 ```rust
 // Simple async
-let handle = use_future_v2(
+let handle = use_future(
     || async { fetch_data().await },
     Some(deps),
 );
 
 // With caching
-let query = use_query_v2(
+let query = use_query(
     "cache-key",
     || async { fetch_data().await },
     Some(QueryOptions::default()),
 );
 
 // For mutations
-let mutation = use_mutation_v2(
+let mutation = use_mutation(
     |args| async move { mutate_data(args).await },
     None,
 );
@@ -208,20 +232,20 @@ if let Some(Event::Key(key)) = use_event() {
 }
 
 // Or use specialized hooks
-use_keyboard_press_v2(move |key| {
+use_keyboard_press(move |key| {
     match key.code {
-        KeyCode::Char('q') => request_exit_v2(),
+        KeyCode::Char('q') => request_exit(),
         _ => {}
     }
 });
 
-use_keyboard_shortcut_v2(
+use_keyboard_shortcut(
     KeyCode::Char('s'),
     KeyModifiers::CONTROL,
     || save(),
 );
 
-use_mouse_click_v2(move |button, x, y| {
+use_mouse_click(move |button, x, y| {
     // Handle click
 });
 ```
@@ -241,12 +265,12 @@ fn main() {
 ```rust
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    render_v2(|| App).await?;
+    render(|| App).await?;
     Ok(())
 }
 
 // With options
-render_v2_with_options(|| App, RenderOptions {
+render_with_options(|| App, RenderOptions {
     frame_interval_ms: 16,
     strict_mode: true,
 }).await?;
@@ -255,7 +279,7 @@ render_v2_with_options(|| App, RenderOptions {
 **Key Changes:**
 
 - Async runtime required (Tokio)
-- `render_v2` instead of `run`
+- `render` instead of `run`
 - Returns `Result`
 - Optional `RenderOptions`
 
@@ -270,29 +294,29 @@ exit();
 #### After
 
 ```rust
-request_exit_v2();
+request_exit();
 
 // Check exit status
-if should_exit_v2() {
+if should_exit() {
     // ...
 }
 
 // Cancel exit
-reset_exit_v2();
+reset_exit();
 ```
 
-## New Features in v0.2.x
+## Features Available in Current Version
 
 ### Timing Hooks
 
 ```rust
 // Timeout
-let timeout = use_timeout_v2(|| println!("Fired!"), 5000);
+let timeout = use_timeout(|| println!("Fired!"), 5000);
 timeout.cancel();
 timeout.reset();
 
 // Interval
-let interval = use_interval_v2(|| println!("Tick!"), 1000);
+let interval = use_interval(|| println!("Tick!"), 1000);
 interval.pause();
 interval.resume();
 ```
@@ -300,7 +324,7 @@ interval.resume();
 ### History Hook
 
 ```rust
-let history = use_history_v2(|| String::new());
+let history = use_history(|| String::new());
 history.set("Hello".to_string());
 history.undo();
 history.redo();
@@ -309,11 +333,11 @@ history.redo();
 ### Form Hook
 
 ```rust
-let form = use_form_v2(
-    FormConfigV2::builder()
+let form = use_form(
+    FormConfig::builder()
         .field("email", "")
-        .validator("email", ValidatorV2::required("Required"))
-        .validator("email", ValidatorV2::email("Invalid"))
+        .validator("email", Validator::required("Required"))
+        .validator("email", Validator::email("Invalid"))
         .on_submit(|values| println!("{:?}", values))
         .build()
 );
@@ -322,33 +346,42 @@ let form = use_form_v2(
 ### Layout Hooks
 
 ```rust
-let area = use_area_v2();
-let frame = use_frame_v2();
-let (width, height) = use_resize_v2();
-let is_narrow = use_media_query_v2(|(w, _)| w < 80);
+let area = use_area();
+let frame = use_frame();
+let (width, height) = use_resize();
+let is_narrow = use_media_query(|(w, _)| w < 80);
 ```
 
 ### Mouse Hooks
 
 ```rust
-let is_hovering = use_mouse_hover_v2(button_area);
-let (drag_info, reset_drag) = use_mouse_drag_v2();
-let (x, y) = use_mouse_position_v2();
-use_double_click_v2(Duration::from_millis(500), |btn, x, y| {});
+let is_hovering = use_mouse_hover(button_area);
+let (drag_info, reset_drag) = use_mouse_drag();
+let (x, y) = use_mouse_position();
+use_double_click(Duration::from_millis(500), |btn, x, y| {});
 ```
 
 ## Checklist for Migration
 
+### From v0.2.x to v1.0.0
+
+- [ ] Update `Cargo.toml` to latest version
+- [ ] Find and replace `StateSetterV2` → `StateSetter`
+- [ ] Find and replace `CallbackV2` → `Callback`
+- [ ] Find and replace other `V2` suffixed types
+- [ ] Update example references (`counter_v2` → `counter_fiber`, etc.)
+
+### From v0.1.x to v1.0.0
+
 - [ ] Update `Cargo.toml` to latest version
 - [ ] Add `tokio` dependency with `full` features
-- [ ] Convert function components to `ComponentV2` structs
-- [ ] Update all hook calls to `_v2` versions
+- [ ] Convert function components to `Component` structs
 - [ ] Update state hook usage to tuple pattern
 - [ ] Update effect cleanup to `Option<Box<...>>`
 - [ ] Convert dependency arrays to single values/tuples
 - [ ] Update event handling to use new hooks
-- [ ] Update main function to async with `render_v2`
-- [ ] Replace `exit()` with `request_exit_v2()`
+- [ ] Update main function to async with `render`
+- [ ] Replace `exit()` with `request_exit()`
 - [ ] Test thoroughly with strict mode enabled
 
 ## Common Migration Issues
@@ -377,7 +410,7 @@ error: expected `Option<Box<dyn FnOnce() + Send>>`
 **Solution:** Wrap cleanup in `Some(Box::new(...))`:
 
 ```rust
-use_effect_v2(
+use_effect(
     || {
         // effect
         Some(Box::new(|| {
@@ -401,7 +434,7 @@ error: expected single value, found array
 use_effect(..., &[dep1, dep2]);
 
 // After
-use_effect_v2(..., (dep1, dep2));
+use_effect(..., (dep1, dep2));
 ```
 
 ### Issue: Missing async runtime
@@ -420,7 +453,7 @@ tokio = { version = "1", features = ["full"] }
 ```rust
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    render_v2(|| App).await?;
+    render(|| App).await?;
     Ok(())
 }
 ```

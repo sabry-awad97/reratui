@@ -1,7 +1,7 @@
 //! Element module for the virtual DOM tree.
 //!
 //! This module provides the `Element` type which represents nodes in the virtual DOM tree.
-//! It supports widgets, fiber-based components (ComponentV2), text nodes, and fragments.
+//! It supports widgets, fiber-based components (Component), text nodes, and fragments.
 
 use ratatui::{
     buffer::Buffer,
@@ -12,26 +12,26 @@ use std::{any::Any, rc::Rc};
 
 /// A trait for components that can be rendered with fiber management.
 ///
-/// This trait is implemented by `ComponentV2Wrapper` to enable fiber-based
+/// This trait is implemented by `ComponentWrapper` to enable fiber-based
 /// components to be used in the Element system.
-pub trait RenderableComponentV2: 'static {
+pub trait RenderableComponent: 'static {
     /// Render the component with proper fiber management.
     fn render_with_fiber(&self, area: Rect, buffer: &mut Buffer);
 
     /// Clone the wrapper into a boxed trait object.
-    fn clone_box(&self) -> Box<dyn RenderableComponentV2>;
+    fn clone_box(&self) -> Box<dyn RenderableComponent>;
 
     /// Debug representation for the component.
     fn debug_fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result;
 }
 
-impl Clone for Box<dyn RenderableComponentV2> {
+impl Clone for Box<dyn RenderableComponent> {
     fn clone(&self) -> Self {
         self.clone_box()
     }
 }
 
-impl std::fmt::Debug for Box<dyn RenderableComponentV2> {
+impl std::fmt::Debug for Box<dyn RenderableComponent> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         self.debug_fmt(f)
     }
@@ -43,7 +43,7 @@ type RenderFn = Rc<dyn Fn(&dyn Any, Rect, &mut Buffer)>;
 /// Represents a virtual node in the virtual DOM tree.
 ///
 /// Elements can be:
-/// - `ComponentV2`: A fiber-based component with lifecycle management
+/// - `Component`: A fiber-based component with lifecycle management
 /// - `Widget`: A ratatui widget
 /// - `Text`: A text node
 ///
@@ -64,10 +64,10 @@ type RenderFn = Rc<dyn Fn(&dyn Any, Rect, &mut Buffer)>;
 /// ```
 #[derive(Clone)]
 pub enum Element {
-    /// Represents a fiber-based component (ComponentV2) in the virtual DOM tree.
-    ComponentV2 {
+    /// Represents a fiber-based component (Component) in the virtual DOM tree.
+    Component {
         /// The wrapper that handles fiber management.
-        wrapper: Box<dyn RenderableComponentV2>,
+        wrapper: Box<dyn RenderableComponent>,
         /// The key of the component for reconciliation.
         key: Option<String>,
     },
@@ -87,8 +87,8 @@ pub enum Element {
 impl std::fmt::Debug for Element {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Element::ComponentV2 { wrapper, key } => f
-                .debug_struct("ComponentV2")
+            Element::Component { wrapper, key } => f
+                .debug_struct("Component")
                 .field("wrapper", wrapper)
                 .field("key", key)
                 .finish(),
@@ -106,7 +106,7 @@ impl PartialEq for Element {
     fn eq(&self, other: &Self) -> bool {
         match (self, other) {
             (Element::Text(a), Element::Text(b)) => a == b,
-            (Element::ComponentV2 { key: key_a, .. }, Element::ComponentV2 { key: key_b, .. }) => {
+            (Element::Component { key: key_a, .. }, Element::Component { key: key_b, .. }) => {
                 key_a == key_b
             }
             (Element::Widget { key: key_a, .. }, Element::Widget { key: key_b, .. }) => {
@@ -164,14 +164,14 @@ impl Element {
         }
     }
 
-    /// Creates a new ComponentV2 node from a RenderableComponentV2.
+    /// Creates a new Component node from a RenderableComponent.
     ///
     /// For internal use. Prefer `Element::component()` for simpler API.
-    pub fn component_v2(wrapper: Box<dyn RenderableComponentV2>) -> Self {
-        Element::ComponentV2 { wrapper, key: None }
+    pub fn component_from_wrapper(wrapper: Box<dyn RenderableComponent>) -> Self {
+        Element::Component { wrapper, key: None }
     }
 
-    /// Creates a new component element directly from a ComponentV2 implementation.
+    /// Creates a new component element directly from a Component implementation.
     ///
     /// This is the simplest way to create component elements - just pass your component!
     /// No Clone derive required!
@@ -179,14 +179,14 @@ impl Element {
     /// # Example
     ///
     /// ```rust,ignore
-    /// use reratui_fiber::{Element, ComponentV2};
+    /// use reratui_fiber::{Element, Component};
     /// use ratatui::{buffer::Buffer, layout::Rect};
     ///
     /// struct Counter;
     ///
-    /// impl ComponentV2 for Counter {
+    /// impl Component for Counter {
     ///     fn render(&self, area: Rect, buffer: &mut Buffer) {
-    ///         let (count, set_count) = use_state_v2(|| 0);
+    ///         let (count, set_count) = use_state(|| 0);
     ///         // render logic...
     ///     }
     /// }
@@ -194,9 +194,9 @@ impl Element {
     /// // Simple usage - no wrapper, no ID, no Clone needed!
     /// let elem = Element::component(Counter);
     /// ```
-    pub fn component<C: crate::ComponentV2>(component: C) -> Self {
-        let wrapper = crate::component::ComponentV2Wrapper::new(component);
-        Element::ComponentV2 {
+    pub fn component<C: crate::Component>(component: C) -> Self {
+        let wrapper = crate::component::ComponentWrapper::new(component);
+        Element::Component {
             wrapper: Box::new(wrapper),
             key: None,
         }
@@ -268,7 +268,7 @@ impl Element {
     /// ```
     pub fn with_key<S: Into<String>>(mut self, key: S) -> Self {
         match &mut self {
-            Element::ComponentV2 { key: k, .. } => *k = Some(key.into()),
+            Element::Component { key: k, .. } => *k = Some(key.into()),
             Element::Widget { key: k, .. } => *k = Some(key.into()),
             Element::Text(_) => {} // Text nodes don't have keys
         }
@@ -278,7 +278,7 @@ impl Element {
     /// Returns the key of this element, if any.
     pub fn key(&self) -> Option<&str> {
         match self {
-            Element::ComponentV2 { key, .. } => key.as_deref(),
+            Element::Component { key, .. } => key.as_deref(),
             Element::Widget { key, .. } => key.as_deref(),
             Element::Text(_) => None,
         }
@@ -300,7 +300,7 @@ impl Element {
     /// ```
     pub fn render(&self, area: Rect, buffer: &mut Buffer) {
         match self {
-            Element::ComponentV2 { wrapper, .. } => {
+            Element::Component { wrapper, .. } => {
                 // Render with fiber management
                 wrapper.render_with_fiber(area, buffer);
             }
@@ -316,9 +316,9 @@ impl Element {
         }
     }
 
-    /// Returns true if this element is a ComponentV2 variant.
-    pub fn is_component_v2(&self) -> bool {
-        matches!(self, Element::ComponentV2 { .. })
+    /// Returns true if this element is a Component variant.
+    pub fn is_component(&self) -> bool {
+        matches!(self, Element::Component { .. })
     }
 
     /// Returns true if this element is a Widget variant.
@@ -409,7 +409,7 @@ mod tests {
         let elem = Element::widget(Paragraph::new("Test"));
         assert!(elem.is_widget());
         assert!(!elem.is_text());
-        assert!(!elem.is_component_v2());
+        assert!(!elem.is_component());
     }
 
     #[test]
@@ -497,7 +497,7 @@ mod property_tests {
     // **Property 4: Element Construction Correctness**
     // **Validates: Requirements 7.1, 7.2, 7.3, 7.4, 7.5, 7.6**
     //
-    // For any Element constructed via `widget()`, `component_v2()`, `text()`, or `fragment()`:
+    // For any Element constructed via `widget()`, `component()`, `text()`, or `fragment()`:
     // - The Element SHALL be the correct variant
     // - `with_key()` SHALL set the key on the element
     // - `render()` SHALL delegate to the appropriate render method
@@ -513,7 +513,7 @@ mod property_tests {
             prop_assert!(elem.is_text(), "Element::text should create Text variant");
             prop_assert_eq!(elem.as_text(), Some(text.as_str()), "Text content should match");
             prop_assert!(!elem.is_widget(), "Text element should not be widget");
-            prop_assert!(!elem.is_component_v2(), "Text element should not be component_v2");
+            prop_assert!(!elem.is_component(), "Text element should not be component");
         }
 
         /// Property: Element::widget creates Widget variant
@@ -523,7 +523,7 @@ mod property_tests {
 
             prop_assert!(elem.is_widget(), "Element::widget should create Widget variant");
             prop_assert!(!elem.is_text(), "Widget element should not be text");
-            prop_assert!(!elem.is_component_v2(), "Widget element should not be component_v2");
+            prop_assert!(!elem.is_component(), "Widget element should not be component");
         }
 
         /// Property: with_key sets key on Widget elements

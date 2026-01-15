@@ -18,15 +18,15 @@
 //!
 //! struct Counter;
 //!
-//! impl ComponentV2 for Counter {
+//! impl Component for Counter {
 //!     fn render(&self, area: Rect, buffer: &mut Buffer) {
-//!         let (count, set_count) = use_state_v2(|| 0);
+//!         let (count, set_count) = use_state(|| 0);
 //!
 //!         if let Some(Event::Key(KeyEvent { code, kind: KeyEventKind::Press, .. })) = use_event() {
 //!             match code {
 //!                 KeyCode::Char('j') => set_count.update(|n| n + 1),
 //!                 KeyCode::Char('k') => set_count.update(|n| n - 1),
-//!                 KeyCode::Char('q') => request_exit_v2(),
+//!                 KeyCode::Char('q') => request_exit(),
 //!                 _ => {}
 //!             }
 //!         }
@@ -43,27 +43,27 @@
 //!
 //! #[tokio::main]
 //! async fn main() -> anyhow::Result<()> {
-//!     render_v2(|| Counter).await?;
+//!     render(|| Counter).await?;
 //!     Ok(())
 //! }
 //! ```
 //!
 //! ## Available Hooks
 //!
-//! - [`use_state_v2`](hooks::use_state_v2) - Local component state with batching
-//! - [`use_reducer_v2`](hooks::use_reducer_v2) - Complex state with actions
-//! - [`use_effect_v2`](hooks::use_effect_v2) - Side effects with proper post-commit timing
-//! - [`use_context_v2`](hooks::use_context_v2) - Share data across components
-//! - [`use_ref_v2`](hooks::use_ref_v2) - Mutable references
-//! - [`use_callback_v2`](hooks::use_callback_v2) - Memoized callbacks
-//! - [`use_memo_v2`](hooks::use_memo_v2) - Memoized values
+//! - [`use_state`](hooks::use_state) - Local component state with batching
+//! - [`use_reducer`](hooks::use_reducer) - Complex state with actions
+//! - [`use_effect`](hooks::use_effect) - Side effects with proper post-commit timing
+//! - [`use_context`](hooks::use_context) - Share data across components
+//! - [`use_ref`](hooks::use_ref) - Mutable references
+//! - [`use_callback`](hooks::use_callback) - Memoized callbacks
+//! - [`use_memo`](hooks::use_memo) - Memoized values
 //! - [`use_event`](hooks::use_event) - Terminal event handling
-//! - [`use_interval_v2`](hooks::use_interval_v2) - Periodic callbacks
-//! - [`use_timeout_v2`](hooks::use_timeout_v2) - Delayed callbacks
+//! - [`use_interval`](hooks::use_interval) - Periodic callbacks
+//! - [`use_timeout`](hooks::use_timeout) - Delayed callbacks
 //!
 //! ## Component Pattern
 //!
-//! Implement the `ComponentV2` trait for your components:
+//! Implement the `Component` trait for your components:
 //!
 //! ```rust,no_run
 //! use reratui::prelude::*;
@@ -72,9 +72,9 @@
 //!     title: String,
 //! }
 //!
-//! impl ComponentV2 for MyComponent {
+//! impl Component for MyComponent {
 //!     fn render(&self, area: Rect, buffer: &mut Buffer) {
-//!         let (state, set_state) = use_state_v2(|| 0);
+//!         let (state, set_state) = use_state(|| 0);
 //!         
 //!         // Custom layout logic
 //!         let chunks = Layout::default()
@@ -94,13 +94,13 @@
 //! - [`FiberId`] - Unique identifier for a component instance
 //! - [`Fiber`] - A mounted component instance with its own hook state
 //! - [`FiberTree`] - Global fiber tree tracking all mounted components
-//! - [`ComponentV2`] - Trait for implementing components
+//! - [`Component`] - Trait for implementing components
 //!
 //! ## Examples
 //!
 //! See the [`examples/`](https://github.com/sabry-awad97/reratui/tree/main/examples) directory for:
 //!
-//! - **counter_v2** - Basic state management and event handling
+//! - **counter_fiber** - Basic state management and event handling
 //! - **command_palette** - Complex UI with animations and keyboard navigation
 
 // Core fiber types
@@ -122,7 +122,7 @@ pub mod global_events;
 // Panic handler
 pub mod panic_handler;
 
-// ComponentV2 trait and related types
+// Component trait and related types
 mod component;
 
 // Context management
@@ -141,9 +141,9 @@ mod runtime;
 mod strict_mode;
 
 // Re-exports for public API
-pub use component::{ComponentArea, ComponentV2, reset_component_position_counter};
+pub use component::{Component, ComponentArea, reset_component_position_counter};
 pub use context_stack::ContextStack;
-pub use element::{Element, RenderableComponentV2};
+pub use element::{Element, RenderableComponent};
 pub use event::{
     clear_current_event, get_current_event, reset_all_fiber_event_flags, set_current_event,
 };
@@ -159,8 +159,8 @@ pub use render_context::{
     with_render_context, with_render_context_mut,
 };
 pub use runtime::{
-    RenderOptions, is_in_render_phase, render_v2, render_v2_with_options, request_exit_v2,
-    reset_exit_v2, should_exit_v2, warn_if_effect_during_render,
+    RenderOptions, is_in_render_phase, render, render_with_options, request_exit, reset_exit,
+    should_exit, warn_if_effect_during_render,
 };
 pub use strict_mode::{StrictMode, is_strict_mode_enabled, set_strict_mode_enabled};
 
@@ -181,9 +181,9 @@ pub use ratatui::{
 
 /// Prelude module for convenient imports
 pub mod prelude {
-    pub use crate::component::{ComponentArea, ComponentV2};
+    pub use crate::component::{Component, ComponentArea};
     pub use crate::context_stack::ContextStack;
-    pub use crate::element::{Element, RenderableComponentV2};
+    pub use crate::element::{Element, RenderableComponent};
     pub use crate::fiber::{Fiber, FiberId};
     pub use crate::fiber_tree::FiberTree;
     pub use crate::render_context::{
@@ -191,18 +191,16 @@ pub mod prelude {
         with_render_context, with_render_context_mut,
     };
     pub use crate::runtime::{
-        RenderOptions, is_in_render_phase, render_v2, render_v2_with_options, request_exit_v2,
-        should_exit_v2,
+        RenderOptions, is_in_render_phase, render, render_with_options, request_exit, should_exit,
     };
     pub use crate::strict_mode::{StrictMode, is_strict_mode_enabled, set_strict_mode_enabled};
 
     // Re-export hooks
     pub use crate::hooks::{
-        DispatchV2, EffectEventV2, HistoryHandle, IntervalHandle, RefV2, StateSetterV2,
-        TimeoutHandle, try_use_context_v2, use_async_effect_once, use_async_effect_v2,
-        use_callback_v2, use_context_provider_v2, use_context_v2, use_effect_event_v2,
-        use_effect_once, use_effect_v2, use_event, use_history_v2, use_id_v2, use_interval_v2,
-        use_memo_v2, use_reducer_v2, use_ref_v2, use_state_v2, use_timeout_v2,
+        Dispatch, EffectEvent, HistoryHandle, IntervalHandle, Ref, StateSetter, TimeoutHandle,
+        try_use_context, use_async_effect, use_async_effect_once, use_callback, use_context,
+        use_context_provider, use_effect, use_effect_event, use_effect_once, use_event,
+        use_history, use_id, use_interval, use_memo, use_reducer, use_ref, use_state, use_timeout,
     };
 
     // Re-export crossterm event types

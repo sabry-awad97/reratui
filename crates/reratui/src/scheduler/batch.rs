@@ -38,11 +38,11 @@ thread_local! {
 // ============================================================================
 
 /// Global queue for cross-thread state updates.
-/// Background tasks (from use_interval_v2, use_timeout_v2) write to this queue,
+/// Background tasks (from use_interval, use_timeout) write to this queue,
 /// and the main render loop drains it into the thread-local batch.
 static CROSS_THREAD_UPDATES: Mutex<Vec<CrossThreadUpdate>> = Mutex::new(Vec::new());
 
-/// Thread ID of the main render thread (set during render_v2 initialization).
+/// Thread ID of the main render thread (set during render initialization).
 /// Uses RwLock instead of OnceLock to allow resetting in tests.
 static MAIN_THREAD_ID: std::sync::RwLock<Option<ThreadId>> = std::sync::RwLock::new(None);
 
@@ -595,7 +595,7 @@ pub fn end_batch() -> HashSet<FiberId> {
 /// If called from the main render thread (after `init_main_thread()`), the update
 /// is queued to the thread-local batch for immediate batching.
 ///
-/// If called from a background thread (e.g., from a tokio::spawn task in use_interval_v2),
+/// If called from a background thread (e.g., from a tokio::spawn task in use_interval),
 /// the update is queued to the global cross-thread queue, which will be drained
 /// into the thread-local batch on the next render frame.
 ///

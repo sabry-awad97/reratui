@@ -1,7 +1,7 @@
-//! Integration tests for ComponentV2 trait and fiber integration.
+//! Integration tests for Component trait and fiber integration.
 //!
-//! These tests verify that ComponentV2 components work correctly within
-//! the render_v2 context with proper hook isolation and lifecycle management.
+//! These tests verify that Component components work correctly within
+//! the render context with proper hook isolation and lifecycle management.
 
 use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
@@ -14,20 +14,20 @@ struct CounterComponent {
     render_count: Arc<std::sync::Mutex<u32>>,
 }
 
-impl ComponentV2 for CounterComponent {
+impl Component for CounterComponent {
     fn render(&self, _area: Rect, _buffer: &mut Buffer) {
         // Increment render count
         let mut count = self.render_count.lock().unwrap();
         *count += 1;
 
         // Use hooks to verify they work
-        let (_state, _set_state) = use_state_v2(|| 0i32);
+        let (_state, _set_state) = use_state(|| 0i32);
     }
 }
 
-/// Test that ComponentV2 can be rendered within a fiber context
+/// Test that Component can be rendered within a fiber context
 #[test]
-fn test_component_v2_within_fiber_context() {
+fn test_component_within_fiber_context() {
     use reratui::context_stack::clear_context_stack;
     use reratui::fiber_tree::{clear_fiber_tree, set_fiber_tree};
 
@@ -57,9 +57,9 @@ fn test_component_v2_within_fiber_context() {
     clear_context_stack();
 }
 
-/// Test that hooks work correctly within ComponentV2
+/// Test that hooks work correctly within Component
 #[test]
-fn test_component_v2_hooks_work() {
+fn test_component_hooks_work() {
     use reratui::context_stack::clear_context_stack;
     use reratui::fiber_tree::{clear_fiber_tree, set_fiber_tree};
 
@@ -73,9 +73,9 @@ fn test_component_v2_hooks_work() {
         state_value: Arc<std::sync::Mutex<Option<i32>>>,
     }
 
-    impl ComponentV2 for HookTestComponent {
+    impl Component for HookTestComponent {
         fn render(&self, _area: Rect, _buffer: &mut Buffer) {
-            let (state, _set_state) = use_state_v2(|| 42i32);
+            let (state, _set_state) = use_state(|| 42i32);
             *self.state_value.lock().unwrap() = Some(state);
         }
     }
@@ -98,9 +98,9 @@ fn test_component_v2_hooks_work() {
     clear_context_stack();
 }
 
-/// Test that fiber isolation works between different ComponentV2 instances
+/// Test that fiber isolation works between different Component instances
 #[test]
-fn test_component_v2_fiber_isolation() {
+fn test_component_fiber_isolation() {
     use reratui::context_stack::clear_context_stack;
     use reratui::fiber_tree::{clear_fiber_tree, set_fiber_tree};
 
@@ -115,10 +115,10 @@ fn test_component_v2_fiber_isolation() {
         observed_value: Arc<std::sync::Mutex<Option<i32>>>,
     }
 
-    impl ComponentV2 for IsolationTestComponent {
+    impl Component for IsolationTestComponent {
         fn render(&self, _area: Rect, _buffer: &mut Buffer) {
             let initial = self.initial_value;
-            let (state, _set_state) = use_state_v2(move || initial);
+            let (state, _set_state) = use_state(move || initial);
             *self.observed_value.lock().unwrap() = Some(state);
         }
     }
@@ -152,9 +152,9 @@ fn test_component_v2_fiber_isolation() {
     clear_context_stack();
 }
 
-/// Test nested ComponentV2 components
+/// Test nested Component components
 #[test]
-fn test_nested_component_v2() {
+fn test_nested_component() {
     use reratui::context_stack::clear_context_stack;
     use reratui::fiber_tree::{clear_fiber_tree, set_fiber_tree};
 
@@ -168,13 +168,13 @@ fn test_nested_component_v2() {
         render_called: Arc<std::sync::atomic::AtomicBool>,
     }
 
-    impl ComponentV2 for ChildComponent {
+    impl Component for ChildComponent {
         fn render(&self, _area: Rect, _buffer: &mut Buffer) {
             self.render_called
                 .store(true, std::sync::atomic::Ordering::SeqCst);
 
             // Verify we can access ComponentArea context from parent
-            let area_ctx = try_use_context_v2::<ComponentArea>();
+            let area_ctx = try_use_context::<ComponentArea>();
             assert!(
                 area_ctx.is_some(),
                 "Child should have access to ComponentArea"
@@ -187,7 +187,7 @@ fn test_nested_component_v2() {
         child_render_called: Arc<std::sync::atomic::AtomicBool>,
     }
 
-    impl ComponentV2 for ParentComponent {
+    impl Component for ParentComponent {
         fn render(&self, area: Rect, buffer: &mut Buffer) {
             // Parent renders child using Element::component
             let child = ChildComponent {
@@ -234,10 +234,10 @@ fn test_component_area_context() {
         received_area: Arc<std::sync::Mutex<Option<Rect>>>,
     }
 
-    impl ComponentV2 for AreaTestComponent {
+    impl Component for AreaTestComponent {
         fn render(&self, area: Rect, _buffer: &mut Buffer) {
             // Get ComponentArea from context
-            let area_ctx = try_use_context_v2::<ComponentArea>();
+            let area_ctx = try_use_context::<ComponentArea>();
             if let Some(ctx) = area_ctx {
                 *self.received_area.lock().unwrap() = Some(ctx.area());
                 // Verify context area matches render area

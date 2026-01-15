@@ -6,7 +6,7 @@
 //! # Example
 //!
 //! ```rust,ignore
-//! use reratui_fiber::hooks::{use_context_provider_v2, use_context_v2};
+//! use reratui_fiber::hooks::{use_context_provider, use_context};
 //!
 //! // Define a theme context
 //! #[derive(Clone)]
@@ -18,7 +18,7 @@
 //! // Provider component
 //! #[component]
 //! fn ThemeProvider(children: Element) -> Element {
-//!     let theme = use_context_provider_v2(|| Theme {
+//!     let theme = use_context_provider(|| Theme {
 //!         primary: Color::Cyan,
 //!         background: Color::Black,
 //!     });
@@ -29,7 +29,7 @@
 //! // Consumer component
 //! #[component]
 //! fn ThemedButton(label: &str) -> Element {
-//!     let theme = use_context_v2::<Theme>();
+//!     let theme = use_context::<Theme>();
 //!     
 //!     rsx! {
 //!         <Block style={Style::default().fg(theme.primary)}>
@@ -47,7 +47,7 @@ use crate::fiber_tree::with_current_fiber;
 /// Provide a context value to all descendants.
 ///
 /// The value is created using the provided initializer function and made available
-/// to all descendant components via `use_context_v2`. The value is automatically
+/// to all descendant components via `use_context`. The value is automatically
 /// cleaned up when the provider fiber unmounts.
 ///
 /// # Type Parameters
@@ -76,7 +76,7 @@ use crate::fiber_tree::with_current_fiber;
 /// #[component]
 /// fn App() -> Element {
 ///     // Provide config to all descendants
-///     let config = use_context_provider_v2(|| AppConfig {
+///     let config = use_context_provider(|| AppConfig {
 ///         api_url: "https://api.example.com".to_string(),
 ///         debug_mode: cfg!(debug_assertions),
 ///     });
@@ -88,7 +88,7 @@ use crate::fiber_tree::with_current_fiber;
 /// # Panics
 ///
 /// Panics if called outside of a component render context (no current fiber).
-pub fn use_context_provider_v2<T, F>(create_value: F) -> T
+pub fn use_context_provider<T, F>(create_value: F) -> T
 where
     T: Clone + Send + Sync + 'static,
     F: FnOnce() -> T,
@@ -119,12 +119,12 @@ where
 
         value
     })
-    .expect("use_context_provider_v2 must be called within a component render context")
+    .expect("use_context_provider must be called within a component render context")
 }
 
 /// Consume a context value from the nearest ancestor provider.
 ///
-/// Returns the value from the nearest ancestor that called `use_context_provider_v2`
+/// Returns the value from the nearest ancestor that called `use_context_provider`
 /// with the same type `T`.
 ///
 /// # Type Parameters
@@ -141,7 +141,7 @@ where
 /// #[component]
 /// fn UserProfile() -> Element {
 ///     // Get the user context from an ancestor provider
-///     let user = use_context_v2::<User>();
+///     let user = use_context::<User>();
 ///     
 ///     rsx! {
 ///         <Block>
@@ -154,15 +154,15 @@ where
 /// # Panics
 ///
 /// Panics if no provider exists for the context type `T`.
-/// Use `try_use_context_v2` if you want to handle missing providers gracefully.
-pub fn use_context_v2<T>() -> T
+/// Use `try_use_context` if you want to handle missing providers gracefully.
+pub fn use_context<T>() -> T
 where
     T: Clone + Send + Sync + 'static,
 {
-    try_use_context_v2::<T>().unwrap_or_else(|| {
+    try_use_context::<T>().unwrap_or_else(|| {
         panic!(
-            "use_context_v2: No provider found for context type `{}`. \
-             Make sure a parent component calls use_context_provider_v2 with this type.",
+            "use_context: No provider found for context type `{}`. \
+             Make sure a parent component calls use_context_provider with this type.",
             std::any::type_name::<T>()
         )
     })
@@ -170,7 +170,7 @@ where
 
 /// Try to consume a context value, returning None if no provider exists.
 ///
-/// This is a non-panicking version of `use_context_v2` that returns `None`
+/// This is a non-panicking version of `use_context` that returns `None`
 /// if no provider exists for the context type.
 ///
 /// # Type Parameters
@@ -187,7 +187,7 @@ where
 /// #[component]
 /// fn OptionalThemeConsumer() -> Element {
 ///     // Works with or without a theme provider
-///     let style = match try_use_context_v2::<Theme>() {
+///     let style = match try_use_context::<Theme>() {
 ///         Some(theme) => Style::default().fg(theme.primary),
 ///         None => Style::default().fg(Color::White),
 ///     };
@@ -199,7 +199,7 @@ where
 ///     }
 /// }
 /// ```
-pub fn try_use_context_v2<T>() -> Option<T>
+pub fn try_use_context<T>() -> Option<T>
 where
     T: Clone + Send + Sync + 'static,
 {
@@ -227,21 +227,21 @@ mod tests {
     }
 
     #[test]
-    fn test_use_context_provider_v2_creates_value() {
+    fn test_use_context_provider_creates_value() {
         let _fiber_id = setup_test_fiber();
 
-        let value = use_context_provider_v2(|| 42i32);
+        let value = use_context_provider(|| 42i32);
         assert_eq!(value, 42);
 
         cleanup_test();
     }
 
     #[test]
-    fn test_use_context_provider_v2_returns_same_value_on_rerender() {
+    fn test_use_context_provider_returns_same_value_on_rerender() {
         let fiber_id = setup_test_fiber();
 
         // First render
-        let value1 = use_context_provider_v2(|| 100i32);
+        let value1 = use_context_provider(|| 100i32);
         assert_eq!(value1, 100);
 
         // Simulate re-render
@@ -251,17 +251,17 @@ mod tests {
         });
 
         // Second render - should return same value, not call initializer again
-        let value2 = use_context_provider_v2(|| 999i32);
+        let value2 = use_context_provider(|| 999i32);
         assert_eq!(value2, 100); // Still 100, not 999
 
         cleanup_test();
     }
 
     #[test]
-    fn test_use_context_provider_v2_pushes_to_context_stack() {
+    fn test_use_context_provider_pushes_to_context_stack() {
         let _fiber_id = setup_test_fiber();
 
-        use_context_provider_v2(|| "test-value".to_string());
+        use_context_provider(|| "test-value".to_string());
 
         // Value should be available in context stack
         let value = crate::context_stack::get_context::<String>();
@@ -271,11 +271,11 @@ mod tests {
     }
 
     #[test]
-    fn test_use_context_provider_v2_tracks_provided_contexts() {
+    fn test_use_context_provider_tracks_provided_contexts() {
         let fiber_id = setup_test_fiber();
 
-        use_context_provider_v2(|| 42i32);
-        use_context_provider_v2(|| "hello".to_string());
+        use_context_provider(|| 42i32);
+        use_context_provider(|| "hello".to_string());
 
         // Check that fiber tracks provided context types
         crate::fiber_tree::with_fiber_tree_mut(|tree| {
@@ -288,32 +288,32 @@ mod tests {
     }
 
     #[test]
-    fn test_try_use_context_v2_returns_value() {
+    fn test_try_use_context_returns_value() {
         let _fiber_id = setup_test_fiber();
 
-        use_context_provider_v2(|| 42i32);
+        use_context_provider(|| 42i32);
 
-        let value = try_use_context_v2::<i32>();
+        let value = try_use_context::<i32>();
         assert_eq!(value, Some(42));
 
         cleanup_test();
     }
 
     #[test]
-    fn test_try_use_context_v2_returns_none_without_provider() {
+    fn test_try_use_context_returns_none_without_provider() {
         cleanup_test(); // Ensure clean state
 
-        let value = try_use_context_v2::<i32>();
+        let value = try_use_context::<i32>();
         assert_eq!(value, None);
     }
 
     #[test]
-    fn test_use_context_v2_returns_value() {
+    fn test_use_context_returns_value() {
         let _fiber_id = setup_test_fiber();
 
-        use_context_provider_v2(|| "context-value".to_string());
+        use_context_provider(|| "context-value".to_string());
 
-        let value = use_context_v2::<String>();
+        let value = use_context::<String>();
         assert_eq!(value, "context-value");
 
         cleanup_test();
@@ -321,11 +321,11 @@ mod tests {
 
     #[test]
     #[should_panic(expected = "No provider found for context type")]
-    fn test_use_context_v2_panics_without_provider() {
+    fn test_use_context_panics_without_provider() {
         cleanup_test(); // Ensure clean state
 
         // This should panic because there's no provider
-        let _ = use_context_v2::<i32>();
+        let _ = use_context::<i32>();
     }
 
     #[test]
@@ -340,7 +340,7 @@ mod tests {
         crate::fiber_tree::with_fiber_tree_mut(|tree| {
             tree.begin_render(outer_fiber);
         });
-        use_context_provider_v2(|| "outer".to_string());
+        use_context_provider(|| "outer".to_string());
         crate::fiber_tree::with_fiber_tree_mut(|tree| {
             tree.end_render();
         });
@@ -349,10 +349,10 @@ mod tests {
         crate::fiber_tree::with_fiber_tree_mut(|tree| {
             tree.begin_render(inner_fiber);
         });
-        use_context_provider_v2(|| "inner".to_string());
+        use_context_provider(|| "inner".to_string());
 
         // Should get inner value
-        let value = use_context_v2::<String>();
+        let value = use_context::<String>();
         assert_eq!(value, "inner");
 
         cleanup_test();
@@ -362,13 +362,13 @@ mod tests {
     fn test_multiple_context_types() {
         let _fiber_id = setup_test_fiber();
 
-        use_context_provider_v2(|| 42i32);
-        use_context_provider_v2(|| "hello".to_string());
-        use_context_provider_v2(|| true);
+        use_context_provider(|| 42i32);
+        use_context_provider(|| "hello".to_string());
+        use_context_provider(|| true);
 
-        assert_eq!(use_context_v2::<i32>(), 42);
-        assert_eq!(use_context_v2::<String>(), "hello");
-        assert!(use_context_v2::<bool>());
+        assert_eq!(use_context::<i32>(), 42);
+        assert_eq!(use_context::<String>(), "hello");
+        assert!(use_context::<bool>());
 
         cleanup_test();
     }
@@ -383,7 +383,7 @@ mod tests {
 
         let _fiber_id = setup_test_fiber();
 
-        let provided_theme = use_context_provider_v2(|| Theme {
+        let provided_theme = use_context_provider(|| Theme {
             name: "default".to_string(),
             dark_mode: true,
         });
@@ -391,7 +391,7 @@ mod tests {
         assert_eq!(provided_theme.name, "default");
         assert!(provided_theme.dark_mode);
 
-        let consumed_theme = use_context_v2::<Theme>();
+        let consumed_theme = use_context::<Theme>();
         assert_eq!(consumed_theme, provided_theme);
 
         cleanup_test();
@@ -399,12 +399,12 @@ mod tests {
 
     #[test]
     #[should_panic(
-        expected = "use_context_provider_v2 must be called within a component render context"
+        expected = "use_context_provider must be called within a component render context"
     )]
-    fn test_use_context_provider_v2_panics_outside_render() {
+    fn test_use_context_provider_panics_outside_render() {
         cleanup_test();
 
         // This should panic because there's no current fiber
-        let _ = use_context_provider_v2(|| 42i32);
+        let _ = use_context_provider(|| 42i32);
     }
 }

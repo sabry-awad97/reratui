@@ -33,7 +33,7 @@ Reratui brings React's powerful component model and hooks system to terminal use
 
 🎯 **React-like Component Model**
 
-- Implement the `ComponentV2` trait to create reusable components
+- Implement the `Component` trait to create reusable components
 - Compose components naturally with Rust's type system
 - Props as struct fields with full type safety
 
@@ -45,32 +45,32 @@ Reratui brings React's powerful component model and hooks system to terminal use
 
 🪝 **Comprehensive Hooks System**
 
-- `use_state_v2` - Local state with batched updates
-- `use_effect_v2` - Side effects with cleanup
-- `use_context_v2` - Share data across component tree
-- `use_memo_v2` / `use_callback_v2` - Memoization
-- `use_reducer_v2` - Complex state management
-- `use_ref_v2` - Mutable references without re-renders
+- `use_state` - Local state with batched updates
+- `use_effect` - Side effects with cleanup
+- `use_context` - Share data across component tree
+- `use_memo` / `use_callback` - Memoization
+- `use_reducer` - Complex state management
+- `use_ref` - Mutable references without re-renders
 
 ⚡ **Async First**
 
-- `use_future_v2` - Track async task state
-- `use_query_v2` - Data fetching with caching & retry
-- `use_mutation_v2` - Mutation state tracking
-- `use_async_effect_v2` - Async side effects
+- `use_future` - Track async task state
+- `use_query` - Data fetching with caching & retry
+- `use_mutation` - Mutation state tracking
+- `use_async_effect` - Async side effects
 
 🎮 **Rich Event Handling**
 
-- `use_keyboard_v2` / `use_keyboard_shortcut_v2`
-- `use_mouse_v2` / `use_mouse_hover_v2` / `use_mouse_drag_v2`
-- `use_resize_v2` / `use_media_query_v2`
+- `use_keyboard` / `use_keyboard_shortcut`
+- `use_mouse` / `use_mouse_hover` / `use_mouse_drag`
+- `use_resize` / `use_media_query`
 
 ⏱️ **Timing & Utilities**
 
-- `use_timeout_v2` / `use_interval_v2`
-- `use_history_v2` - Undo/redo support
-- `use_form_v2` - Form validation
-- `use_id_v2` - Unique IDs
+- `use_timeout` / `use_interval`
+- `use_history` - Undo/redo support
+- `use_form` - Form validation
+- `use_id` - Unique IDs
 
 ## Quick Start
 
@@ -89,17 +89,17 @@ use reratui::prelude::*;
 
 struct Counter;
 
-impl ComponentV2 for Counter {
+impl Component for Counter {
     fn render(&self, area: Rect, buffer: &mut Buffer) {
         // State persists across renders
-        let (count, set_count) = use_state_v2(|| 0);
+        let (count, set_count) = use_state(|| 0);
 
         // Handle keyboard input
-        use_keyboard_press_v2(move |key| {
+        use_keyboard_press(move |key| {
             match key.code {
                 KeyCode::Up => set_count.update(|c| c + 1),
                 KeyCode::Down => set_count.update(|c| c.saturating_sub(1)),
-                KeyCode::Char('q') => request_exit_v2(),
+                KeyCode::Char('q') => request_exit(),
                 _ => {}
             }
         });
@@ -119,7 +119,7 @@ impl ComponentV2 for Counter {
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    render_v2(|| Counter).await?;
+    render(|| Counter).await?;
     Ok(())
 }
 ```
@@ -130,9 +130,9 @@ The repository includes several examples demonstrating various features:
 
 | Example               | Description                 | Run Command                               |
 | --------------------- | --------------------------- | ----------------------------------------- |
-| `counter_v2`          | Basic state management      | `cargo run --example counter_v2`          |
-| `counter`             | Simple counter (legacy)     | `cargo run --example counter`             |
-| `effect_timing_v2`    | Effect lifecycle            | `cargo run --example effect_timing_v2`    |
+| `counter_fiber`       | Basic state management      | `cargo run -p counter-fiber`              |
+| `counter`             | Simple counter (legacy)     | `cargo run -p counter`                    |
+| `effect_timing`       | Effect lifecycle            | `cargo run -p effect_timing`              |
 | `async_fetch_example` | Async data fetching         | `cargo run --example async_fetch_example` |
 | `query_example`       | Data queries with caching   | `cargo run --example query_example`       |
 | `mutation_example`    | CRUD operations             | `cargo run --example mutation_example`    |
@@ -145,13 +145,13 @@ The repository includes several examples demonstrating various features:
 
 ```rust
 use reratui::prelude::*;
-use reratui::hooks::{use_query_v2, QueryOptions, QueryStatus};
+use reratui::hooks::{use_query, QueryOptions, QueryStatus};
 
 struct UserList;
 
-impl ComponentV2 for UserList {
+impl Component for UserList {
     fn render(&self, area: Rect, buffer: &mut Buffer) {
-        let query = use_query_v2(
+        let query = use_query(
             "users",
             || async { fetch_users().await },
             Some(QueryOptions {
@@ -188,14 +188,14 @@ impl ComponentV2 for UserList {
 
 ```rust
 // Handle specific key combinations
-use_keyboard_shortcut_v2(
+use_keyboard_shortcut(
     KeyCode::Char('s'),
     KeyModifiers::CONTROL,
     || save_document(),
 );
 
 // Handle all key presses
-use_keyboard_press_v2(move |key| {
+use_keyboard_press(move |key| {
     match key.code {
         KeyCode::Up => navigate_up(),
         KeyCode::Down => navigate_down(),
@@ -210,17 +210,17 @@ use_keyboard_press_v2(move |key| {
 ```rust
 // Track hover state
 let button_area = Rect::new(10, 5, 20, 3);
-let is_hovering = use_mouse_hover_v2(button_area);
+let is_hovering = use_mouse_hover(button_area);
 
 // Handle clicks
-use_mouse_click_v2(move |button, x, y| {
+use_mouse_click(move |button, x, y| {
     if button == MouseButton::Left && button_area.contains((x, y).into()) {
         handle_button_click();
     }
 });
 
 // Track drag operations
-let (drag_info, reset_drag) = use_mouse_drag_v2();
+let (drag_info, reset_drag) = use_mouse_drag();
 if drag_info.is_dragging {
     // Handle drag...
 }
@@ -232,11 +232,11 @@ Reratui uses a 5-phase render pipeline:
 
 ```
 ┌─────────────────────────────────────────────────────────┐
-│                     Render Loop                          │
-│                                                          │
-│   ┌──────┐    ┌────────┐    ┌────────┐    ┌──────────┐ │
-│   │ Poll │ → │ Render │ → │ Commit │ → │  Event   │  │
-│   └──────┘    └────────┘    └────────┘    └──────────┘ │
+│                     Render Loop                         │
+│                                                         │
+│   ┌──────┐    ┌────────┐    ┌────────┐    ┌──────────┐  │
+│   │ Poll │ →  │ Render │ →  │ Commit │ →  │  Event   │  │
+│   └──────┘    └────────┘    └────────┘    └──────────┘  │
 │       ↑                                        │        │
 │       │         ┌────────┐                     │        │
 │       └─────────│ Effect │←────────────────────┘        │
@@ -268,60 +268,60 @@ Reratui uses a 5-phase render pipeline:
 ### State Management
 
 ```rust
-let (value, set_value) = use_state_v2(|| initial);
-let (state, dispatch) = use_reducer_v2(reducer, initial);
-let ref_handle = use_ref_v2(|| initial);
-let history = use_history_v2(|| initial);
+let (value, set_value) = use_state(|| initial);
+let (state, dispatch) = use_reducer(reducer, initial);
+let ref_handle = use_ref(|| initial);
+let history = use_history(|| initial);
 ```
 
 ### Effects
 
 ```rust
-use_effect_v2(|| { /* effect */ Some(Box::new(|| { /* cleanup */ })) }, deps);
+use_effect(|| { /* effect */ Some(Box::new(|| { /* cleanup */ })) }, deps);
 use_effect_once(|| { /* runs once on mount */ None });
-use_async_effect_v2(|| async { /* async effect */ None }, deps);
+use_async_effect(|| async { /* async effect */ None }, deps);
 ```
 
 ### Context
 
 ```rust
-use_context_provider_v2(|| value);
-let value = use_context_v2::<T>();
-let maybe_value = try_use_context_v2::<T>();
+use_context_provider(|| value);
+let value = use_context::<T>();
+let maybe_value = try_use_context::<T>();
 ```
 
 ### Async Data
 
 ```rust
-let future = use_future_v2(|| async { Ok(data) }, Some(deps));
-let query = use_query_v2("key", || async { fetch() }, options);
-let mutation = use_mutation_v2(|args| async { mutate(args) }, options);
+let future = use_future(|| async { Ok(data) }, Some(deps));
+let query = use_query("key", || async { fetch() }, options);
+let mutation = use_mutation(|args| async { mutate(args) }, options);
 ```
 
 ### Events
 
 ```rust
 if let Some(event) = use_event() { /* handle */ }
-use_keyboard_press_v2(|key| { /* handle */ });
-use_keyboard_shortcut_v2(KeyCode::Char('s'), KeyModifiers::CONTROL, || {});
-use_mouse_click_v2(|button, x, y| { /* handle */ });
-let is_hovering = use_mouse_hover_v2(area);
+use_keyboard_press(|key| { /* handle */ });
+use_keyboard_shortcut(KeyCode::Char('s'), KeyModifiers::CONTROL, || {});
+use_mouse_click(|button, x, y| { /* handle */ });
+let is_hovering = use_mouse_hover(area);
 ```
 
 ### Timing
 
 ```rust
-let timeout = use_timeout_v2(|| { /* callback */ }, delay_ms);
-let interval = use_interval_v2(|| { /* callback */ }, interval_ms);
+let timeout = use_timeout(|| { /* callback */ }, delay_ms);
+let interval = use_interval(|| { /* callback */ }, interval_ms);
 ```
 
 ### Layout
 
 ```rust
-let area = use_area_v2();
-let frame = use_frame_v2();
-let (width, height) = use_resize_v2();
-let is_narrow = use_media_query_v2(|(w, _)| w < 80);
+let area = use_area();
+let frame = use_frame();
+let (width, height) = use_resize();
+let is_narrow = use_media_query(|(w, _)| w < 80);
 ```
 
 ## Requirements
@@ -359,7 +359,7 @@ We welcome contributions! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for guid
 cargo test
 
 # Run a specific example
-cargo run --example counter_v2
+cargo run -p counter-fiber
 
 # Check formatting
 cargo fmt --check

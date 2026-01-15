@@ -1,9 +1,9 @@
 //! Async hooks for managing asynchronous operations.
 //!
 //! This module provides fiber-based async hooks:
-//! - `use_future_v2` - Spawn and track async tasks with loading/error/data states
-//! - `use_query_v2` - Data fetching with caching and stale-while-revalidate
-//! - `use_mutation_v2` - Mutation state tracking with optimistic updates and retry
+//! - `use_future` - Spawn and track async tasks with loading/error/data states
+//! - `use_query` - Data fetching with caching and stale-while-revalidate
+//! - `use_mutation` - Mutation state tracking with optimistic updates and retry
 
 use std::fmt;
 use std::future::Future;
@@ -17,11 +17,11 @@ use tokio::task::JoinHandle;
 
 use crate::fiber::FiberId;
 use crate::fiber_tree::with_current_fiber;
-use crate::hooks::use_effect_v2;
+use crate::hooks::use_effect;
 use crate::scheduler::batch::{StateUpdate, StateUpdateKind, queue_update};
 
 // ============================================================================
-// FutureState and FutureHandle for use_future_v2
+// FutureState and FutureHandle for use_future
 // ============================================================================
 
 /// Represents the current state of a future operation
@@ -113,7 +113,7 @@ impl<T, E> From<Result<T, E>> for FutureState<T, E> {
 
 /// A handle to a future operation that provides access to its current state
 #[derive(Clone)]
-pub struct FutureHandleV2<T, E = String>
+pub struct FutureHandle<T, E = String>
 where
     T: Clone + Send + Sync + 'static,
     E: Clone + Send + Sync + 'static,
@@ -126,7 +126,7 @@ where
     cancelled: Arc<AtomicBool>,
 }
 
-impl<T, E> FutureHandleV2<T, E>
+impl<T, E> FutureHandle<T, E>
 where
     T: Clone + Send + Sync + 'static,
     E: Clone + Send + Sync + 'static,
@@ -201,13 +201,13 @@ where
     }
 }
 
-impl<T, E> fmt::Debug for FutureHandleV2<T, E>
+impl<T, E> fmt::Debug for FutureHandle<T, E>
 where
     T: Clone + Send + Sync + fmt::Debug + 'static,
     E: Clone + Send + Sync + fmt::Debug + 'static,
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("FutureHandleV2")
+        f.debug_struct("FutureHandle")
             .field("state", &*self.state.read())
             .field("cancelled", &self.cancelled.load(Ordering::SeqCst))
             .finish()
@@ -220,7 +220,7 @@ where
     T: Clone + Send + Sync + 'static,
     E: Clone + Send + Sync + 'static,
 {
-    handle: FutureHandleV2<T, E>,
+    handle: FutureHandle<T, E>,
     generation: u64,
 }
 
@@ -244,7 +244,7 @@ where
 {
     fn new() -> Self {
         Self {
-            handle: FutureHandleV2::new(),
+            handle: FutureHandle::new(),
             generation: 0,
         }
     }
@@ -266,7 +266,7 @@ where
 /// # Example
 /// ```ignore
 /// // Fetch data once on mount
-/// let handle = use_future_v2(|| async {
+/// let handle = use_future(|| async {
 ///     fetch_user_data().await
 /// }, Some(()));
 ///
@@ -278,14 +278,11 @@ where
 /// }
 ///
 /// // Re-fetch when user_id changes
-/// let handle = use_future_v2(move || async move {
+/// let handle = use_future(move || async move {
 ///     fetch_user(user_id).await
 /// }, Some((user_id,)));
 /// ```
-pub fn use_future_v2<Deps, F, Fut, T, E>(
-    future_factory: F,
-    deps: Option<Deps>,
-) -> FutureHandleV2<T, E>
+pub fn use_future<Deps, F, Fut, T, E>(future_factory: F, deps: Option<Deps>) -> FutureHandle<T, E>
 where
     Deps: PartialEq + Clone + Send + 'static,
     F: FnOnce() -> Fut + Send + 'static,
@@ -308,12 +305,12 @@ where
             storage.generation,
         )
     })
-    .expect("use_future_v2 must be called within a component render context");
+    .expect("use_future must be called within a component render context");
 
     // Use effect to manage the future lifecycle
     let handle_for_effect = handle.clone();
 
-    use_effect_v2(
+    use_effect(
         move || {
             // Cancel any previous future
             handle_for_effect.cancel();
@@ -367,18 +364,18 @@ where
 }
 
 /// Convenience function for futures that run only once on mount
-pub fn use_future_once<F, Fut, T, E>(future_factory: F) -> FutureHandleV2<T, E>
+pub fn use_future_once<F, Fut, T, E>(future_factory: F) -> FutureHandle<T, E>
 where
     F: FnOnce() -> Fut + Send + 'static,
     Fut: Future<Output = Result<T, E>> + Send + 'static,
     T: Clone + Send + Sync + 'static,
     E: Clone + Send + Sync + ToString + 'static,
 {
-    use_future_v2(future_factory, Some(()))
+    use_future(future_factory, Some(()))
 }
 
 // ============================================================================
-// QueryState and QueryResult for use_query_v2
+// QueryState and QueryResult for use_query
 // ============================================================================
 
 /// Status of a query operation
@@ -429,7 +426,7 @@ impl Default for QueryOptions {
 
 /// Result of a query operation
 #[derive(Clone)]
-pub struct QueryResultV2<T, E>
+pub struct QueryResult<T, E>
 where
     T: Clone + Send + Sync + 'static,
     E: Clone + Send + Sync + 'static,
@@ -450,7 +447,7 @@ where
     invalidate_fn: Arc<dyn Fn() + Send + Sync>,
 }
 
-impl<T, E> QueryResultV2<T, E>
+impl<T, E> QueryResult<T, E>
 where
     T: Clone + Send + Sync + 'static,
     E: Clone + Send + Sync + 'static,
@@ -481,13 +478,13 @@ where
     }
 }
 
-impl<T, E> fmt::Debug for QueryResultV2<T, E>
+impl<T, E> fmt::Debug for QueryResult<T, E>
 where
     T: Clone + Send + Sync + fmt::Debug + 'static,
     E: Clone + Send + Sync + fmt::Debug + 'static,
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("QueryResultV2")
+        f.debug_struct("QueryResult")
             .field("status", &self.status)
             .field("data", &self.data)
             .field("error", &self.error)
@@ -574,7 +571,7 @@ where
 ///
 /// # Example
 /// ```ignore
-/// let result = use_query_v2(
+/// let result = use_query(
 ///     "user-123",
 ///     || async { fetch_user(123).await },
 ///     Some(QueryOptions {
@@ -592,11 +589,11 @@ where
 /// // Manual refetch
 /// result.refetch();
 /// ```
-pub fn use_query_v2<K, F, Fut, T, E>(
+pub fn use_query<K, F, Fut, T, E>(
     key: K,
     query_fn: F,
     options: Option<QueryOptions>,
-) -> QueryResultV2<T, E>
+) -> QueryResult<T, E>
 where
     K: std::hash::Hash + Eq + Clone + Send + Sync + std::fmt::Debug + 'static,
     F: Fn() -> Fut + Clone + Send + Sync + 'static,
@@ -612,12 +609,12 @@ where
         let hook_index = fiber.next_hook_index();
         (fiber.id, hook_index)
     })
-    .expect("use_query_v2 must be called within a component render context");
+    .expect("use_query must be called within a component render context");
 
     // Get or initialize state
     let state: QueryHookState<T, E> =
         with_current_fiber(|fiber| fiber.get_or_init_hook(hook_index, QueryHookState::default))
-            .expect("use_query_v2 must be called within a component render context");
+            .expect("use_query must be called within a component render context");
 
     let refetch_trigger = state.refetch_trigger.clone();
     let current_trigger = refetch_trigger.load(Ordering::SeqCst);
@@ -672,7 +669,7 @@ where
     let cache_key_for_effect = cache_key.clone();
     let options_for_effect = options.clone();
 
-    use_effect_v2(
+    use_effect(
         move || {
             if !options_for_effect.enabled {
                 return None;
@@ -812,7 +809,7 @@ where
         Some((cache_key.clone(), current_trigger, options.enabled)),
     );
 
-    QueryResultV2 {
+    QueryResult {
         status: state.status,
         data: state.data.or(initial_data),
         error: state.error,
@@ -829,7 +826,7 @@ pub fn clear_query_cache() {
 }
 
 // ============================================================================
-// MutationState and MutationHandle for use_mutation_v2
+// MutationState and MutationHandle for use_mutation
 // ============================================================================
 
 /// Status of a mutation operation
@@ -937,7 +934,7 @@ type MutationFn<TData, TError, TVariables> = Arc<
 >;
 
 /// Handle for triggering and managing mutations
-pub struct MutationHandleV2<TData, TError, TVariables>
+pub struct MutationHandle<TData, TError, TVariables>
 where
     TData: Clone + Send + Sync + 'static,
     TError: Clone + Send + Sync + 'static,
@@ -957,7 +954,7 @@ where
     hook_index: usize,
 }
 
-impl<TData, TError, TVariables> Clone for MutationHandleV2<TData, TError, TVariables>
+impl<TData, TError, TVariables> Clone for MutationHandle<TData, TError, TVariables>
 where
     TData: Clone + Send + Sync + 'static,
     TError: Clone + Send + Sync + 'static,
@@ -975,7 +972,7 @@ where
     }
 }
 
-impl<TData, TError, TVariables> MutationHandleV2<TData, TError, TVariables>
+impl<TData, TError, TVariables> MutationHandle<TData, TError, TVariables>
 where
     TData: Clone + Send + Sync + 'static,
     TError: Clone + Send + Sync + 'static,
@@ -1243,14 +1240,14 @@ where
     }
 }
 
-impl<TData, TError, TVariables> fmt::Debug for MutationHandleV2<TData, TError, TVariables>
+impl<TData, TError, TVariables> fmt::Debug for MutationHandle<TData, TError, TVariables>
 where
     TData: Clone + Send + Sync + fmt::Debug + 'static,
     TError: Clone + Send + Sync + fmt::Debug + 'static,
     TVariables: Clone + Send + Sync + 'static,
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("MutationHandleV2")
+        f.debug_struct("MutationHandle")
             .field("state", &*self.state.read())
             .finish()
     }
@@ -1269,7 +1266,7 @@ where
 ///
 /// # Example
 /// ```ignore
-/// let mutation = use_mutation_v2(
+/// let mutation = use_mutation(
 ///     |user: CreateUserRequest| async move {
 ///         api::create_user(user).await
 ///     },
@@ -1291,10 +1288,10 @@ where
 /// // Reset state
 /// mutation.reset();
 /// ```
-pub fn use_mutation_v2<TData, TError, TVariables, F, Fut>(
+pub fn use_mutation<TData, TError, TVariables, F, Fut>(
     mutation_fn: F,
     options: Option<MutationOptions>,
-) -> MutationHandleV2<TData, TError, TVariables>
+) -> MutationHandle<TData, TError, TVariables>
 where
     TData: Clone + Send + Sync + 'static,
     TError: Clone + Send + Sync + 'static,
@@ -1309,7 +1306,7 @@ where
         let hook_index = fiber.next_hook_index();
         (fiber.id, hook_index)
     })
-    .expect("use_mutation_v2 must be called within a component render context");
+    .expect("use_mutation must be called within a component render context");
 
     // Get or initialize state
     let state: Arc<RwLock<MutationState<TData, TError>>> = with_current_fiber(|fiber| {
@@ -1317,7 +1314,7 @@ where
             Arc::new(RwLock::new(MutationState::default()))
         })
     })
-    .expect("use_mutation_v2 must be called within a component render context");
+    .expect("use_mutation must be called within a component render context");
 
     // Wrap mutation function
     let boxed_fn: MutationFn<TData, TError, TVariables> = Arc::new(move |variables: TVariables| {
@@ -1325,7 +1322,7 @@ where
             as Pin<Box<dyn Future<Output = Result<TData, TError>> + Send>>
     });
 
-    MutationHandleV2 {
+    MutationHandle {
         state,
         mutation_fn: boxed_fn,
         options: Arc::new(options),
@@ -1412,12 +1409,12 @@ mod tests {
     }
 
     // ========================================================================
-    // FutureHandleV2 tests
+    // FutureHandle tests
     // ========================================================================
 
     #[test]
     fn test_future_handle_new() {
-        let handle: FutureHandleV2<i32, String> = FutureHandleV2::new();
+        let handle: FutureHandle<i32, String> = FutureHandle::new();
         assert!(handle.is_idle());
         assert!(!handle.is_pending());
         assert!(!handle.is_resolved());
@@ -1428,7 +1425,7 @@ mod tests {
 
     #[test]
     fn test_future_handle_set_state() {
-        let handle: FutureHandleV2<i32, String> = FutureHandleV2::new();
+        let handle: FutureHandle<i32, String> = FutureHandle::new();
 
         handle.set_state(FutureState::Pending);
         assert!(handle.is_pending());
@@ -1444,7 +1441,7 @@ mod tests {
 
     #[test]
     fn test_future_handle_cancel() {
-        let handle: FutureHandleV2<i32, String> = FutureHandleV2::new();
+        let handle: FutureHandle<i32, String> = FutureHandle::new();
         assert!(!handle.is_cancelled());
 
         handle.cancel();
@@ -1452,14 +1449,14 @@ mod tests {
     }
 
     // ========================================================================
-    // use_future_v2 tests
+    // use_future tests
     // ========================================================================
 
     #[test]
-    fn test_use_future_v2_returns_handle() {
+    fn test_use_future_returns_handle() {
         let _fiber_id = setup_test_fiber();
 
-        let handle = use_future_v2(|| async { Ok::<i32, String>(42) }, Some(()));
+        let handle = use_future(|| async { Ok::<i32, String>(42) }, Some(()));
 
         // Handle should be returned (state managed by effect)
         assert!(!handle.is_cancelled());
@@ -1531,14 +1528,14 @@ mod tests {
     }
 
     // ========================================================================
-    // use_mutation_v2 tests
+    // use_mutation tests
     // ========================================================================
 
     #[test]
-    fn test_use_mutation_v2_returns_handle() {
+    fn test_use_mutation_returns_handle() {
         let _fiber_id = setup_test_fiber();
 
-        let mutation = use_mutation_v2(|x: i32| async move { Ok::<i32, String>(x * 2) }, None);
+        let mutation = use_mutation(|x: i32| async move { Ok::<i32, String>(x * 2) }, None);
 
         assert!(mutation.is_idle());
         assert!(!mutation.is_pending());
@@ -1549,10 +1546,10 @@ mod tests {
     }
 
     #[test]
-    fn test_use_mutation_v2_reset() {
+    fn test_use_mutation_reset() {
         let _fiber_id = setup_test_fiber();
 
-        let mutation = use_mutation_v2(|x: i32| async move { Ok::<i32, String>(x * 2) }, None);
+        let mutation = use_mutation(|x: i32| async move { Ok::<i32, String>(x * 2) }, None);
 
         // Manually set state to test reset
         {
@@ -1574,14 +1571,14 @@ mod tests {
     }
 
     // ========================================================================
-    // use_query_v2 tests
+    // use_query tests
     // ========================================================================
 
     #[test]
-    fn test_use_query_v2_returns_result() {
+    fn test_use_query_returns_result() {
         let _fiber_id = setup_test_fiber();
 
-        let result = use_query_v2("test-key", || async { Ok::<i32, String>(42) }, None);
+        let result = use_query("test-key", || async { Ok::<i32, String>(42) }, None);
 
         // Initial state should be idle or loading
         assert!(result.status == QueryStatus::Idle || result.status == QueryStatus::Loading);
@@ -1590,10 +1587,10 @@ mod tests {
     }
 
     #[test]
-    fn test_use_query_v2_disabled() {
+    fn test_use_query_disabled() {
         let _fiber_id = setup_test_fiber();
 
-        let result = use_query_v2(
+        let result = use_query(
             "disabled-key",
             || async { Ok::<i32, String>(42) },
             Some(QueryOptions {

@@ -1,8 +1,8 @@
-//! Counter Example with ComponentV2 and use_state_v2 Hook
+//! Counter Example with Component and use_state Hook
 //!
 //! A simple counter application demonstrating the Reratui fiber framework with:
-//! - ComponentV2 trait for components
-//! - use_state_v2 hook for reactive state management with batching
+//! - Component trait for components
+//! - use_state hook for reactive state management with batching
 //! - Direct widget rendering (no rsx! macro)
 //!
 //! Press 'j' to increment, 'k' to decrement, 'r' to reset, 'q' to quit.
@@ -11,9 +11,9 @@ use reratui::prelude::*;
 
 struct Counter;
 
-impl ComponentV2 for Counter {
+impl Component for Counter {
     fn render(&self, area: Rect, buffer: &mut Buffer) {
-        let (count, set_count) = use_state_v2(|| 0i32);
+        let (count, set_count) = use_state(|| 0i32);
 
         // Handle keyboard events
         if let Some(Event::Key(KeyEvent {
@@ -35,7 +35,7 @@ impl ComponentV2 for Counter {
                     set_count.set(0);
                 }
                 KeyCode::Char('q') | KeyCode::Esc => {
-                    request_exit_v2();
+                    request_exit();
                 }
                 _ => {}
             }
@@ -122,6 +122,6 @@ impl ComponentV2 for Counter {
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    render_v2(|| Counter).await?;
+    render(|| Counter).await?;
     Ok(())
 }

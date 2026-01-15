@@ -6,22 +6,22 @@
 //! # Example
 //!
 //! ```rust,ignore
-//! use reratui_fiber::hooks::{use_area_v2, use_frame_v2, use_resize_v2, use_media_query_v2};
+//! use reratui_fiber::hooks::{use_area, use_frame, use_resize, use_media_query};
 //! use ratatui::layout::Rect;
 //!
 //! #[component]
 //! fn MyComponent() -> Element {
 //!     // Access the component's render area
-//!     let area = use_area_v2();
+//!     let area = use_area();
 //!     
 //!     // Access frame timing information
-//!     let frame_info = use_frame_v2();
+//!     let frame_info = use_frame();
 //!     
 //!     // Track terminal dimensions
-//!     let (width, height) = use_resize_v2();
+//!     let (width, height) = use_resize();
 //!     
 //!     // Responsive breakpoints
-//!     let is_narrow = use_media_query_v2(|(w, _)| w < 80);
+//!     let is_narrow = use_media_query(|(w, _)| w < 80);
 //!
 //!     rsx! { <Text text={format!("Size: {}x{}", area.width, area.height)} /> }
 //! }
@@ -33,10 +33,10 @@ use ratatui::layout::Rect;
 use std::ops::Deref;
 use std::time::{Duration, Instant};
 
-use super::context::{try_use_context_v2, use_context_v2};
-use super::effect_event::use_effect_event_v2;
+use super::context::{try_use_context, use_context};
+use super::effect_event::use_effect_event;
 use super::event::use_event;
-use super::state::use_state_v2;
+use super::state::use_state;
 
 // ============================================================================
 // Component Area
@@ -44,15 +44,15 @@ use super::state::use_state_v2;
 
 /// Context type for component render area.
 ///
-/// This is provided by the renderer and consumed by components via `use_area_v2()`.
+/// This is provided by the renderer and consumed by components via `use_area()`.
 ///
 /// Implements `Deref<Target = Rect>` so you can access Rect methods directly:
 ///
 /// ```rust,ignore
-/// use reratui_fiber::hooks::use_area_v2;
+/// use reratui_fiber::hooks::use_area;
 /// use ratatui::layout::Margin;
 ///
-/// let area = use_area_v2();
+/// let area = use_area();
 /// let width = area.width;  // Direct access to Rect fields
 /// let height = area.height;
 /// let inner = area.inner(Margin::new(1, 1));  // Call Rect methods
@@ -90,11 +90,11 @@ impl Deref for ComponentArea {
 /// # Examples
 ///
 /// ```rust,ignore
-/// use reratui_fiber::hooks::use_area_v2;
+/// use reratui_fiber::hooks::use_area;
 ///
 /// #[component]
 /// fn MyComponent() -> Element {
-///     let area = use_area_v2();
+///     let area = use_area();
 ///     
 ///     // Direct access to Rect fields via Deref
 ///     println!("Width: {}, Height: {}", area.width, area.height);
@@ -108,8 +108,8 @@ impl Deref for ComponentArea {
 ///     }
 /// }
 /// ```
-pub fn use_area_v2() -> ComponentArea {
-    use_context_v2::<ComponentArea>()
+pub fn use_area() -> ComponentArea {
+    use_context::<ComponentArea>()
 }
 
 /// Hook to try to access the current component's render area.
@@ -120,12 +120,12 @@ pub fn use_area_v2() -> ComponentArea {
 /// # Examples
 ///
 /// ```rust,ignore
-/// use reratui_fiber::hooks::try_use_area_v2;
+/// use reratui_fiber::hooks::try_use_area;
 ///
-/// let area = try_use_area_v2().unwrap_or_default();
+/// let area = try_use_area().unwrap_or_default();
 /// ```
-pub fn try_use_area_v2() -> Option<ComponentArea> {
-    try_use_context_v2::<ComponentArea>()
+pub fn try_use_area() -> Option<ComponentArea> {
+    try_use_context::<ComponentArea>()
 }
 
 // ============================================================================
@@ -315,9 +315,9 @@ impl FrameContext {
 /// # Examples
 ///
 /// ```rust,ignore
-/// use reratui_fiber::hooks::use_frame_v2;
+/// use reratui_fiber::hooks::use_frame;
 ///
-/// let frame_ctx = use_frame_v2();
+/// let frame_ctx = use_frame();
 ///
 /// // Access frame info
 /// let count = frame_ctx.count();
@@ -327,16 +327,16 @@ impl FrameContext {
 /// let frame = frame_ctx.frame();
 /// let area = frame.area();
 /// ```
-pub fn use_frame_v2() -> FrameContext {
-    use_context_v2::<FrameContext>()
+pub fn use_frame() -> FrameContext {
+    use_context::<FrameContext>()
 }
 
 /// Hook to try to access the current frame context.
 ///
 /// Returns `Some(FrameContext)` if the frame context is available,
 /// or `None` if not provided.
-pub fn try_use_frame_v2() -> Option<FrameContext> {
-    try_use_context_v2::<FrameContext>()
+pub fn try_use_frame() -> Option<FrameContext> {
+    try_use_context::<FrameContext>()
 }
 
 /// Hook to access only the frame information (without the Frame pointer).
@@ -347,13 +347,13 @@ pub fn try_use_frame_v2() -> Option<FrameContext> {
 /// # Examples
 ///
 /// ```rust,ignore
-/// use reratui_fiber::hooks::use_frame_info_v2;
+/// use reratui_fiber::hooks::use_frame_info;
 ///
-/// let info = use_frame_info_v2();
+/// let info = use_frame_info();
 /// println!("Frame: {} @ {:.1} FPS", info.count, info.fps());
 /// ```
-pub fn use_frame_info_v2() -> FrameInfo {
-    try_use_context_v2::<FrameContext>()
+pub fn use_frame_info() -> FrameInfo {
+    try_use_context::<FrameContext>()
         .map(|ctx| ctx.frame_info())
         .unwrap_or_default()
 }
@@ -378,18 +378,18 @@ pub fn use_frame_info_v2() -> FrameInfo {
 /// # Examples
 ///
 /// ```rust,ignore
-/// use reratui_fiber::hooks::use_on_resize_v2;
+/// use reratui_fiber::hooks::use_on_resize;
 ///
-/// use_on_resize_v2(|(width, height)| {
+/// use_on_resize(|(width, height)| {
 ///     println!("Terminal resized to: {}x{}", width, height);
 /// });
 /// ```
-pub fn use_on_resize_v2<F>(callback: F)
+pub fn use_on_resize<F>(callback: F)
 where
     F: Fn((u16, u16)) + Send + Sync + 'static,
 {
     // Create a stable callback using effect event pattern
-    let stable_handler = use_effect_event_v2(move |dimensions: (u16, u16)| {
+    let stable_handler = use_effect_event(move |dimensions: (u16, u16)| {
         callback(dimensions);
     });
 
@@ -411,9 +411,9 @@ where
 /// # Examples
 ///
 /// ```rust,ignore
-/// use reratui_fiber::hooks::use_resize_v2;
+/// use reratui_fiber::hooks::use_resize;
 ///
-/// let (width, height) = use_resize_v2();
+/// let (width, height) = use_resize();
 /// println!("Terminal: {}x{}", width, height);
 /// ```
 ///
@@ -422,10 +422,10 @@ where
 /// - Returns (0, 0) until the first resize event occurs
 /// - Automatically updates when the terminal is resized
 /// - Re-renders the component when dimensions change
-pub fn use_resize_v2() -> (u16, u16) {
-    let (size, set_size) = use_state_v2(|| (0u16, 0u16));
+pub fn use_resize() -> (u16, u16) {
+    let (size, set_size) = use_state(|| (0u16, 0u16));
 
-    use_on_resize_v2({
+    use_on_resize({
         move |(width, height)| {
             set_size.set((width, height));
         }
@@ -455,15 +455,15 @@ pub fn use_resize_v2() -> (u16, u16) {
 /// # Examples
 ///
 /// ```rust,ignore
-/// use reratui_fiber::hooks::use_media_query_v2;
+/// use reratui_fiber::hooks::use_media_query;
 ///
 /// // Check if terminal is narrow
-/// let is_narrow = use_media_query_v2(|(width, _)| width < 80);
+/// let is_narrow = use_media_query(|(width, _)| width < 80);
 ///
 /// // Responsive breakpoints
-/// let is_mobile = use_media_query_v2(|(width, _)| width < 60);
-/// let is_tablet = use_media_query_v2(|(width, _)| width >= 60 && width < 120);
-/// let is_desktop = use_media_query_v2(|(width, _)| width >= 120);
+/// let is_mobile = use_media_query(|(width, _)| width < 60);
+/// let is_tablet = use_media_query(|(width, _)| width >= 60 && width < 120);
+/// let is_desktop = use_media_query(|(width, _)| width >= 120);
 /// ```
 ///
 /// # Notes
@@ -471,13 +471,13 @@ pub fn use_resize_v2() -> (u16, u16) {
 /// - Returns `false` until the first resize event occurs (dimensions are 0x0)
 /// - Automatically re-evaluates when terminal is resized
 /// - Triggers component re-render when the predicate result changes
-pub fn use_media_query_v2<F>(predicate: F) -> bool
+pub fn use_media_query<F>(predicate: F) -> bool
 where
     F: Fn((u16, u16)) -> bool + Send + Sync + 'static,
 {
-    let (matches, set_matches) = use_state_v2(|| false);
+    let (matches, set_matches) = use_state(|| false);
 
-    use_on_resize_v2({
+    use_on_resize({
         move |(width, height)| {
             let result = predicate((width, height));
             set_matches.set(result);
@@ -541,7 +541,7 @@ mod tests {
     }
 
     #[test]
-    fn test_use_area_v2_with_context() {
+    fn test_use_area_with_context() {
         let _lock = TEST_MUTEX.lock();
         cleanup_test();
         let fiber_id = setup_test_fiber();
@@ -550,7 +550,7 @@ mod tests {
         let test_area = ComponentArea(Rect::new(10, 20, 100, 50));
         push_context(fiber_id, test_area);
 
-        let area = use_area_v2();
+        let area = use_area();
         assert_eq!(area.width, 100);
         assert_eq!(area.height, 50);
 
@@ -558,12 +558,12 @@ mod tests {
     }
 
     #[test]
-    fn test_try_use_area_v2_without_context() {
+    fn test_try_use_area_without_context() {
         let _lock = TEST_MUTEX.lock();
         cleanup_test();
         let _fiber_id = setup_test_fiber();
 
-        let area = try_use_area_v2();
+        let area = try_use_area();
         assert!(area.is_none());
 
         cleanup_test();
@@ -622,7 +622,7 @@ mod tests {
     // ========================================================================
 
     #[test]
-    fn test_use_on_resize_v2_receives_event() {
+    fn test_use_on_resize_receives_event() {
         let _lock = TEST_MUTEX.lock();
         cleanup_test();
         let _fiber_id = setup_test_fiber();
@@ -634,7 +634,7 @@ mod tests {
         let event = Event::Resize(120, 40);
         set_current_event(Some(Arc::new(event)));
 
-        use_on_resize_v2(move |(width, height)| {
+        use_on_resize(move |(width, height)| {
             assert_eq!(width, 120);
             assert_eq!(height, 40);
             call_count_clone.fetch_add(1, Ordering::SeqCst);
@@ -646,7 +646,7 @@ mod tests {
     }
 
     #[test]
-    fn test_use_on_resize_v2_ignores_non_resize_events() {
+    fn test_use_on_resize_ignores_non_resize_events() {
         let _lock = TEST_MUTEX.lock();
         cleanup_test();
         let _fiber_id = setup_test_fiber();
@@ -661,7 +661,7 @@ mod tests {
         ));
         set_current_event(Some(Arc::new(event)));
 
-        use_on_resize_v2(move |_| {
+        use_on_resize(move |_| {
             call_count_clone.fetch_add(1, Ordering::SeqCst);
         });
 
@@ -672,7 +672,7 @@ mod tests {
     }
 
     #[test]
-    fn test_use_resize_v2_default() {
+    fn test_use_resize_default() {
         let _lock = TEST_MUTEX.lock();
         cleanup_test();
         let _fiber_id = setup_test_fiber();
@@ -680,7 +680,7 @@ mod tests {
         // No event set
         clear_current_event();
 
-        let (width, height) = use_resize_v2();
+        let (width, height) = use_resize();
 
         // Should return default (0, 0)
         assert_eq!(width, 0);
@@ -690,7 +690,7 @@ mod tests {
     }
 
     #[test]
-    fn test_use_resize_v2_updates_on_event() {
+    fn test_use_resize_updates_on_event() {
         let _lock = TEST_MUTEX.lock();
         cleanup_test();
         let fiber_id = setup_test_fiber();
@@ -700,7 +700,7 @@ mod tests {
         set_current_event(Some(Arc::new(event)));
 
         // First render - state is initialized to (0, 0), event triggers update
-        let (width, height) = use_resize_v2();
+        let (width, height) = use_resize();
         assert_eq!(width, 0);
         assert_eq!(height, 0);
 
@@ -715,7 +715,7 @@ mod tests {
         clear_current_event();
 
         // Second render - state should now be (120, 40)
-        let (width, height) = use_resize_v2();
+        let (width, height) = use_resize();
         assert_eq!(width, 120);
         assert_eq!(height, 40);
 
@@ -723,7 +723,7 @@ mod tests {
     }
 
     #[test]
-    fn test_use_media_query_v2_default() {
+    fn test_use_media_query_default() {
         let _lock = TEST_MUTEX.lock();
         cleanup_test();
         let _fiber_id = setup_test_fiber();
@@ -731,7 +731,7 @@ mod tests {
         // No event set
         clear_current_event();
 
-        let is_narrow = use_media_query_v2(|(w, _)| w < 80);
+        let is_narrow = use_media_query(|(w, _)| w < 80);
 
         // Should return false (default)
         assert!(!is_narrow);
@@ -740,7 +740,7 @@ mod tests {
     }
 
     #[test]
-    fn test_use_media_query_v2_evaluates_predicate() {
+    fn test_use_media_query_evaluates_predicate() {
         let _lock = TEST_MUTEX.lock();
         cleanup_test();
         let fiber_id = setup_test_fiber();
@@ -750,7 +750,7 @@ mod tests {
         set_current_event(Some(Arc::new(event)));
 
         // First render
-        let is_narrow = use_media_query_v2(|(w, _)| w < 80);
+        let is_narrow = use_media_query(|(w, _)| w < 80);
         assert!(!is_narrow); // Initial state is false
 
         // Apply the batch and re-render
@@ -764,7 +764,7 @@ mod tests {
         clear_current_event();
 
         // Second render - predicate should now be true
-        let is_narrow = use_media_query_v2(|(w, _)| w < 80);
+        let is_narrow = use_media_query(|(w, _)| w < 80);
         assert!(is_narrow);
 
         cleanup_test();
