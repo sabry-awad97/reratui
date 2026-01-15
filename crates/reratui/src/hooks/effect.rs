@@ -10,7 +10,9 @@ use std::pin::Pin;
 
 use crate::fiber::{AsyncCleanupFn, AsyncPendingEffect, PendingEffect};
 use crate::fiber_tree::with_current_fiber;
-use crate::scheduler::effect_queue::{queue_async_effect, queue_cleanup, queue_effect};
+use crate::scheduler::effect_queue::{
+    queue_async_cleanup, queue_async_effect, queue_cleanup, queue_effect,
+};
 
 /// React-style useEffect with proper post-commit execution
 ///
@@ -176,8 +178,10 @@ where
         };
 
         if should_run {
-            // Queue cleanup from previous effect if it exists
-            // Note: Cleanup is stored in fiber.cleanups, handled by effect_queue flush
+            // Queue cleanup from previous async effect if it exists
+            if let Some(async_cleanup) = fiber.async_cleanup_by_hook.remove(&hook_index) {
+                queue_async_cleanup(async_cleanup);
+            }
 
             // Wrap the async effect to return the proper type
             let fiber_id = fiber.id;

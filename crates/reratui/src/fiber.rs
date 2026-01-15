@@ -61,6 +61,8 @@ pub struct Fiber {
     pub cleanups: Vec<CleanupFn>,
     /// Cleanup functions indexed by hook_index for proper cleanup ordering
     pub cleanup_by_hook: HashMap<usize, CleanupFn>,
+    /// Async cleanup functions indexed by hook_index for proper cleanup ordering
+    pub async_cleanup_by_hook: HashMap<usize, AsyncCleanupFn>,
     /// Context values provided by this component
     pub provided_contexts: Vec<TypeId>,
     /// Parent fiber (for tree traversal)
@@ -83,6 +85,7 @@ impl Fiber {
             pending_effects: Vec::new(),
             cleanups: Vec::new(),
             cleanup_by_hook: HashMap::new(),
+            async_cleanup_by_hook: HashMap::new(),
             provided_contexts: Vec::new(),
             parent,
             children: Vec::new(),

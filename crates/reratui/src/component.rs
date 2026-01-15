@@ -181,6 +181,12 @@ impl<C: ComponentV2> crate::element::RenderableComponentV2 for ComponentV2Wrappe
     fn clone_box(&self) -> Box<dyn crate::element::RenderableComponentV2> {
         Box::new(self.clone())
     }
+
+    fn debug_fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("ComponentV2Wrapper")
+            .field("component_type", &std::any::type_name::<C>())
+            .finish()
+    }
 }
 
 #[cfg(test)]

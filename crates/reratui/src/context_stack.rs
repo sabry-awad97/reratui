@@ -399,3 +399,250 @@ mod tests {
         assert_eq!(stack.get::<bool>(), None);
     }
 }
+
+#[cfg(test)]
+mod property_tests {
+    use super::*;
+    use proptest::prelude::*;
+
+    proptest! {
+        #![proptest_config(ProptestConfig::with_cases(100))]
+
+        /// **Property 11: Context Stack Shadowing**
+        /// **Validates: Requirements 6.3, 6.5**
+        ///
+        /// For any nested context providers of the same type, use_context_v2 SHALL
+        /// return the value from the innermost (most recently pushed) provider.
+        #[test]
+        fn prop_context_stack_shadowing(
+            outer_value in any::<i32>(),
+            inner_value in any::<i32>(),
+            deepest_value in any::<i32>()
+        ) {
+            // Ensure values are different for clear testing
+            prop_assume!(outer_value != inner_value);
+            prop_assume!(inner_value != deepest_value);
+            prop_assume!(outer_value != deepest_value);
+
+            clear_context_stack();
+
+            let outer_fiber = FiberId(1);
+            let inner_fiber = FiberId(2);
+            let deepest_fiber = FiberId(3);
+
+            // Push outer context
+            push_context(outer_fiber, outer_value);
+
+            // Property: Should get outer value
+            let retrieved = get_context::<i32>();
+            prop_assert_eq!(retrieved, Some(outer_value),
+                "Should get outer value when only outer provider exists");
+
+            // Push inner context (shadows outer)
+            push_context(inner_fiber, inner_value);
+
+            // Property: Should get inner value (shadowing outer)
+            let retrieved = get_context::<i32>();
+            prop_assert_eq!(retrieved, Some(inner_value),
+                "Should get inner value when inner provider shadows outer");
+
+            // Push deepest context (shadows both)
+            push_context(deepest_fiber, deepest_value);
+
+            // Property: Should get deepest value (shadowing both)
+            let retrieved = get_context::<i32>();
+            prop_assert_eq!(retrieved, Some(deepest_value),
+                "Should get deepest value when deepest provider shadows all");
+
+            // Pop deepest - should restore inner
+            pop_context_for_fiber(deepest_fiber);
+            let retrieved = get_context::<i32>();
+            prop_assert_eq!(retrieved, Some(inner_value),
+                "Should restore inner value after deepest unmounts");
+
+            // Pop inner - should restore outer
+            pop_context_for_fiber(inner_fiber);
+            let retrieved = get_context::<i32>();
+            prop_assert_eq!(retrieved, Some(outer_value),
+                "Should restore outer value after inner unmounts");
+
+            // Pop outer - should have no context
+            pop_context_for_fiber(outer_fiber);
+            let retrieved = get_context::<i32>();
+            prop_assert_eq!(retrieved, None,
+                "Should have no context after all providers unmount");
+        }
+
+        /// **Property 12: Context Cleanup on Unmount**
+        /// **Validates: Requirements 6.4**
+        ///
+        /// For any fiber that provided context values, when the fiber unmounts,
+        /// all its context values SHALL be removed from the stack, restoring any
+        /// shadowed values.
+        #[test]
+        fn prop_context_cleanup_on_unmount(
+            values in prop::collection::vec(any::<i32>(), 1..10)
+        ) {
+            clear_context_stack();
+
+            // Create fibers and push contexts
+            let fiber_ids: Vec<FiberId> = (0..values.len())
+                .map(|i| FiberId(i as u64))
+                .collect();
+
+            for (i, &value) in values.iter().enumerate() {
+                push_context(fiber_ids[i], value);
+            }
+
+            // Property: Should get the last value (most recent provider)
+            let retrieved = get_context::<i32>();
+            prop_assert_eq!(retrieved, Some(*values.last().unwrap()),
+                "Should get last value before any unmounts");
+
+            // Unmount fibers in reverse order
+            for i in (0..fiber_ids.len()).rev() {
+                pop_context_for_fiber(fiber_ids[i]);
+
+                // Property: After unmounting, should get the previous value (if any)
+                let expected = if i > 0 {
+                    Some(values[i - 1])
+                } else {
+                    None
+                };
+                let retrieved = get_context::<i32>();
+                prop_assert_eq!(retrieved, expected,
+                    "After unmounting fiber {}, should get correct value", i);
+            }
+
+            // Property: All contexts should be cleaned up
+            let retrieved = get_context::<i32>();
+            prop_assert_eq!(retrieved, None,
+                "All contexts should be cleaned up after all unmounts");
+        }
+
+        /// **Property: Multiple context types are independent**
+        /// **Validates: Requirement 6.3**
+        ///
+        /// Different context types should not interfere with each other.
+        #[test]
+        fn prop_multiple_context_types_independent(
+            int_value in any::<i32>(),
+            string_value in any::<String>(),
+            bool_value in any::<bool>()
+        ) {
+            clear_context_stack();
+
+            let fiber1 = FiberId(1);
+            let fiber2 = FiberId(2);
+            let fiber3 = FiberId(3);
+
+            // Push different types
+            push_context(fiber1, int_value);
+            push_context(fiber2, string_value.clone());
+            push_context(fiber3, bool_value);
+
+            // Property: Each type should be retrievable independently
+            let retrieved_int = get_context::<i32>();
+            prop_assert_eq!(retrieved_int, Some(int_value),
+                "Should get correct i32 value");
+
+            let retrieved_string = get_context::<String>();
+            prop_assert_eq!(retrieved_string, Some(string_value.clone()),
+                "Should get correct String value");
+
+            let retrieved_bool = get_context::<bool>();
+            prop_assert_eq!(retrieved_bool, Some(bool_value),
+                "Should get correct bool value");
+
+            // Pop one type - others should remain
+            pop_context_for_fiber(fiber2);
+
+            let retrieved_int = get_context::<i32>();
+            prop_assert_eq!(retrieved_int, Some(int_value),
+                "i32 should still be available after String unmount");
+
+            let retrieved_string = get_context::<String>();
+            prop_assert_eq!(retrieved_string, None,
+                "String should be gone after unmount");
+
+            let retrieved_bool = get_context::<bool>();
+            prop_assert_eq!(retrieved_bool, Some(bool_value),
+                "bool should still be available after String unmount");
+        }
+
+        /// **Property: Fiber can provide multiple context types**
+        /// **Validates: Requirement 6.1**
+        ///
+        /// A single fiber should be able to provide multiple context types,
+        /// and all should be cleaned up when the fiber unmounts.
+        #[test]
+        fn prop_fiber_provides_multiple_types(
+            int_value in any::<i32>(),
+            string_value in any::<String>()
+        ) {
+            clear_context_stack();
+
+            let fiber = FiberId(1);
+
+            // Single fiber provides multiple types
+            push_context(fiber, int_value);
+            push_context(fiber, string_value.clone());
+
+            // Property: Both types should be available
+            let retrieved_int = get_context::<i32>();
+            prop_assert_eq!(retrieved_int, Some(int_value),
+                "i32 should be available");
+
+            let retrieved_string = get_context::<String>();
+            prop_assert_eq!(retrieved_string, Some(string_value),
+                "String should be available");
+
+            // Unmount the fiber
+            pop_context_for_fiber(fiber);
+
+            // Property: Both types should be cleaned up
+            let retrieved_int = get_context::<i32>();
+            prop_assert_eq!(retrieved_int, None,
+                "i32 should be cleaned up after fiber unmount");
+
+            let retrieved_string = get_context::<String>();
+            prop_assert_eq!(retrieved_string, None,
+                "String should be cleaned up after fiber unmount");
+        }
+
+        /// **Property: Context shadowing works with same fiber**
+        /// **Validates: Requirement 6.5**
+        ///
+        /// If a fiber pushes multiple values of the same type, the last one
+        /// should be the active one.
+        #[test]
+        fn prop_same_fiber_multiple_values(
+            first_value in any::<i32>(),
+            second_value in any::<i32>()
+        ) {
+            prop_assume!(first_value != second_value);
+
+            clear_context_stack();
+
+            let fiber = FiberId(1);
+
+            // Push first value
+            push_context(fiber, first_value);
+            let retrieved = get_context::<i32>();
+            prop_assert_eq!(retrieved, Some(first_value),
+                "Should get first value");
+
+            // Push second value from same fiber
+            push_context(fiber, second_value);
+            let retrieved = get_context::<i32>();
+            prop_assert_eq!(retrieved, Some(second_value),
+                "Should get second value (shadows first)");
+
+            // Unmount fiber - both values should be removed
+            pop_context_for_fiber(fiber);
+            let retrieved = get_context::<i32>();
+            prop_assert_eq!(retrieved, None,
+                "Both values should be removed after fiber unmount");
+        }
+    }
+}

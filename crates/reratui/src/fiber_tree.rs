@@ -214,16 +214,35 @@ impl FiberTree {
     ///
     /// This should be called during the commit phase after rendering is complete.
     /// It performs the following for each pending unmount:
-    /// 1. Pops all context values provided by the fiber
-    /// 2. Removes the fiber from the tree
+    /// 1. Queues all sync and async cleanups from the fiber
+    /// 2. Pops all context values provided by the fiber
+    /// 3. Removes the fiber from the tree
     ///
     /// Returns the list of fiber IDs that were unmounted.
     pub fn process_unmounts(&mut self) -> Vec<FiberId> {
         use crate::context_stack::pop_context_for_fiber;
+        use crate::scheduler::effect_queue::{queue_async_cleanup, queue_cleanup};
 
         let unmounted: Vec<FiberId> = self.pending_unmount.drain(..).collect();
 
         for fiber_id in &unmounted {
+            // Queue all cleanups from the fiber before removing it
+            if let Some(fiber) = self.fibers.get_mut(fiber_id) {
+                // Queue sync cleanups in reverse order (LIFO)
+                let mut sync_cleanups: Vec<_> = fiber.cleanup_by_hook.drain().collect();
+                sync_cleanups.sort_by(|a, b| b.0.cmp(&a.0)); // Sort by hook_index descending
+                for (_, cleanup) in sync_cleanups {
+                    queue_cleanup(cleanup);
+                }
+
+                // Queue async cleanups in reverse order (LIFO)
+                let mut async_cleanups: Vec<_> = fiber.async_cleanup_by_hook.drain().collect();
+                async_cleanups.sort_by(|a, b| b.0.cmp(&a.0)); // Sort by hook_index descending
+                for (_, async_cleanup) in async_cleanups {
+                    queue_async_cleanup(async_cleanup);
+                }
+            }
+
             // Clean up context values provided by this fiber
             pop_context_for_fiber(*fiber_id);
 

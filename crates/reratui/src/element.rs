@@ -20,11 +20,20 @@ pub trait RenderableComponentV2: 'static {
 
     /// Clone the wrapper into a boxed trait object.
     fn clone_box(&self) -> Box<dyn RenderableComponentV2>;
+
+    /// Debug representation for the component.
+    fn debug_fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result;
 }
 
 impl Clone for Box<dyn RenderableComponentV2> {
     fn clone(&self) -> Self {
         self.clone_box()
+    }
+}
+
+impl std::fmt::Debug for Box<dyn RenderableComponentV2> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        self.debug_fmt(f)
     }
 }
 
@@ -73,6 +82,39 @@ pub enum Element {
     },
     /// Represents a text node in the virtual DOM tree.
     Text(String),
+}
+
+impl std::fmt::Debug for Element {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Element::ComponentV2 { wrapper, key } => f
+                .debug_struct("ComponentV2")
+                .field("wrapper", wrapper)
+                .field("key", key)
+                .finish(),
+            Element::Widget { key, .. } => f
+                .debug_struct("Widget")
+                .field("key", key)
+                .field("widget", &"<opaque>")
+                .finish(),
+            Element::Text(text) => f.debug_tuple("Text").field(text).finish(),
+        }
+    }
+}
+
+impl PartialEq for Element {
+    fn eq(&self, other: &Self) -> bool {
+        match (self, other) {
+            (Element::Text(a), Element::Text(b)) => a == b,
+            (Element::ComponentV2 { key: key_a, .. }, Element::ComponentV2 { key: key_b, .. }) => {
+                key_a == key_b
+            }
+            (Element::Widget { key: key_a, .. }, Element::Widget { key: key_b, .. }) => {
+                key_a == key_b
+            }
+            _ => false,
+        }
+    }
 }
 
 impl Default for Element {

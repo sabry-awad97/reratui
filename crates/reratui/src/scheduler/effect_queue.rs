@@ -157,12 +157,15 @@ impl EffectQueue {
         }
 
         // 4. Run async effects in declaration order
-        for (_fiber_id, pending) in self.pending_async.drain(..) {
-            if let Some(async_cleanup) = (pending.effect)().await {
-                // Store async cleanup for next flush
-                // Note: We store it in the queue for the next cycle
-                // In a real implementation, you might want to store it in the fiber
-                self.async_cleanups_to_run.push(async_cleanup);
+        for (fiber_id, pending) in self.pending_async.drain(..) {
+            if let Some(fiber) = tree.get_mut(fiber_id)
+                && let Some(async_cleanup) = (pending.effect)().await
+            {
+                // Store async cleanup in fiber indexed by hook_index for proper cleanup ordering
+                // This ensures async cleanups are associated with their fiber and hook
+                fiber
+                    .async_cleanup_by_hook
+                    .insert(pending.hook_index, async_cleanup);
             }
         }
     }
@@ -289,11 +292,18 @@ pub async fn flush_async_effects() {
         }
 
         // Run async effects in declaration order
-        for (_fiber_id, pending) in async_effects {
-            if let Some(async_cleanup) = (pending.effect)().await {
-                // Store async cleanup for next flush
-                EFFECT_QUEUE.with(|q| {
-                    q.borrow_mut().async_cleanups_to_run.push(async_cleanup);
+        for (fiber_id, pending) in async_effects {
+            // Get the fiber to store the cleanup
+            let cleanup_opt = (pending.effect)().await;
+
+            if let Some(async_cleanup) = cleanup_opt {
+                // Store async cleanup in fiber indexed by hook_index
+                crate::fiber_tree::with_fiber_tree_mut(|tree| {
+                    if let Some(fiber) = tree.get_mut(fiber_id) {
+                        fiber
+                            .async_cleanup_by_hook
+                            .insert(pending.hook_index, async_cleanup);
+                    }
                 });
             }
         }
@@ -565,5 +575,287 @@ mod tests {
 
         clear_effect_queue();
         assert!(!has_pending_effects());
+    }
+}
+
+#[cfg(test)]
+mod property_tests {
+    use super::*;
+    use proptest::prelude::*;
+    use std::sync::{Arc, Mutex};
+
+    proptest! {
+        #![proptest_config(ProptestConfig::with_cases(100))]
+
+        /// **Property 7: Effect Execution Ordering**
+        /// **Validates: Requirements 4.2, 4.3**
+        ///
+        /// For any set of queued effects and cleanups, cleanups SHALL run in reverse order
+        /// before new effects, and new effects SHALL run in declaration order.
+        #[test]
+        fn prop_effect_execution_ordering(
+            cleanup_count in 1usize..10,
+            effect_count in 1usize..10
+        ) {
+            let mut tree = FiberTree::new();
+            let fiber_id = tree.mount(None, None);
+            let mut queue = EffectQueue::new();
+
+            let execution_order = Arc::new(Mutex::new(Vec::new()));
+
+            // Queue cleanups
+            for i in 0..cleanup_count {
+                let order_clone = execution_order.clone();
+                let cleanup: CleanupFn = Box::new(move || {
+                    order_clone.lock().unwrap().push(format!("cleanup_{}", i));
+                });
+                queue.queue_cleanup(cleanup);
+            }
+
+            // Queue effects
+            for i in 0..effect_count {
+                let order_clone = execution_order.clone();
+                let effect = PendingEffect {
+                    effect: Box::new(move || {
+                        order_clone.lock().unwrap().push(format!("effect_{}", i));
+                        None
+                    }),
+                    hook_index: i,
+                };
+                queue.queue_effect(fiber_id, effect);
+            }
+
+            // Flush the queue
+            queue.flush(&mut tree);
+
+            let order = execution_order.lock().unwrap();
+
+            // Property 1: Cleanups run before effects
+            let cleanup_end_idx = cleanup_count;
+            for i in 0..cleanup_count {
+                prop_assert!(
+                    order[i].starts_with("cleanup_"),
+                    "Cleanups should run before effects, but found {} at index {}",
+                    order[i], i
+                );
+            }
+
+            // Property 2: Cleanups run in reverse order
+            for i in 0..cleanup_count {
+                let expected_cleanup_idx = cleanup_count - 1 - i;
+                prop_assert_eq!(
+                    &order[i],
+                    &format!("cleanup_{}", expected_cleanup_idx),
+                    "Cleanups should run in reverse order"
+                );
+            }
+
+            // Property 3: Effects run in declaration order
+            for i in 0..effect_count {
+                let order_idx = cleanup_end_idx + i;
+                prop_assert_eq!(
+                    &order[order_idx],
+                    &format!("effect_{}", i),
+                    "Effects should run in declaration order"
+                );
+            }
+
+            // Property 4: Total execution count matches queued count
+            prop_assert_eq!(
+                order.len(),
+                cleanup_count + effect_count,
+                "All cleanups and effects should execute exactly once"
+            );
+        }
+
+        /// **Property 8: Effect Dependency Tracking**
+        /// **Validates: Requirements 4.4, 4.5, 4.6**
+        ///
+        /// For any effect with dependencies, the effect SHALL run only when dependencies
+        /// change (or on first render), and SHALL NOT run when dependencies are equal.
+        #[test]
+        fn prop_effect_dependency_tracking(
+            initial_deps in any::<(i32, String)>(),
+            same_deps_renders in 1usize..5,
+            changed_deps in any::<(i32, String)>()
+        ) {
+            // Ensure changed_deps is actually different
+            prop_assume!(initial_deps != changed_deps);
+
+            let mut effect_state = EffectHookState::new();
+            let mut run_count = 0;
+
+            // First render - should run (no previous deps)
+            prop_assert!(
+                effect_state.deps_changed(&initial_deps),
+                "Effect should run on first render (no previous deps)"
+            );
+            effect_state.set_deps(initial_deps.clone());
+            run_count += 1;
+
+            // Multiple renders with same deps - should NOT run
+            for _ in 0..same_deps_renders {
+                prop_assert!(
+                    !effect_state.deps_changed(&initial_deps),
+                    "Effect should NOT run when deps are equal"
+                );
+                // Don't increment run_count since effect doesn't run
+            }
+
+            // Property: Effect ran exactly once during same-deps renders
+            prop_assert_eq!(
+                run_count, 1,
+                "Effect should run exactly once when deps don't change"
+            );
+
+            // Render with changed deps - should run
+            prop_assert!(
+                effect_state.deps_changed(&changed_deps),
+                "Effect should run when deps change"
+            );
+            effect_state.set_deps(changed_deps.clone());
+            run_count += 1;
+
+            // Property: Effect ran exactly twice total (first render + deps change)
+            prop_assert_eq!(
+                run_count, 2,
+                "Effect should run exactly twice: first render and when deps change"
+            );
+
+            // Another render with same changed deps - should NOT run
+            prop_assert!(
+                !effect_state.deps_changed(&changed_deps),
+                "Effect should NOT run when deps remain equal after change"
+            );
+        }
+
+        /// **Property: Effect with None deps runs every render**
+        /// **Validates: Requirement 4.5**
+        ///
+        /// When deps are None, the effect SHALL run after every render.
+        #[test]
+        fn prop_effect_none_deps_runs_every_render(
+            render_count in 1usize..20
+        ) {
+            let mut tree = FiberTree::new();
+            let fiber_id = tree.mount(None, None);
+            let mut queue = EffectQueue::new();
+
+            let execution_count = Arc::new(Mutex::new(0));
+
+            // Simulate multiple renders with None deps
+            for _ in 0..render_count {
+                let count_clone = execution_count.clone();
+                let effect = PendingEffect {
+                    effect: Box::new(move || {
+                        *count_clone.lock().unwrap() += 1;
+                        None
+                    }),
+                    hook_index: 0,
+                };
+                queue.queue_effect(fiber_id, effect);
+                queue.flush(&mut tree);
+            }
+
+            // Property: Effect should run exactly render_count times
+            let final_count = *execution_count.lock().unwrap();
+            prop_assert_eq!(
+                final_count,
+                render_count,
+                "Effect with None deps should run after every render"
+            );
+        }
+
+        /// **Property: Effect with Some(()) deps runs only once**
+        /// **Validates: Requirement 4.6**
+        ///
+        /// When deps are Some(()), the effect SHALL run only once on mount.
+        #[test]
+        fn prop_effect_empty_deps_runs_once(
+            render_count in 2usize..20
+        ) {
+            let mut effect_state = EffectHookState::new();
+            let mut run_count = 0;
+
+            // First render - should run
+            if effect_state.deps_changed(&()) {
+                run_count += 1;
+                effect_state.set_deps(());
+            }
+
+            // Multiple subsequent renders with same empty deps - should NOT run
+            for _ in 1..render_count {
+                if effect_state.deps_changed(&()) {
+                    run_count += 1;
+                }
+            }
+
+            // Property: Effect should run exactly once
+            prop_assert_eq!(
+                run_count, 1,
+                "Effect with Some(()) deps should run only once on mount"
+            );
+        }
+
+        /// **Property: Cleanup runs before new effect**
+        /// **Validates: Requirement 4.7**
+        ///
+        /// When deps change, the effect SHALL queue cleanup from previous effect
+        /// before the new effect runs.
+        #[test]
+        fn prop_cleanup_runs_before_new_effect(
+            initial_deps in any::<i32>(),
+            changed_deps in any::<i32>()
+        ) {
+            prop_assume!(initial_deps != changed_deps);
+
+            let mut tree = FiberTree::new();
+            let fiber_id = tree.mount(None, None);
+            let mut queue = EffectQueue::new();
+
+            let execution_order = Arc::new(Mutex::new(Vec::new()));
+
+            // First effect with cleanup
+            let order_clone = execution_order.clone();
+            let effect1 = PendingEffect {
+                effect: Box::new(move || {
+                    order_clone.lock().unwrap().push("effect1");
+                    let order_clone2 = order_clone.clone();
+                    Some(Box::new(move || {
+                        order_clone2.lock().unwrap().push("cleanup1");
+                    }) as CleanupFn)
+                }),
+                hook_index: 0,
+            };
+            queue.queue_effect(fiber_id, effect1);
+            queue.flush(&mut tree);
+
+            // Queue the cleanup from the first effect
+            if let Some(fiber) = tree.get_mut(fiber_id) {
+                if let Some(cleanup) = fiber.cleanup_by_hook.remove(&0) {
+                    queue.queue_cleanup(cleanup);
+                }
+            }
+
+            // Second effect (deps changed)
+            let order_clone = execution_order.clone();
+            let effect2 = PendingEffect {
+                effect: Box::new(move || {
+                    order_clone.lock().unwrap().push("effect2");
+                    None
+                }),
+                hook_index: 0,
+            };
+            queue.queue_effect(fiber_id, effect2);
+            queue.flush(&mut tree);
+
+            let order = execution_order.lock().unwrap();
+
+            // Property: Cleanup runs before new effect
+            prop_assert_eq!(order.len(), 3, "Should have 3 executions");
+            prop_assert_eq!(&order[0], &"effect1".to_string(), "First effect runs first");
+            prop_assert_eq!(&order[1], &"cleanup1".to_string(), "Cleanup runs before new effect");
+            prop_assert_eq!(&order[2], &"effect2".to_string(), "New effect runs after cleanup");
+        }
     }
 }

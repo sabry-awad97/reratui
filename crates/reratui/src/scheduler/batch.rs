@@ -65,6 +65,20 @@ pub enum CrossThreadUpdateKind {
     /// Functional update (thread-safe via Arc wrapper around Mutex<Option<FnOnce>>)
     /// The Mutex<Option<>> pattern allows FnOnce to be called from an Fn context
     Updater(Arc<Mutex<Option<StateUpdaterFn>>>),
+    /// Value replacement with equality check - skips update if values are equal
+    /// Includes TypeId for runtime type checking when reconstructing equality check
+    ValueIfChanged {
+        /// The new value to set
+        value: Box<dyn Any + Send>,
+        /// TypeId of the value for runtime type checking
+        type_id: std::any::TypeId,
+    },
+    /// Functional update with equality check - skips marking dirty if result equals current
+    /// The TypeId is extracted from the updater's result when it's first called
+    UpdaterIfChanged {
+        /// The updater function wrapped in Arc<Mutex<Option<>>> for thread-safety
+        updater: Arc<Mutex<Option<StateUpdaterFn>>>,
+    },
 }
 
 // ============================================================================
@@ -342,6 +356,40 @@ pub fn drain_cross_thread_updates() {
                             }
                         }))
                     }
+                    CrossThreadUpdateKind::ValueIfChanged { value, type_id } => {
+                        // Reconstruct equality check using TypeId for runtime type checking
+                        StateUpdateKind::ValueIfChanged {
+                            value,
+                            eq_check: Box::new(move |old, new| {
+                                // Use TypeId to ensure we're comparing the right types
+                                // This is a generic equality check that works for any PartialEq type
+                                reconstruct_equality_check(old, new, type_id)
+                            }),
+                        }
+                    }
+                    CrossThreadUpdateKind::UpdaterIfChanged { updater } => {
+                        // For UpdaterIfChanged, we need to extract the TypeId from the result
+                        // We do this by wrapping the updater and extracting the type on first call
+                        StateUpdateKind::UpdaterIfChanged {
+                            updater: Box::new(move |any| {
+                                if let Ok(mut guard) = updater.lock() {
+                                    if let Some(f) = guard.take() {
+                                        f(any)
+                                    } else {
+                                        panic!("Cross-thread updater called more than once");
+                                    }
+                                } else {
+                                    panic!("Cross-thread updater mutex poisoned");
+                                }
+                            }),
+                            eq_check: Box::new(move |old, new| {
+                                // Extract TypeId from the values and use it for comparison
+                                // Both old and new should have the same type
+                                let type_id = old.type_id();
+                                reconstruct_equality_check(old, new, type_id)
+                            }),
+                        }
+                    }
                 },
             };
             // Queue to thread-local batch (we're on main thread now)
@@ -354,6 +402,115 @@ pub fn drain_cross_thread_updates() {
     } else {
         tracing::error!("Cross-thread update queue mutex is poisoned, updates not drained");
     }
+}
+
+/// Helper function to reconstruct equality checks for cross-thread updates.
+///
+/// This function attempts to downcast the values to common types and compare them.
+/// If the type is not recognized, it conservatively returns false (values are different).
+///
+/// # Arguments
+///
+/// * `old` - The old value
+/// * `new` - The new value
+/// * `type_id` - The TypeId of the values for runtime type checking
+///
+/// # Returns
+///
+/// `true` if the values are equal, `false` otherwise
+fn reconstruct_equality_check(old: &dyn Any, new: &dyn Any, type_id: std::any::TypeId) -> bool {
+    // Try common types that implement PartialEq
+    // This is a best-effort approach - we can't reconstruct the exact equality check
+    // but we can handle common cases
+
+    // Check TypeId matches
+    if old.type_id() != type_id || new.type_id() != type_id {
+        return false;
+    }
+
+    // Try common integer types
+    if type_id == std::any::TypeId::of::<i32>() {
+        if let (Some(old_val), Some(new_val)) =
+            (old.downcast_ref::<i32>(), new.downcast_ref::<i32>())
+        {
+            return old_val == new_val;
+        }
+    }
+    if type_id == std::any::TypeId::of::<i64>() {
+        if let (Some(old_val), Some(new_val)) =
+            (old.downcast_ref::<i64>(), new.downcast_ref::<i64>())
+        {
+            return old_val == new_val;
+        }
+    }
+    if type_id == std::any::TypeId::of::<u32>() {
+        if let (Some(old_val), Some(new_val)) =
+            (old.downcast_ref::<u32>(), new.downcast_ref::<u32>())
+        {
+            return old_val == new_val;
+        }
+    }
+    if type_id == std::any::TypeId::of::<u64>() {
+        if let (Some(old_val), Some(new_val)) =
+            (old.downcast_ref::<u64>(), new.downcast_ref::<u64>())
+        {
+            return old_val == new_val;
+        }
+    }
+    if type_id == std::any::TypeId::of::<usize>() {
+        if let (Some(old_val), Some(new_val)) =
+            (old.downcast_ref::<usize>(), new.downcast_ref::<usize>())
+        {
+            return old_val == new_val;
+        }
+    }
+
+    // Try floating point types
+    if type_id == std::any::TypeId::of::<f32>() {
+        if let (Some(old_val), Some(new_val)) =
+            (old.downcast_ref::<f32>(), new.downcast_ref::<f32>())
+        {
+            return old_val == new_val;
+        }
+    }
+    if type_id == std::any::TypeId::of::<f64>() {
+        if let (Some(old_val), Some(new_val)) =
+            (old.downcast_ref::<f64>(), new.downcast_ref::<f64>())
+        {
+            return old_val == new_val;
+        }
+    }
+
+    // Try boolean
+    if type_id == std::any::TypeId::of::<bool>() {
+        if let (Some(old_val), Some(new_val)) =
+            (old.downcast_ref::<bool>(), new.downcast_ref::<bool>())
+        {
+            return old_val == new_val;
+        }
+    }
+
+    // Try String
+    if type_id == std::any::TypeId::of::<String>() {
+        if let (Some(old_val), Some(new_val)) =
+            (old.downcast_ref::<String>(), new.downcast_ref::<String>())
+        {
+            return old_val == new_val;
+        }
+    }
+
+    // Try &str (though this is less common in state)
+    if type_id == std::any::TypeId::of::<&str>() {
+        if let (Some(old_val), Some(new_val)) =
+            (old.downcast_ref::<&str>(), new.downcast_ref::<&str>())
+        {
+            return old_val == new_val;
+        }
+    }
+
+    // For unknown types, conservatively return false (assume values are different)
+    // This means the optimization is lost for custom types, but correctness is preserved
+    false
 }
 
 /// Check if there are pending cross-thread updates.
@@ -498,16 +655,19 @@ fn queue_update_to_cross_thread(fiber_id: FiberId, update: StateUpdate) {
                 CrossThreadUpdateKind::Updater(Arc::new(Mutex::new(Some(f))))
             }
             StateUpdateKind::ValueIfChanged { value, eq_check: _ } => {
-                // For cross-thread, we simplify to just Value (equality check happens on main thread)
-                // This is a trade-off: we lose the optimization but gain thread-safety
-                CrossThreadUpdateKind::Value(value)
+                // Preserve type information for equality check reconstruction
+                let type_id = (*value).type_id();
+                CrossThreadUpdateKind::ValueIfChanged { value, type_id }
             }
             StateUpdateKind::UpdaterIfChanged {
                 updater,
                 eq_check: _,
             } => {
-                // For cross-thread, we simplify to just Updater
-                CrossThreadUpdateKind::Updater(Arc::new(Mutex::new(Some(updater))))
+                // For UpdaterIfChanged, we can't extract the TypeId until the updater runs
+                // The equality check will extract it from the result values at runtime
+                CrossThreadUpdateKind::UpdaterIfChanged {
+                    updater: Arc::new(Mutex::new(Some(updater))),
+                }
             }
         },
     };
@@ -1533,9 +1693,10 @@ mod tests {
         let mut tree = FiberTree::new();
         let fiber_id = tree.mount(None, None);
         tree.get_mut(fiber_id).unwrap().set_hook(0, 42i32);
+        tree.mark_clean(fiber_id);
 
         // Simulate a re-entrant call with ValueIfChanged
-        // Note: The equality check is lost when falling back to cross-thread queue
+        // The equality check is now preserved when falling back to cross-thread queue
         STATE_BATCH.with(|batch| {
             let _guard = batch.borrow_mut();
 
@@ -1560,9 +1721,10 @@ mod tests {
         drain_cross_thread_updates();
         let dirty = end_batch_with_tree(&mut tree);
 
-        // The update is applied (equality check is lost in cross-thread fallback)
-        // This is a known trade-off for thread safety
-        assert!(dirty.contains(&fiber_id));
+        // The update should NOT be applied because values are equal
+        // The equality check is now preserved in cross-thread updates
+        assert!(!dirty.contains(&fiber_id));
+        assert!(!tree.get(fiber_id).unwrap().dirty);
         assert_eq!(tree.get(fiber_id).unwrap().get_hook::<i32>(0), Some(42));
 
         clear_state_batch();
@@ -1917,6 +2079,225 @@ mod property_tests {
             reset_main_thread();
         }
 
+        /// **Property 4: State Batch Atomicity**
+        /// **Validates: Requirements 3.1, 3.2, 3.3**
+        ///
+        /// For any sequence of state updates queued during a batch, all updates SHALL
+        /// be applied atomically when end_batch is called, and the set of dirty fibers
+        /// SHALL be returned.
+        #[test]
+        fn prop_state_batch_atomicity(
+            fiber_count in 1usize..10,
+            updates_per_fiber in 1usize..10
+        ) {
+            reset_main_thread();
+            clear_state_batch();
+            clear_cross_thread_updates();
+
+            let mut tree = FiberTree::new();
+            let fiber_ids: Vec<_> = (0..fiber_count)
+                .map(|_| {
+                    let id = tree.mount(None, None);
+                    tree.get_mut(id).unwrap().set_hook(0, 0i32);
+                    id
+                })
+                .collect();
+
+            // Begin batch
+            begin_batch();
+
+            // Queue multiple updates for each fiber
+            for &fiber_id in &fiber_ids {
+                for i in 0..updates_per_fiber {
+                    queue_update(
+                        fiber_id,
+                        StateUpdate {
+                            hook_index: 0,
+                            update: StateUpdateKind::Updater(Box::new(move |any| {
+                                let n = any.downcast_ref::<i32>().unwrap();
+                                Box::new(n + (i as i32 + 1))
+                            })),
+                        },
+                    );
+                }
+            }
+
+            // Property: Updates should be queued, not applied yet
+            for &fiber_id in &fiber_ids {
+                let value = tree.get(fiber_id).unwrap().get_hook::<i32>(0);
+                prop_assert_eq!(value, Some(0),
+                    "Updates should not be applied until end_batch");
+            }
+
+            // End batch - apply all updates atomically
+            let dirty = end_batch_with_tree(&mut tree);
+
+            // Property: All fibers should be in the dirty set
+            prop_assert_eq!(dirty.len(), fiber_count,
+                "All {} fibers should be marked dirty", fiber_count);
+            for &fiber_id in &fiber_ids {
+                prop_assert!(dirty.contains(&fiber_id),
+                    "Fiber {:?} should be in dirty set", fiber_id);
+            }
+
+            // Property: All updates should be applied
+            let expected_sum: i32 = (1..=updates_per_fiber as i32).sum();
+            for &fiber_id in &fiber_ids {
+                let value = tree.get(fiber_id).unwrap().get_hook::<i32>(0);
+                prop_assert_eq!(value, Some(expected_sum),
+                    "All updates should be applied atomically, expected {}, got {:?}",
+                    expected_sum, value);
+            }
+
+            clear_state_batch();
+            clear_cross_thread_updates();
+        }
+
+        /// **Property 5: Functional Updater Chaining**
+        /// **Validates: Requirements 3.5**
+        ///
+        /// For any sequence of functional updaters queued for the same hook, each updater
+        /// SHALL receive the result of the previous updater, producing a correctly chained
+        /// final value.
+        #[test]
+        fn prop_functional_updater_chaining(
+            operations in prop::collection::vec((any::<bool>(), 1i32..10), 1..20)
+        ) {
+            reset_main_thread();
+            clear_state_batch();
+            clear_cross_thread_updates();
+
+            let mut tree = FiberTree::new();
+            let fiber_id = tree.mount(None, None);
+            tree.get_mut(fiber_id).unwrap().set_hook(0, 0i32);
+
+            begin_batch();
+
+            // Queue a sequence of functional updates
+            // Each operation is (is_add, value): if true, add; if false, multiply
+            for &(is_add, value) in &operations {
+                queue_update(
+                    fiber_id,
+                    StateUpdate {
+                        hook_index: 0,
+                        update: StateUpdateKind::Updater(Box::new(move |any| {
+                            let n = any.downcast_ref::<i32>().unwrap();
+                            if is_add {
+                                Box::new(n + value)
+                            } else {
+                                Box::new(n * value)
+                            }
+                        })),
+                    },
+                );
+            }
+
+            end_batch_with_tree(&mut tree);
+
+            // Property: Final value should reflect all operations applied in order
+            let mut expected = 0i32;
+            for &(is_add, value) in &operations {
+                if is_add {
+                    expected = expected.saturating_add(value);
+                } else {
+                    expected = expected.saturating_mul(value);
+                }
+            }
+
+            let actual = tree.get(fiber_id).unwrap().get_hook::<i32>(0);
+            prop_assert_eq!(actual, Some(expected),
+                "Functional updaters should chain correctly: expected {}, got {:?}",
+                expected, actual);
+
+            clear_state_batch();
+            clear_cross_thread_updates();
+        }
+
+        /// **Property 6: Equality Check Optimization**
+        /// **Validates: Requirements 3.6**
+        ///
+        /// For any ValueIfChanged or UpdaterIfChanged update where the new value equals
+        /// the current value, the fiber SHALL NOT be marked as dirty.
+        #[test]
+        fn prop_equality_check_optimization(
+            initial_value in any::<i32>(),
+            same_value_updates in 1usize..10,
+            different_value in any::<i32>()
+        ) {
+            // Ensure different_value is actually different
+            prop_assume!(initial_value != different_value);
+
+            reset_main_thread();
+            clear_state_batch();
+            clear_cross_thread_updates();
+
+            let mut tree = FiberTree::new();
+            let fiber_id = tree.mount(None, None);
+            tree.get_mut(fiber_id).unwrap().set_hook(0, initial_value);
+            tree.mark_clean(fiber_id);
+
+            begin_batch();
+
+            // Queue multiple ValueIfChanged updates with the same value
+            for _ in 0..same_value_updates {
+                queue_update(
+                    fiber_id,
+                    StateUpdate {
+                        hook_index: 0,
+                        update: StateUpdateKind::ValueIfChanged {
+                            value: Box::new(initial_value),
+                            eq_check: Box::new(|old, new| {
+                                let old = old.downcast_ref::<i32>().unwrap();
+                                let new = new.downcast_ref::<i32>().unwrap();
+                                old == new
+                            }),
+                        },
+                    },
+                );
+            }
+
+            let dirty = end_batch_with_tree(&mut tree);
+
+            // Property: Fiber should NOT be dirty (all values were equal)
+            prop_assert!(!dirty.contains(&fiber_id),
+                "Fiber should not be dirty when ValueIfChanged updates have equal values");
+            prop_assert!(!tree.get(fiber_id).unwrap().dirty,
+                "Fiber dirty flag should be false");
+
+            // Now test with a different value
+            tree.mark_clean(fiber_id);
+            begin_batch();
+
+            queue_update(
+                fiber_id,
+                StateUpdate {
+                    hook_index: 0,
+                    update: StateUpdateKind::ValueIfChanged {
+                        value: Box::new(different_value),
+                        eq_check: Box::new(|old, new| {
+                            let old = old.downcast_ref::<i32>().unwrap();
+                            let new = new.downcast_ref::<i32>().unwrap();
+                            old == new
+                        }),
+                    },
+                },
+            );
+
+            let dirty = end_batch_with_tree(&mut tree);
+
+            // Property: Fiber SHOULD be dirty (value changed)
+            prop_assert!(dirty.contains(&fiber_id),
+                "Fiber should be dirty when ValueIfChanged has different value");
+            prop_assert_eq!(
+                tree.get(fiber_id).unwrap().get_hook::<i32>(0),
+                Some(different_value),
+                "Value should be updated to different_value"
+            );
+
+            clear_state_batch();
+            clear_cross_thread_updates();
+        }
+
         /// **Property 5: Re-entrant calls fall back to cross-thread queue**
         /// **Validates: Requirements 5.2**
         ///
@@ -1960,6 +2341,78 @@ mod property_tests {
             // Clean up
             clear_state_batch();
             clear_cross_thread_updates();
+        }
+
+        /// **Property 14: Cross-Thread Update Delivery**
+        /// **Validates: Requirements 3.7**
+        ///
+        /// For any state update queued from a background thread, the update SHALL be
+        /// delivered to the main thread's batch and applied on the next frame.
+        #[test]
+        fn prop_cross_thread_update_delivery(
+            update_count in 1usize..20,
+            thread_count in 1usize..5
+        ) {
+            reset_main_thread();
+            clear_state_batch();
+            clear_cross_thread_updates();
+
+            let mut tree = FiberTree::new();
+            let fiber_id = tree.mount(None, None);
+            tree.get_mut(fiber_id).unwrap().set_hook(0, 0i32);
+
+            init_main_thread();
+
+            // Spawn background threads that queue updates
+            let handles: Vec<_> = (0..thread_count).map(|_| {
+                std::thread::spawn(move || {
+                    for _ in 0..update_count {
+                        queue_update(
+                            fiber_id,
+                            StateUpdate {
+                                hook_index: 0,
+                                update: StateUpdateKind::Updater(Box::new(move |any| {
+                                    let n = any.downcast_ref::<i32>().unwrap();
+                                    Box::new(n + 1)
+                                })),
+                            },
+                        );
+                    }
+                })
+            }).collect();
+
+            // Wait for all background threads to complete
+            for handle in handles {
+                handle.join().expect("Background thread should not panic");
+            }
+
+            // Property: Cross-thread queue should have updates
+            prop_assert!(has_cross_thread_updates(),
+                "Cross-thread queue should have updates after background threads queue them");
+
+            // Simulate main thread processing (next frame)
+            begin_batch();
+            drain_cross_thread_updates();
+            let dirty = end_batch_with_tree(&mut tree);
+
+            // Property: Updates SHALL be delivered to main thread's batch
+            prop_assert!(dirty.contains(&fiber_id),
+                "Fiber should be marked dirty after cross-thread updates are drained");
+
+            // Property: Updates SHALL be applied on the next frame
+            let expected = (update_count * thread_count) as i32;
+            let actual = tree.get(fiber_id).unwrap().get_hook::<i32>(0);
+            prop_assert_eq!(actual, Some(expected),
+                "All {} updates should be applied after drain, got {:?}", expected, actual);
+
+            // Property: Cross-thread queue should be empty after drain
+            prop_assert!(!has_cross_thread_updates(),
+                "Cross-thread queue should be empty after drain");
+
+            // Clean up
+            clear_state_batch();
+            clear_cross_thread_updates();
+            reset_main_thread();
         }
     }
 }
