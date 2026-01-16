@@ -40,3 +40,4 @@ regex = "1"
 [dev-dependencies]
 tokio = { workspace = true, features = ["rt-multi-thread", "macros"] }
 proptest = "1.4"
+serial_test = "3.0"

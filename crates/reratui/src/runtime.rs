@@ -1309,9 +1309,11 @@ mod tests {
     #[test]
     fn test_concurrent_cross_thread_updates_from_multiple_threads() {
         use crate::scheduler::batch::{
-            clear_cross_thread_updates, drain_cross_thread_updates, init_main_thread,
+            CrossThreadUpdate, CrossThreadUpdateKind, StateUpdaterFn, clear_cross_thread_updates,
+            drain_cross_thread_updates, init_main_thread, queue_cross_thread_update,
             reset_main_thread,
         };
+        use std::sync::{Arc, Mutex};
 
         // Reset global state
         reset_main_thread();
@@ -1327,20 +1329,24 @@ mod tests {
         // Initialize main thread
         init_main_thread();
 
-        // Spawn multiple background threads that each queue an update
+        // Use a barrier to ensure all threads start at the same time
+        let barrier = Arc::new(std::sync::Barrier::new(10));
+
+        // Spawn multiple background threads that each queue an update directly to cross-thread queue
         let handles: Vec<_> = (1..=10)
             .map(|i| {
+                let barrier = Arc::clone(&barrier);
                 std::thread::spawn(move || {
-                    queue_update(
+                    barrier.wait(); // Synchronize thread start
+                    let updater: StateUpdaterFn = Box::new(move |any| {
+                        let n = any.downcast_ref::<i32>().unwrap();
+                        Box::new(n + i)
+                    });
+                    queue_cross_thread_update(CrossThreadUpdate {
                         fiber_id,
-                        StateUpdate {
-                            hook_index: 0,
-                            update: StateUpdateKind::Updater(Box::new(move |any| {
-                                let n = any.downcast_ref::<i32>().unwrap();
-                                Box::new(n + i)
-                            })),
-                        },
-                    );
+                        hook_index: 0,
+                        update: CrossThreadUpdateKind::Updater(Arc::new(Mutex::new(Some(updater)))),
+                    });
                 })
             })
             .collect();

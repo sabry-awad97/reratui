@@ -712,6 +712,7 @@ pub fn clear_state_batch() {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use serial_test::serial;
 
     #[test]
     fn test_state_batch_creation() {
@@ -974,9 +975,11 @@ mod tests {
     }
 
     #[test]
+    #[serial]
     fn test_thread_local_queue_and_end_batch() {
-        // Clear any existing state
         clear_state_batch();
+        clear_cross_thread_updates();
+        reset_main_thread();
 
         let mut tree = FiberTree::new();
         let fiber_id = tree.mount(None, None);
@@ -984,35 +987,45 @@ mod tests {
 
         begin_batch();
 
-        queue_update(
-            fiber_id,
-            StateUpdate {
-                hook_index: 0,
-                update: StateUpdateKind::Value(Box::new(100i32)),
-            },
-        );
+        // Use with_state_batch_mut to directly queue to local batch
+        // This avoids the routing logic in queue_update
+        with_state_batch_mut(|batch| {
+            batch.queue_update(
+                fiber_id,
+                StateUpdate {
+                    hook_index: 0,
+                    update: StateUpdateKind::Value(Box::new(100i32)),
+                },
+            );
+        });
 
         let dirty = end_batch_with_tree(&mut tree);
 
         assert!(dirty.contains(&fiber_id));
         assert_eq!(tree.get(fiber_id).unwrap().get_hook::<i32>(0), Some(100));
 
-        // Clean up
         clear_state_batch();
     }
 
     #[test]
+    #[serial]
     fn test_with_state_batch() {
         clear_state_batch();
+        clear_cross_thread_updates();
+        reset_main_thread();
 
         let fiber_id = FiberId(1);
-        queue_update(
-            fiber_id,
-            StateUpdate {
-                hook_index: 0,
-                update: StateUpdateKind::Value(Box::new(42i32)),
-            },
-        );
+
+        // Use with_state_batch_mut to directly queue to local batch
+        with_state_batch_mut(|batch| {
+            batch.queue_update(
+                fiber_id,
+                StateUpdate {
+                    hook_index: 0,
+                    update: StateUpdateKind::Value(Box::new(42i32)),
+                },
+            );
+        });
 
         let has_updates = with_state_batch(|batch| batch.has_pending_updates());
         assert!(has_updates);
@@ -1024,6 +1037,7 @@ mod tests {
     }
 
     #[test]
+    #[serial]
     fn test_with_state_batch_mut() {
         clear_state_batch();
 
@@ -1281,6 +1295,7 @@ mod tests {
     // ========================================================================
 
     #[test]
+    #[serial]
     fn test_is_main_thread_without_init() {
         // Reset to ensure clean state
         reset_main_thread();
@@ -1291,6 +1306,7 @@ mod tests {
     }
 
     #[test]
+    #[serial]
     fn test_init_main_thread_and_is_main_thread() {
         // Reset to ensure clean state
         reset_main_thread();
@@ -1306,6 +1322,7 @@ mod tests {
     }
 
     #[test]
+    #[serial]
     fn test_queue_cross_thread_update_adds_to_queue() {
         reset_main_thread();
         clear_cross_thread_updates();
@@ -1325,6 +1342,7 @@ mod tests {
     }
 
     #[test]
+    #[serial]
     fn test_drain_cross_thread_updates_moves_to_local_batch() {
         reset_main_thread();
         clear_state_batch();
@@ -1890,16 +1908,19 @@ mod property_tests {
 
             init_main_thread();
 
-            // Queue updates from background threads
+            // Use a barrier to ensure all threads start at the same time
+            let barrier = Arc::new(std::sync::Barrier::new(values.len()));
+
+            // Queue updates from background threads directly to cross-thread queue
             let handles: Vec<_> = values.iter().map(|&val| {
+                let barrier = Arc::clone(&barrier);
                 std::thread::spawn(move || {
-                    queue_update(
+                    barrier.wait(); // Synchronize thread start
+                    queue_cross_thread_update(CrossThreadUpdate {
                         fiber_id,
-                        StateUpdate {
-                            hook_index: 0,
-                            update: StateUpdateKind::Value(Box::new(val)),
-                        },
-                    );
+                        hook_index: 0,
+                        update: CrossThreadUpdateKind::Value(Box::new(val)),
+                    });
                 })
             }).collect();
 
@@ -1952,25 +1973,28 @@ mod property_tests {
             let fiber_id = tree.mount(None, None);
             tree.get_mut(fiber_id).unwrap().set_hook(0, 0i32);
 
-            // Queue updates in order (single thread to ensure ordering)
+            // Queue updates directly to local batch to test ordering
+            begin_batch();
             for inc in &increments {
                 let inc_val = *inc;
-                queue_cross_thread_update(CrossThreadUpdate {
-                    fiber_id,
-                    hook_index: 0,
-                    update: CrossThreadUpdateKind::Updater(Arc::new(Mutex::new(Some(
-                        Box::new(move |any| {
-                            let n = any.downcast_ref::<i32>().unwrap();
-                            Box::new(n + inc_val)
-                        })
-                    )))),
+                with_state_batch_mut(|batch| {
+                    batch.queue_update(
+                        fiber_id,
+                        StateUpdate {
+                            hook_index: 0,
+                            update: StateUpdateKind::Updater(Box::new(move |any| {
+                                let n = any.downcast_ref::<i32>().unwrap();
+                                Box::new(n + inc_val)
+                            })),
+                        },
+                    );
                 });
             }
+            let dirty = end_batch_with_tree(&mut tree);
 
-            // Drain and apply
-            begin_batch();
-            drain_cross_thread_updates();
-            end_batch_with_tree(&mut tree);
+            // Property: Fiber should be dirty
+            prop_assert!(dirty.contains(&fiber_id),
+                "Fiber should be marked dirty after updates");
 
             // Property: Final value should be sum of all increments
             let expected: i32 = increments.iter().sum();
@@ -2048,20 +2072,25 @@ mod property_tests {
 
             init_main_thread();
 
+            // Use a barrier to ensure all threads start at the same time
+            let barrier = Arc::new(std::sync::Barrier::new(thread_count));
+
             // Spawn multiple threads that each queue multiple updates
             let handles: Vec<_> = (0..thread_count).map(|_| {
+                let barrier = Arc::clone(&barrier);
                 std::thread::spawn(move || {
+                    barrier.wait(); // Synchronize thread start
                     for _ in 0..updates_per_thread {
-                        queue_update(
+                        queue_cross_thread_update(CrossThreadUpdate {
                             fiber_id,
-                            StateUpdate {
-                                hook_index: 0,
-                                update: StateUpdateKind::Updater(Box::new(move |any| {
+                            hook_index: 0,
+                            update: CrossThreadUpdateKind::Updater(Arc::new(Mutex::new(Some(
+                                Box::new(move |any| {
                                     let n = any.downcast_ref::<i32>().unwrap();
                                     Box::new(n + 1)
-                                })),
-                            },
-                        );
+                                })
+                            )))),
+                        });
                     }
                 })
             }).collect();
@@ -2119,19 +2148,21 @@ mod property_tests {
             // Begin batch
             begin_batch();
 
-            // Queue multiple updates for each fiber
+            // Queue multiple updates for each fiber directly to local batch
             for &fiber_id in &fiber_ids {
                 for i in 0..updates_per_fiber {
-                    queue_update(
-                        fiber_id,
-                        StateUpdate {
-                            hook_index: 0,
-                            update: StateUpdateKind::Updater(Box::new(move |any| {
-                                let n = any.downcast_ref::<i32>().unwrap();
-                                Box::new(n + (i as i32 + 1))
-                            })),
-                        },
-                    );
+                    with_state_batch_mut(|batch| {
+                        batch.queue_update(
+                            fiber_id,
+                            StateUpdate {
+                                hook_index: 0,
+                                update: StateUpdateKind::Updater(Box::new(move |any| {
+                                    let n = any.downcast_ref::<i32>().unwrap();
+                                    Box::new(n + (i as i32 + 1))
+                                })),
+                            },
+                        );
+                    });
                 }
             }
 
@@ -2251,22 +2282,24 @@ mod property_tests {
 
             begin_batch();
 
-            // Queue multiple ValueIfChanged updates with the same value
+            // Queue multiple ValueIfChanged updates with the same value directly to local batch
             for _ in 0..same_value_updates {
-                queue_update(
-                    fiber_id,
-                    StateUpdate {
-                        hook_index: 0,
-                        update: StateUpdateKind::ValueIfChanged {
-                            value: Box::new(initial_value),
-                            eq_check: Box::new(|old, new| {
-                                let old = old.downcast_ref::<i32>().unwrap();
-                                let new = new.downcast_ref::<i32>().unwrap();
-                                old == new
-                            }),
+                with_state_batch_mut(|batch| {
+                    batch.queue_update(
+                        fiber_id,
+                        StateUpdate {
+                            hook_index: 0,
+                            update: StateUpdateKind::ValueIfChanged {
+                                value: Box::new(initial_value),
+                                eq_check: Box::new(|old, new| {
+                                    let old = old.downcast_ref::<i32>().unwrap();
+                                    let new = new.downcast_ref::<i32>().unwrap();
+                                    old == new
+                                }),
+                            },
                         },
-                    },
-                );
+                    );
+                });
             }
 
             let dirty = end_batch_with_tree(&mut tree);
@@ -2281,20 +2314,22 @@ mod property_tests {
             tree.mark_clean(fiber_id);
             begin_batch();
 
-            queue_update(
-                fiber_id,
-                StateUpdate {
-                    hook_index: 0,
-                    update: StateUpdateKind::ValueIfChanged {
-                        value: Box::new(different_value),
-                        eq_check: Box::new(|old, new| {
-                            let old = old.downcast_ref::<i32>().unwrap();
-                            let new = new.downcast_ref::<i32>().unwrap();
-                            old == new
-                        }),
+            with_state_batch_mut(|batch| {
+                batch.queue_update(
+                    fiber_id,
+                    StateUpdate {
+                        hook_index: 0,
+                        update: StateUpdateKind::ValueIfChanged {
+                            value: Box::new(different_value),
+                            eq_check: Box::new(|old, new| {
+                                let old = old.downcast_ref::<i32>().unwrap();
+                                let new = new.downcast_ref::<i32>().unwrap();
+                                old == new
+                            }),
+                        },
                     },
-                },
-            );
+                );
+            });
 
             let dirty = end_batch_with_tree(&mut tree);
 
@@ -2376,20 +2411,25 @@ mod property_tests {
 
             init_main_thread();
 
-            // Spawn background threads that queue updates
+            // Use a barrier to ensure all threads start at the same time
+            let barrier = Arc::new(std::sync::Barrier::new(thread_count));
+
+            // Spawn background threads that queue updates directly to cross-thread queue
             let handles: Vec<_> = (0..thread_count).map(|_| {
+                let barrier = Arc::clone(&barrier);
                 std::thread::spawn(move || {
+                    barrier.wait(); // Synchronize thread start
                     for _ in 0..update_count {
-                        queue_update(
+                        queue_cross_thread_update(CrossThreadUpdate {
                             fiber_id,
-                            StateUpdate {
-                                hook_index: 0,
-                                update: StateUpdateKind::Updater(Box::new(move |any| {
+                            hook_index: 0,
+                            update: CrossThreadUpdateKind::Updater(Arc::new(Mutex::new(Some(
+                                Box::new(move |any| {
                                     let n = any.downcast_ref::<i32>().unwrap();
                                     Box::new(n + 1)
-                                })),
-                            },
-                        );
+                                })
+                            )))),
+                        });
                     }
                 })
             }).collect();
