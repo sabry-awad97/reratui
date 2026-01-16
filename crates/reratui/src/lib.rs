@@ -140,12 +140,16 @@ mod runtime;
 // Strict mode for development
 mod strict_mode;
 
+// Built-in components
+pub mod components;
+
 // Re-exports for public API
 pub use component::{Component, ComponentArea, reset_component_position_counter};
 pub use context_stack::ContextStack;
 pub use element::{Element, RenderableComponent};
 pub use event::{
-    clear_current_event, get_current_event, reset_all_fiber_event_flags, set_current_event,
+    clear_current_event, get_current_event, peek_current_event, set_current_event,
+    stop_event_propagation,
 };
 pub use fiber::{
     AsyncCleanupFn, AsyncEffectFn, AsyncEffectFuture, AsyncPendingEffect, CleanupFn, Fiber,
@@ -197,11 +201,15 @@ pub mod prelude {
 
     // Re-export hooks
     pub use crate::hooks::{
-        Dispatch, EffectEvent, HistoryHandle, IntervalHandle, Ref, StateSetter, TimeoutHandle,
-        try_use_context, use_async_effect, use_async_effect_once, use_callback, use_context,
-        use_context_provider, use_effect, use_effect_event, use_effect_once, use_event,
-        use_history, use_id, use_interval, use_memo, use_reducer, use_ref, use_state, use_timeout,
+        Dispatch, EffectEvent, HistoryHandle, IntervalHandle, Ref, ScrollHandle, StateSetter,
+        TimeoutHandle, peek_event, stop_propagation, try_use_context, use_async_effect,
+        use_async_effect_once, use_callback, use_context, use_context_provider, use_effect,
+        use_effect_event, use_effect_once, use_event, use_history, use_id, use_interval, use_memo,
+        use_reducer, use_ref, use_scroll, use_scroll_keyboard, use_state, use_timeout,
     };
+
+    // Re-export components
+    pub use crate::components::{ScrollIndicator, ScrollView, ScrollViewProps};
 
     // Re-export crossterm event types
     pub use crossterm::event::{Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers};

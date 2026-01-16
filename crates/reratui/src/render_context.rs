@@ -93,10 +93,8 @@ impl RenderContext {
     /// Set the current event for this render pass
     pub fn set_event(&mut self, event: Option<Arc<Event>>) {
         self.event_state.event = event;
-        // Reset event consumed flags for all fibers
-        for fiber in self.fiber_tree.fibers.values_mut() {
-            fiber.reset_event_consumed();
-        }
+        // Reset propagation state for the new event
+        self.event_state.reset_propagation();
     }
 
     /// Clear the current event
@@ -648,11 +646,11 @@ mod property_tests {
             clear_render_context();
         }
 
-        /// Property: Event processing isolation via RenderContext
-        /// **Validates: Requirements 5.3, 5.4**
+        /// Property: Event available to all fibers via RenderContext (React-like semantics)
+        /// **Validates: Requirements 1.1, 1.2, 2.2, 2.3**
         #[test]
-        fn prop_event_processing_isolation_via_context(
-            hook_indices in prop::collection::vec(0usize..100, 2..10)
+        fn prop_event_available_to_all_fibers_via_context(
+            fiber_count in 2usize..10
         ) {
             // Initialize RenderContext
             clear_render_context();
@@ -666,47 +664,75 @@ mod property_tests {
 
             // Create fibers for testing
             let fiber_ids: Vec<_> = with_render_context_mut(|ctx| {
-                hook_indices.iter().map(|_| {
+                (0..fiber_count).map(|_| {
                     ctx.fiber_tree.mount(None, None)
                 }).collect()
             }).unwrap_or_default();
 
-            // Each fiber should be able to consume the event exactly once
-            for (i, &fiber_id) in fiber_ids.iter().enumerate() {
-                // Try to get event for this fiber
-                let _first = with_render_context_mut(|ctx| {
+            // Property 1: All fibers can read the same event (React-like behavior)
+            for &fiber_id in &fiber_ids {
+                let result = with_render_context_mut(|ctx| {
                     ctx.fiber_tree.begin_render(fiber_id);
-                    let event = ctx.event_state.event.clone()?;
-                    let fiber = ctx.fiber_tree.fibers.get_mut(&fiber_id)?;
-
-                    if fiber.event_consumed {
-                        ctx.fiber_tree.end_render();
-                        return None;
-                    }
-
-                    fiber.event_consumed = true;
+                    let event = ctx.event_state.event.clone();
                     ctx.fiber_tree.end_render();
-                    Some(event)
+                    event
                 });
 
-                // Second call should always fail
-                let second = with_render_context_mut(|ctx| {
-                    ctx.fiber_tree.begin_render(fiber_id);
-                    let event = ctx.event_state.event.clone()?;
-                    let fiber = ctx.fiber_tree.fibers.get_mut(&fiber_id)?;
+                prop_assert!(result.flatten().is_some(),
+                    "Fiber {:?} should be able to read the event", fiber_id);
+            }
 
-                    if fiber.event_consumed {
+            // Property 2: Same fiber can read event multiple times
+            if let Some(&fiber_id) = fiber_ids.first() {
+                for read_num in 0..3 {
+                    let result = with_render_context_mut(|ctx| {
+                        ctx.fiber_tree.begin_render(fiber_id);
+                        let event = ctx.event_state.event.clone();
                         ctx.fiber_tree.end_render();
-                        return None;
-                    }
+                        event
+                    });
 
-                    fiber.event_consumed = true;
+                    prop_assert!(result.flatten().is_some(),
+                        "Fiber should read event on attempt {}", read_num);
+                }
+            }
+
+            // Property 3: After stop_propagation, only stopping fiber can read
+            if fiber_ids.len() >= 2 {
+                let stopping_fiber = fiber_ids[0];
+                let other_fiber = fiber_ids[1];
+
+                // Stop propagation from first fiber
+                with_render_context_mut(|ctx| {
+                    ctx.fiber_tree.begin_render(stopping_fiber);
+                    ctx.event_state.propagation_stopped = true;
+                    ctx.event_state.stopped_by_fiber = Some(stopping_fiber);
                     ctx.fiber_tree.end_render();
-                    Some(event)
                 });
 
-                prop_assert!(second.flatten().is_none(),
-                    "Fiber {} should not consume event twice", i);
+                // Stopping fiber can still read
+                let stopping_result = with_render_context_mut(|ctx| {
+                    ctx.fiber_tree.begin_render(stopping_fiber);
+                    let can_read = !ctx.event_state.propagation_stopped
+                        || ctx.event_state.stopped_by_fiber == Some(stopping_fiber);
+                    let event = if can_read { ctx.event_state.event.clone() } else { None };
+                    ctx.fiber_tree.end_render();
+                    event
+                });
+                prop_assert!(stopping_result.flatten().is_some(),
+                    "Stopping fiber should still read event");
+
+                // Other fiber cannot read
+                let other_result = with_render_context_mut(|ctx| {
+                    ctx.fiber_tree.begin_render(other_fiber);
+                    let can_read = !ctx.event_state.propagation_stopped
+                        || ctx.event_state.stopped_by_fiber == Some(other_fiber);
+                    let event = if can_read { ctx.event_state.event.clone() } else { None };
+                    ctx.fiber_tree.end_render();
+                    event
+                });
+                prop_assert!(other_result.flatten().is_none(),
+                    "Other fiber should NOT read event after stop_propagation");
             }
 
             // Clean up

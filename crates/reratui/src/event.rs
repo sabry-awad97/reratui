@@ -6,8 +6,9 @@
 //!
 //! # Architecture
 //!
-//! Events are stored in thread-local storage and tracked per-hook-index to ensure
-//! each hook instance can only process an event once per render cycle.
+//! Events are available to ALL components during a render frame, matching React's
+//! event semantics. Components can explicitly call `stop_propagation()` to prevent
+//! other components from receiving the event.
 //!
 //! # Example
 //!
@@ -20,24 +21,31 @@
 //! set_current_event(Some(Arc::new(Event::Key(...))));
 //!
 //! // Components can then use use_event() to access it
+//! // Multiple components can read the same event!
 //!
 //! // Clear the event at the end of the render cycle
 //! clear_current_event();
 //! ```
 
+use crate::fiber::FiberId;
 use crossterm::event::Event;
 use once_cell::sync::Lazy;
 use std::sync::{Arc, RwLock};
 use tracing::debug;
 
-/// Structure to track the current event.
+/// Structure to track the current event and propagation state.
 ///
-/// Event consumption is now tracked at the fiber level rather than per hook index.
-/// This simplifies the event system and aligns with the fiber-based architecture.
+/// Events are available to all fibers during a render frame unless propagation
+/// is explicitly stopped. This matches React's event semantics where events
+/// bubble through the component tree.
 #[derive(Default)]
 pub struct EventState {
     /// The current event being processed.
     pub(crate) event: Option<Arc<Event>>,
+    /// Whether propagation has been stopped for this event.
+    pub(crate) propagation_stopped: bool,
+    /// The fiber that stopped propagation (can still read the event).
+    pub(crate) stopped_by_fiber: Option<FiberId>,
 }
 
 impl EventState {
@@ -50,6 +58,12 @@ impl EventState {
     pub fn has_event(&self) -> bool {
         self.event.is_some()
     }
+
+    /// Resets propagation state (called when new event is set).
+    pub fn reset_propagation(&mut self) {
+        self.propagation_stopped = false;
+        self.stopped_by_fiber = None;
+    }
 }
 
 /// Global storage for the current event.
@@ -60,7 +74,7 @@ pub(crate) static CURRENT_EVENT: Lazy<RwLock<EventState>> = Lazy::new(Default::d
 /// Sets the current event in the global storage.
 ///
 /// This function should be called by the runtime when an event is received.
-/// Event consumption tracking is now handled at the fiber level.
+/// It resets propagation state, allowing all fibers to read the new event.
 ///
 /// # Arguments
 ///
@@ -81,20 +95,26 @@ pub fn set_current_event(event: Option<Arc<Event>>) {
 
     let mut current_event = CURRENT_EVENT.write().unwrap();
     current_event.event = event;
+    current_event.reset_propagation();
 
-    debug!("Set current event: {:?}", event_debug);
+    debug!("Set current event: {:?}, propagation reset", event_debug);
 }
 
 /// Gets the current event for the current fiber.
 ///
-/// This function checks if the current fiber has already consumed the event and returns
-/// None if it has. Otherwise, it marks the event as consumed by this fiber and
-/// returns the event.
+/// Returns the event if:
+/// - An event is available
+/// - Propagation has not been stopped, OR
+/// - This fiber is the one that stopped propagation
+///
+/// Unlike the previous implementation, this does NOT consume the event.
+/// Multiple calls from the same fiber or different fibers will all receive
+/// the same event, matching React's event semantics.
 ///
 /// # Returns
 ///
-/// * `Some(Arc<Event>)` - The current event if available and not yet consumed by this fiber.
-/// * `None` - If no event is available or the fiber has already consumed it.
+/// * `Some(Arc<Event>)` - The current event if available and propagation allows.
+/// * `None` - If no event is available or propagation was stopped by another fiber.
 pub fn get_current_event() -> Option<Arc<Event>> {
     use crate::fiber_tree::with_current_fiber;
 
@@ -109,30 +129,38 @@ pub fn get_current_event() -> Option<Arc<Event>> {
         }
     };
 
-    // Release the read lock before accessing fiber
-    drop(event_state);
+    // Check if propagation was stopped
+    if event_state.propagation_stopped {
+        // Get current fiber ID
+        let current_fiber_id = with_current_fiber(|fiber| fiber.id);
 
-    // Check if the current fiber has already consumed the event
-    let already_consumed = match with_current_fiber(|fiber| fiber.event_consumed) {
-        Some(consumed) => consumed,
-        None => {
-            debug!("No current fiber");
+        // Allow the fiber that stopped propagation to still read the event
+        if current_fiber_id != event_state.stopped_by_fiber {
+            debug!("Propagation stopped by another fiber");
             return None;
         }
-    };
-
-    if already_consumed {
-        debug!("Fiber already consumed the event");
-        return None;
     }
 
-    // Mark the event as consumed by this fiber
-    with_current_fiber(|fiber| {
-        fiber.event_consumed = true;
-    });
-    debug!("Fiber consuming event");
-
     Some(event)
+}
+
+/// Stops propagation of the current event.
+///
+/// After calling this, only the fiber that called stop_propagation
+/// can continue to read the event via use_event(). All other fibers
+/// will receive None.
+///
+/// This matches React's `event.stopPropagation()` behavior.
+pub fn stop_event_propagation() {
+    use crate::fiber_tree::with_current_fiber;
+
+    let current_fiber_id = with_current_fiber(|fiber| fiber.id);
+
+    let mut event_state = CURRENT_EVENT.write().unwrap();
+    event_state.propagation_stopped = true;
+    event_state.stopped_by_fiber = current_fiber_id;
+
+    debug!("Propagation stopped by fiber {:?}", current_fiber_id);
 }
 
 /// Clears the current event from the global storage.
@@ -143,23 +171,10 @@ pub fn clear_current_event() {
     set_current_event(None);
 }
 
-/// Resets event consumed flags for all fibers.
-///
-/// This function should be called when a new event is set to allow all fibers
-/// to consume the new event.
-pub fn reset_all_fiber_event_flags() {
-    use crate::fiber_tree::with_fiber_tree_mut;
-
-    with_fiber_tree_mut(|tree| {
-        for fiber in tree.fibers.values_mut() {
-            fiber.reset_event_consumed();
-        }
-    });
-}
-
-/// Returns the current event without marking it as processed.
+/// Returns the current event without affecting propagation state.
 ///
 /// This is useful for peeking at the event without consuming it.
+/// Works even after stop_propagation() was called.
 ///
 /// # Returns
 ///
@@ -190,11 +205,12 @@ mod tests {
         ))
     }
 
-    fn setup_test_fiber() {
+    fn setup_test_fiber() -> FiberId {
         let mut tree = FiberTree::new();
         let fiber_id = tree.mount(None, None);
         tree.begin_render(fiber_id);
         set_fiber_tree(tree);
+        fiber_id
     }
 
     fn teardown_test_fiber() {
@@ -212,7 +228,6 @@ mod tests {
 
         let event = create_test_key_event('a');
         set_current_event(Some(Arc::new(event.clone())));
-        reset_all_fiber_event_flags();
 
         let retrieved = get_current_event();
         assert!(retrieved.is_some());
@@ -229,28 +244,31 @@ mod tests {
     }
 
     #[test]
-    fn test_event_consumed_once_per_fiber() {
+    fn test_event_available_multiple_times_per_fiber() {
         let _lock = TEST_MUTEX.lock();
         clear_current_event();
         setup_test_fiber();
 
         let event = create_test_key_event('b');
         set_current_event(Some(Arc::new(event)));
-        reset_all_fiber_event_flags();
 
         // First call should return the event
         let first = get_current_event();
         assert!(first.is_some());
 
-        // Second call with same fiber should return None
+        // Second call should ALSO return the event (React-like behavior)
         let second = get_current_event();
-        assert!(second.is_none());
+        assert!(second.is_some());
+
+        // Third call should ALSO return the event
+        let third = get_current_event();
+        assert!(third.is_some());
 
         teardown_test_fiber();
     }
 
     #[test]
-    fn test_different_fibers_can_consume_same_event() {
+    fn test_different_fibers_can_read_same_event() {
         let _lock = TEST_MUTEX.lock();
         clear_current_event();
 
@@ -261,9 +279,8 @@ mod tests {
 
         let event = create_test_key_event('c');
         set_current_event(Some(Arc::new(event)));
-        reset_all_fiber_event_flags();
 
-        // Fiber 1 consumes the event
+        // Fiber 1 reads the event
         with_fiber_tree_mut(|tree| {
             tree.begin_render(fiber1);
         });
@@ -273,7 +290,7 @@ mod tests {
             tree.end_render();
         });
 
-        // Fiber 2 can also consume the same event
+        // Fiber 2 can also read the same event
         with_fiber_tree_mut(|tree| {
             tree.begin_render(fiber2);
         });
@@ -283,12 +300,12 @@ mod tests {
             tree.end_render();
         });
 
-        // Fiber 1 cannot consume again
+        // Fiber 1 can read again (no consumption)
         with_fiber_tree_mut(|tree| {
             tree.begin_render(fiber1);
         });
         let result1_again = get_current_event();
-        assert!(result1_again.is_none());
+        assert!(result1_again.is_some());
         with_fiber_tree_mut(|tree| {
             tree.end_render();
         });
@@ -297,14 +314,78 @@ mod tests {
     }
 
     #[test]
+    fn test_stop_propagation_blocks_other_fibers() {
+        let _lock = TEST_MUTEX.lock();
+        clear_current_event();
+
+        let mut tree = FiberTree::new();
+        let fiber1 = tree.mount(None, None);
+        let fiber2 = tree.mount(None, None);
+        set_fiber_tree(tree);
+
+        let event = create_test_key_event('d');
+        set_current_event(Some(Arc::new(event)));
+
+        // Fiber 1 reads and stops propagation
+        with_fiber_tree_mut(|tree| {
+            tree.begin_render(fiber1);
+        });
+        let result1 = get_current_event();
+        assert!(result1.is_some());
+        stop_event_propagation();
+        with_fiber_tree_mut(|tree| {
+            tree.end_render();
+        });
+
+        // Fiber 2 should NOT be able to read the event
+        with_fiber_tree_mut(|tree| {
+            tree.begin_render(fiber2);
+        });
+        let result2 = get_current_event();
+        assert!(result2.is_none());
+        with_fiber_tree_mut(|tree| {
+            tree.end_render();
+        });
+
+        clear_fiber_tree();
+    }
+
+    #[test]
+    fn test_stop_propagation_allows_same_fiber() {
+        let _lock = TEST_MUTEX.lock();
+        clear_current_event();
+        let fiber_id = setup_test_fiber();
+
+        let event = create_test_key_event('e');
+        set_current_event(Some(Arc::new(event)));
+
+        // Read event
+        let result1 = get_current_event();
+        assert!(result1.is_some());
+
+        // Stop propagation
+        stop_event_propagation();
+
+        // Same fiber can still read the event
+        let result2 = get_current_event();
+        assert!(result2.is_some());
+
+        // Verify it's the same fiber
+        with_fiber_tree_mut(|tree| {
+            assert!(tree.get(fiber_id).is_some());
+        });
+
+        teardown_test_fiber();
+    }
+
+    #[test]
     fn test_clear_event() {
         let _lock = TEST_MUTEX.lock();
         clear_current_event();
         setup_test_fiber();
 
-        let event = create_test_key_event('d');
+        let event = create_test_key_event('f');
         set_current_event(Some(Arc::new(event)));
-        reset_all_fiber_event_flags();
 
         // Event should be available
         assert!(peek_current_event().is_some());
@@ -319,39 +400,52 @@ mod tests {
     }
 
     #[test]
-    fn test_new_event_resets_consumed_state() {
+    fn test_new_event_resets_propagation_state() {
         let _lock = TEST_MUTEX.lock();
         clear_current_event();
-        setup_test_fiber();
 
-        let event1 = create_test_key_event('e');
+        let mut tree = FiberTree::new();
+        let fiber1 = tree.mount(None, None);
+        let fiber2 = tree.mount(None, None);
+        set_fiber_tree(tree);
+
+        let event1 = create_test_key_event('g');
         set_current_event(Some(Arc::new(event1)));
-        reset_all_fiber_event_flags();
 
-        // Fiber consumes the first event
-        let _ = get_current_event();
+        // Fiber 1 stops propagation
+        with_fiber_tree_mut(|tree| {
+            tree.begin_render(fiber1);
+        });
+        stop_event_propagation();
+        with_fiber_tree_mut(|tree| {
+            tree.end_render();
+        });
 
-        // Set a new event and reset flags
-        let event2 = create_test_key_event('f');
+        // Set a new event - should reset propagation
+        let event2 = create_test_key_event('h');
         set_current_event(Some(Arc::new(event2)));
-        reset_all_fiber_event_flags();
 
-        // Fiber should be able to consume the new event
+        // Fiber 2 should be able to read the new event
+        with_fiber_tree_mut(|tree| {
+            tree.begin_render(fiber2);
+        });
         let result = get_current_event();
         assert!(result.is_some());
+        with_fiber_tree_mut(|tree| {
+            tree.end_render();
+        });
 
-        teardown_test_fiber();
+        clear_fiber_tree();
     }
 
     #[test]
-    fn test_peek_does_not_mark_consumed() {
+    fn test_peek_does_not_affect_propagation() {
         let _lock = TEST_MUTEX.lock();
         clear_current_event();
         setup_test_fiber();
 
-        let event = create_test_key_event('g');
+        let event = create_test_key_event('i');
         set_current_event(Some(Arc::new(event)));
-        reset_all_fiber_event_flags();
 
         // Peek at the event
         let peeked = peek_current_event();
@@ -360,6 +454,11 @@ mod tests {
         // Fiber should still be able to get the event
         let retrieved = get_current_event();
         assert!(retrieved.is_some());
+
+        // Peek again after stop_propagation
+        stop_event_propagation();
+        let peeked_after = peek_current_event();
+        assert!(peeked_after.is_some());
 
         teardown_test_fiber();
     }
@@ -373,10 +472,27 @@ mod tests {
         assert!(!state.has_event());
         drop(state);
 
-        let event = create_test_key_event('h');
+        let event = create_test_key_event('j');
         set_current_event(Some(Arc::new(event)));
 
         let state = CURRENT_EVENT.read().unwrap();
         assert!(state.has_event());
+        assert!(!state.propagation_stopped);
+        assert!(state.stopped_by_fiber.is_none());
+    }
+
+    #[test]
+    fn test_propagation_state_reset() {
+        let _lock = TEST_MUTEX.lock();
+        clear_current_event();
+
+        let mut state = EventState::new();
+        state.propagation_stopped = true;
+        state.stopped_by_fiber = Some(FiberId(42));
+
+        state.reset_propagation();
+
+        assert!(!state.propagation_stopped);
+        assert!(state.stopped_by_fiber.is_none());
     }
 }

@@ -208,6 +208,101 @@ use_mouse_click(move |button, x, y| {
 - Separate hooks for keyboard and mouse
 - Terminal events instead of DOM events
 
+## Event Propagation
+
+Reratui follows React's event propagation model:
+
+### React
+
+```jsx
+function Parent() {
+  const handleClick = (e) => {
+    console.log("Parent received event");
+  };
+
+  return (
+    <div onClick={handleClick}>
+      <Child />
+    </div>
+  );
+}
+
+function Child() {
+  const handleClick = (e) => {
+    console.log("Child received event");
+    e.stopPropagation(); // Prevents parent from receiving
+  };
+
+  return <button onClick={handleClick}>Click</button>;
+}
+```
+
+### Reratui
+
+```rust
+fn parent_component() {
+    // Parent can read the event
+    if let Some(Event::Key(key)) = use_event() {
+        println!("Parent received event");
+    }
+
+    // Render child...
+}
+
+fn child_component() {
+    // Child can also read the SAME event
+    if let Some(Event::Key(key)) = use_event() {
+        if key.code == KeyCode::Enter {
+            println!("Child received event");
+            stop_propagation(); // Prevents other fibers from receiving
+        }
+    }
+}
+```
+
+**Key Similarities:**
+
+- Events are available to ALL components during a render frame
+- Multiple components can read the same event
+- `stop_propagation()` prevents other components from receiving the event
+- The component that called `stop_propagation()` can still read the event
+
+**Available Functions:**
+
+| Function             | Description                                      |
+| -------------------- | ------------------------------------------------ |
+| `use_event()`        | Returns the current event (respects propagation) |
+| `stop_propagation()` | Prevents other fibers from receiving the event   |
+| `peek_event()`       | Returns the event without respecting propagation |
+
+**Example: Nested Event Handling**
+
+```rust
+fn scroll_container() {
+    // ScrollView handles scroll events
+    if let Some(Event::Key(key)) = use_event() {
+        match key.code {
+            KeyCode::Up | KeyCode::Down => {
+                // Handle scroll
+                stop_propagation(); // Don't let parent handle these
+            }
+            _ => {} // Let other keys propagate
+        }
+    }
+}
+
+fn app() {
+    // App can handle events that weren't stopped
+    if let Some(Event::Key(key)) = use_event() {
+        if key.code == KeyCode::Char('q') {
+            // Quit app - this will work because scroll didn't stop it
+        }
+    }
+
+    // Render scroll_container...
+}
+```
+
 ## Async Data Fetching
 
 ### React (with React Query)

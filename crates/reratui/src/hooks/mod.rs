@@ -19,6 +19,7 @@ mod memo;
 mod mouse;
 mod reducer;
 mod r#ref;
+mod scroll;
 mod state;
 mod timing;
 
@@ -30,7 +31,7 @@ pub use async_hooks::{
 pub use context::{try_use_context, use_context, use_context_provider};
 pub use effect::{use_async_effect, use_async_effect_once, use_effect, use_effect_once};
 pub use effect_event::{EffectEvent, use_effect_event};
-pub use event::use_event;
+pub use event::{peek_event, stop_propagation, use_event};
 pub use form::{
     FieldRegistration, FormConfig, FormConfigBuilder, FormHandle, FormState, Validator,
     try_use_form_context, use_form, use_form_context, use_watch, use_watch_all, use_watch_multiple,
@@ -49,5 +50,6 @@ pub use mouse::{
 };
 pub use reducer::{Dispatch, use_reducer};
 pub use r#ref::{Ref, use_ref};
+pub use scroll::{ScrollHandle, use_scroll, use_scroll_keyboard};
 pub use state::{StateSetter, use_state};
 pub use timing::{IntervalHandle, TimeoutHandle, use_interval, use_timeout};
