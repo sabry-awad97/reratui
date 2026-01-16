@@ -216,6 +216,7 @@ pub mod prelude {
 
     // Re-export ratatui types for standalone usage
     pub use ratatui::{
+        self,
         buffer::Buffer,
         layout::{Alignment, Constraint, Direction, Layout, Rect},
         style::{Color, Modifier, Style, Stylize},

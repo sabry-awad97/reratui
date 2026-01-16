@@ -5,4 +5,7 @@
 
 mod scroll_view;
 
-pub use scroll_view::{ScrollIndicator, ScrollView, ScrollViewProps};
+pub use scroll_view::{
+    ScrollIndicator, ScrollView, ScrollViewItemProps, ScrollViewItems, ScrollViewProps,
+    VirtualBuffer,
+};
